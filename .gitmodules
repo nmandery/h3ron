@@ -1,0 +1,4 @@
+[submodule "libh3"]
+	path = libh3
+	url = https://github.com/uber/h3.git
+	branch = 30b9353
