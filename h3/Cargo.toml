@@ -1,0 +1,9 @@
+[package]
+name = "h3"
+version = "0.0.4"
+authors = ["Nico Mandery <nico@nmandery.net>"]
+
+[dependencies]
+h3-sys = { path = "../h3-sys" }
+geo-types = "0.4.0"
+log = "0.4.8"

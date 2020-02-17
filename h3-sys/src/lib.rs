@@ -5,7 +5,6 @@
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 
 mod test {
-    use *;
     use std::os::raw::c_int;
 
     #[test]
