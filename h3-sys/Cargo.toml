@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 build = "build.rs"
 license = "MIT"
+edition = "2018"
 
 [build-dependencies]
 bindgen = "0.52.0"

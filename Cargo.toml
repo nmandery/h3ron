@@ -2,5 +2,9 @@
 
 members = [
     "h3-sys",
-    "h3"
+    "h3",
+    "h3-raster",
+    "raster2h3",
 ]
+[profile.release]
+debug = true # for flamegraph

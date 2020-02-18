@@ -1,0 +1,39 @@
+<GDAL_WMS>
+    <!--
+    GUF® - Global Urban Footprint® v1 - EPSG:4326 (WGS84 / geocentric)
+
+    The GUF® maps show two land cover categories (e. g. in a B&W representation): Built-up areas
+    (vertical structures only) in black and non-built-up surfaces in white; in addition, areas
+    of no coverage by theTSX/TDX satellites (NoData) are coded in grey (most parts of the oceans).
+    The focus on two categories clearly highlights the settlement patterns, improving the ability
+    to analyze and compare them with other built-up areas across the world, in an urban or in
+    a rural context. Unlike previous approaches, the fully automatic evaluation procedure detects
+    the characteristic vertical structures of human habitations are primarily buildings. In contrast,
+    areas used for infrastructure purposes, like roads, are not mapped. This is why broad urban
+    canyons or expanses of greenery within the cities are shown as white corridors and patches.
+
+    no data value is 255.
+
+    example:
+
+    raster2h3 -i h3-raster/data/guf.xml -r 11 -b 1:255 to-ogr -o guf.shp
+     -->
+    <Service name="WMS">
+        <Version>1</Version>
+        <ServerUrl>https://geoservice.dlr.de/eoc/land/wms?</ServerUrl>
+        <Layers>GUF28_DLR_v1_Mosaic</Layers>
+        <Styles>guf_8bit_bw</Styles>
+        <ImageFormat>image/png8</ImageFormat>
+    </Service>
+    <DataWindow>
+        <UpperLeftX>10.9909</UpperLeftX>
+        <UpperLeftY>48.4649</UpperLeftY>
+        <LowerRightX>12.2603</LowerRightX>
+        <LowerRightY>47.7856</LowerRightY>
+        <TileLevel>3</TileLevel>
+    </DataWindow>
+    <Projection>EPSG:4326</Projection>
+    <BlockSizeX>256</BlockSizeX>
+    <BlockSizeY>256</BlockSizeY>
+    <BandsCount>3</BandsCount>
+</GDAL_WMS>

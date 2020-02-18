@@ -1,3 +1,4 @@
-[submodule "h3-sys/h3-sys/libh3"]
-	path = h3-sys/h3-sys/libh3
+[submodule "h3-sys/libh3"]
+	path = h3-sys/libh3
 	url = https://github.com/uber/h3.git
+    branch = 30b9353
