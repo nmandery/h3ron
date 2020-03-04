@@ -14,3 +14,4 @@ gdal-sys = "0.2.0"
 gdal-geotransform = { git = "https://github.com/nmandery/gdal-geotransform"}
 crossbeam-channel = "0.4.0"
 ordered-float = "1.0.2"
+rusqlite = "0.21.0"

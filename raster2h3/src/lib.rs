@@ -83,6 +83,7 @@ pub struct TopLevelArguments {
 #[argh(subcommand)]
 pub enum Subcommands {
     ToOgr(ToOgrArguments),
+    ToSqlite(ToSqliteArguments),
 }
 
 fn default_output_format() -> String {
@@ -91,6 +92,10 @@ fn default_output_format() -> String {
 }
 
 fn default_output_layer_name() -> String {
+    "raster_to_h3".to_string()
+}
+
+fn default_output_table_name() -> String {
     "raster_to_h3".to_string()
 }
 
@@ -111,6 +116,21 @@ pub struct ToOgrArguments {
     output_layer_name: String,
 
 }
+
+#[derive(FromArgs, PartialEq, Debug)]
+/// convert to an OGR dataset
+#[argh(subcommand, name = "to-sqlite")]
+pub struct ToSqliteArguments {
+    #[argh(option, short = 'o')]
+    /// output sqlite database
+    output_db: String,
+
+    #[argh(option, short = 't', default = "default_output_table_name()")]
+    /// name of the output database table
+    output_table_name: String,
+
+}
+
 
 fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster, &'static str> {
     let dataset = match Dataset::open(Path::new(&top_level_args.input_raster)) {
@@ -259,4 +279,41 @@ pub fn convert_to_ogr(top_level_args: &TopLevelArguments, to_ogr_args: &ToOgrArg
     }
 }
 
+
+pub fn convert_to_sqlite(top_level_args: &TopLevelArguments, to_sqlite_args: &ToSqliteArguments) -> Result<(), &'static str> {
+    let converted_raster = convert_raster(top_level_args)?;
+
+    let (progress_send, progress_recv): (Sender<usize>, Receiver<usize>) = bounded(2);
+
+    let pb = ProgressBar::new(converted_raster.count_h3indexes() as u64);
+    pb.set_style(ProgressStyle::default_bar()
+        .template("{spinner:.green} [{elapsed_precise}] [{bar:50.green/blue}] {pos}/{len} ({eta})")
+        .progress_chars("#>-"));
+
+    let child = thread::spawn(move || {
+        for progress_update in progress_recv.iter() {
+            pb.set_position(progress_update as u64);
+        }
+        pb.set_message("done");
+        pb.abandon();
+    });
+
+    log::info!("writing to Sqlite database");
+    let write_result: Result<(), &'static str> = match converted_raster.write_to_sqlite(Path::new(&to_sqlite_args.output_db), &to_sqlite_args.output_table_name, Some(progress_send)) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            log::error!("error writing to sqlite db {}: {}", &to_sqlite_args.output_db, e);
+            return Err("error writing to sqlite db");
+        }
+    };
+    child.join().unwrap();
+
+    match write_result {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            log::error!("sqlite error: {}", e);
+            Err("unable to write to sqlite database")
+        }
+    }
+}
 
