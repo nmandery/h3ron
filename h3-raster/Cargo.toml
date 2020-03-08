@@ -4,6 +4,9 @@ version = "0.0.4"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
+[features]
+sqlite = [ "rusqlite" ]
+
 [dependencies]
 h3-sys = { path = "../h3-sys" }
 h3 = { path = "../h3" }
@@ -14,4 +17,4 @@ gdal-sys = "0.2.0"
 gdal-geotransform = { git = "https://github.com/nmandery/gdal-geotransform"}
 crossbeam-channel = "0.4.0"
 ordered-float = "1.0.2"
-rusqlite = "0.21.0"
+rusqlite = { version = "0.21.0", optional = true }

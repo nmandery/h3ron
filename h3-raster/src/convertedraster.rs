@@ -4,7 +4,11 @@ use std::path::Path;
 use crossbeam_channel::Sender;
 use gdal::spatial_ref::SpatialRef;
 use gdal::vector::{Defn, Feature, FieldDefn, ToGdal};
+
+#[cfg(feature = "sqlite")]
 use rusqlite::{Connection, ToSql};
+
+#[cfg(feature = "sqlite")]
 use rusqlite::types::ToSqlOutput;
 
 use h3::{get_resolution, h3_to_string};
@@ -21,6 +25,7 @@ pub struct ConvertedRaster {
     pub indexes: GroupedH3Indexes,
 }
 
+#[cfg(feature = "sqlite")]
 impl ToSql for Value {
     fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
         match self {
@@ -36,6 +41,8 @@ impl ToSql for Value {
 }
 
 impl ConvertedRaster {
+
+    #[cfg(feature = "sqlite")]
     pub fn write_to_sqlite(&self, db_file: &Path, table_name: &str, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
         let do_send_progress = |counter| {
             if let Some(sp) = &send_progress {
