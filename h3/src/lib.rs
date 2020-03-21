@@ -186,14 +186,24 @@ pub fn h3_to_string(h3_index: H3Index) -> String {
     format!("{:x}", h3_index)
 }
 
+pub fn is_valid(h3_index: H3Index) -> bool {
+    unsafe { h3_sys::h3IsValid(h3_index) != 0 }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::h3_to_string;
+    use crate::{h3_to_string, is_valid};
 
     #[test]
     fn test_h3_to_string() {
         let h3index = 0x89283080ddbffff_u64;
         let h3str = h3_to_string(h3index);
         assert_eq!(h3str, "89283080ddbffff".to_string());
+    }
+
+    #[test]
+    fn test_is_valid() {
+        assert_eq!(is_valid(0x89283080ddbffff_u64), true);
+        assert_eq!(is_valid(0_u64), false);
     }
 }
