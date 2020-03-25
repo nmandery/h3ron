@@ -114,7 +114,7 @@ impl RasterConverter {
         Ok(input_data)
     }
 
-    pub fn convert_tiles(&self, num_threads: u8, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>) -> Result<ConvertedRaster, &'static str> {
+    pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>) -> Result<ConvertedRaster, &'static str> {
         let geotransformer = self.geotransformer.clone();
 
         /*
@@ -236,7 +236,7 @@ impl RasterConverter {
         })
     }
 
-    pub fn convert(&self, num_threads: u8, tile_size: (usize, usize)) -> Result<ConvertedRaster, &'static str> {
+    pub fn convert(&self, num_threads: u32, tile_size: (usize, usize)) -> Result<ConvertedRaster, &'static str> {
         self.convert_tiles(num_threads, generate_tiles(self.dataset.size(), tile_size), None)
     }
 }

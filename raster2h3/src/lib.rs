@@ -8,20 +8,24 @@ use gdal::raster::Dataset;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
+use h3_raster::convertedraster::ConvertedRaster;
 use h3_raster::input::{ClassifiedBand, NoData, Value};
 use h3_raster::rasterconverter::{ConversionProgress, RasterConverter};
 use h3_raster::tile::{generate_tiles, tile_size_from_rasterband};
-use h3_raster::convertedraster::ConvertedRaster;
+
+fn parse_u32(arg: &str, name: &str) -> Result<u32, String> {
+    match arg.parse::<u32>() {
+        Ok(v) => Ok(v),
+        Err(_) => Err(format!("{} must be a positive integer", name)),
+    }
+}
 
 fn parse_h3_resolution(res_str: &str) -> Result<u8, String> {
-    let resolution: u8 = match res_str.parse() {
-        Ok(v) => v,
-        Err(_) => return Err("h3 resolution must be a positive integer".to_string()),
-    };
+    let resolution = parse_u32(res_str, "h3 resolution")?;
     if resolution > 15 {
         return Err("h3 resolution must be in range 0 - 15".to_string());
     }
-    Ok(resolution)
+    Ok(resolution as u8)
 }
 
 type BandArguments = Vec<(u8, String)>;
@@ -59,6 +63,18 @@ fn test_parse_bands() {
     assert_eq!(b1.get(1).unwrap().1, "1.5".to_string());
 }
 
+fn parse_n_tile_threads(arg: &str) -> Result<u32, String> {
+    let n_tile_threads = parse_u32(arg, "number of tiling threads")?;
+    if n_tile_threads < 1 {
+        return Err("number of tiling threads must be >= 1".to_string());
+    }
+    Ok(n_tile_threads)
+}
+
+fn default_n_tile_threads() -> u32 {
+    max(1, num_cpus::get() - 1) as u32
+}
+
 #[derive(FromArgs, PartialEq, Debug)]
 /// Convert raster dataset to compacted H3 hexagons.
 pub struct TopLevelArguments {
@@ -69,6 +85,10 @@ pub struct TopLevelArguments {
     /// h3 resolution
     #[argh(option, short = 'r', from_str_fn(parse_h3_resolution))]
     h3_resolution: u8,
+
+    /// number of threads to use to analyze tiles
+    #[argh(option, short = 'n', from_str_fn(parse_n_tile_threads), default = "default_n_tile_threads()")]
+    n_tile_threads: u32,
 
     /// bands to extract. Must be in the form of "1:0" for band 1 with the no data
     /// value 0. Multiple bands are possible when the values are separated by a comma.
@@ -128,7 +148,6 @@ pub struct ToSqliteArguments {
     #[argh(option, short = 't', default = "default_output_table_name()")]
     /// name of the output database table
     output_table_name: String,
-
 }
 
 
@@ -177,7 +196,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
             gdal_sys::GDALDataType::GDT_Float64 => no_data_classifier!(Value::Float64),
             _ => {
                 log::error!("unsupported gdal band type: {}", band_type);
-                return Err("unsupported band type")
+                return Err("unsupported band type");
             }
         };
         inputs.push(ClassifiedBand {
@@ -196,9 +215,8 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
         tile_size.0, tile_size.1, tiles.len()
     );
 
-    let num_converter_threads = max(1, (num_cpus::get() - 1) as u8);
     log::info!("starting conversion using {} tiling threads",
-             num_converter_threads
+             top_level_args.n_tile_threads
     );
 
     let converter = RasterConverter::new(dataset, inputs, top_level_args.h3_resolution)?;
@@ -219,7 +237,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
     });
 
     let converted = converter.convert_tiles(
-        num_converter_threads,
+        top_level_args.n_tile_threads,
         tiles,
         Some(progress_send),
     )?;
