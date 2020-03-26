@@ -4,10 +4,8 @@ use std::path::Path;
 use crossbeam_channel::Sender;
 use gdal::spatial_ref::SpatialRef;
 use gdal::vector::{Defn, Feature, FieldDefn, ToGdal};
-
 #[cfg(feature = "sqlite")]
 use rusqlite::{Connection, ToSql};
-
 #[cfg(feature = "sqlite")]
 use rusqlite::types::ToSqlOutput;
 
@@ -41,7 +39,6 @@ impl ToSql for Value {
 }
 
 impl ConvertedRaster {
-
     #[cfg(feature = "sqlite")]
     pub fn write_to_sqlite(&self, db_file: &Path, table_name: &str, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
         let do_send_progress = |counter| {
@@ -52,10 +49,10 @@ impl ConvertedRaster {
 
         let mut conn = Connection::open(db_file)?;
 
-        // create the table
+        // create the tables
+        let attribute_table_name = format!("{}_attributes", table_name);
         let mut columns = vec![
-            ("h3index".to_string(), "TEXT".to_string()), // sqlite has no uint64
-            ("h3res".to_string(), "INTEGER".to_string())
+            ("attribute_set_id".to_string(), "INTEGER".to_string())
         ];
         for (i, value_type) in self.value_types.iter().enumerate() {
             let field_type = match value_type {
@@ -64,40 +61,65 @@ impl ConvertedRaster {
             };
             columns.push((format!("value_{}", i), field_type));
         }
-        let table_ddl = format!("create table if not exists {} ({})",
-                                table_name,
-                                columns.iter().map(|(c, t)| format!("{} {}", c, t)).collect::<Vec<String>>().join(", ")
-        );
-        conn.execute(&table_ddl, params![])?;
+        conn.execute(
+            &format!("create table if not exists {} ({})",
+                     attribute_table_name,
+                     columns.iter().map(|(c, t)| format!("{} {}", c, t)).collect::<Vec<String>>().join(", ")
+            ),
+            params![],
+        )?;
+
+        conn.execute(
+            // using text representation for the indexes as sqlite has not uint64
+            &format!("create table if not exists {} (h3index TEXT, h3res INTEGER, attribute_set_id INTEGER)",
+                     table_name
+            ),
+            params![],
+        )?;
 
         let tx = conn.transaction()?;
         {
-            let mut insert_stmt = tx.prepare(&format!(
+            let mut insert_attributes_stmt = tx.prepare(&format!(
                 "insert into {} ({}) values ({});",
-                table_name,
+                attribute_table_name,
                 columns.iter().map(|(c, _t)| c.to_string()).collect::<Vec<String>>().join(", "),
                 (0..columns.len()).map(|v| format!("?{}", v + 1)).collect::<Vec<String>>().join(", ")
             ))?;
 
+            let mut insert_index_stmt = tx.prepare(&format!(
+                "insert into {} (h3index, h3res, attribute_set_id) values (?1, ?2, ?3);",
+                table_name
+            ))?;
+
             let mut num_written_features: usize = 0;
             do_send_progress(num_written_features);
+            let mut attribute_set_id = 1_u32;
             for (attr, compacted_stack) in self.indexes.iter() {
-                for h3index in compacted_stack.indexes_by_resolution.values().flatten() {
-                    let index_str = h3_to_string(*h3index);
-                    let resolution = get_resolution(*h3index);
+                insert_attributes_stmt.execute({
                     let mut sql_params: Vec<&dyn ToSql> = vec![
-                        &index_str, &resolution
+                        &attribute_set_id
                     ];
                     for val_opt in attr.iter() {
                         sql_params.push(val_opt);
                     }
-                    insert_stmt.execute(sql_params)?;
+                    sql_params
+                })?;
+
+                for h3index in compacted_stack.indexes_by_resolution.values().flatten() {
+                    let index_str = h3_to_string(*h3index);
+                    let resolution = get_resolution(*h3index);
+                    let sql_params: Vec<&dyn ToSql> = vec![
+                        &index_str, &resolution, &attribute_set_id
+                    ];
+                    insert_index_stmt.execute(sql_params)?;
 
                     num_written_features += 1;
                     if (num_written_features % 5000) == 0 {
                         do_send_progress(num_written_features);
                     }
                 }
+
+                attribute_set_id += 1;
             }
             do_send_progress(num_written_features);
         }
