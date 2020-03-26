@@ -8,3 +8,4 @@ members = [
 ]
 [profile.release]
 debug = true # for flamegraph
+lto = "fat"

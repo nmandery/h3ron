@@ -1,3 +1,7 @@
+// using jemalloc reduces the processing time by a small amount
+// maybe because the number of minor page faults gets reduced to ~50%
+#[global_allocator]
+static GLOBAL: jemallocator::Jemalloc = jemallocator::Jemalloc;
 
 mod lib;
 
