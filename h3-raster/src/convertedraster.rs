@@ -14,6 +14,7 @@ use h3::compact::CompactedIndexStack;
 
 use crate::geo::polygon_has_dateline_wrap;
 use crate::input::Value;
+use rusqlite::OptionalExtension;
 
 pub type Attributes = Vec<Option<Value>>;
 pub type GroupedH3Indexes = HashMap<Attributes, CompactedIndexStack>;
@@ -91,9 +92,15 @@ impl ConvertedRaster {
                 table_name
             ))?;
 
+            let mut attribute_set_id = match tx.query_row(
+                &format!("select coalesce(max(attribute_set_id), 0) from {}", attribute_table_name),
+                params![],
+                |row| row.get::<usize, u32>(0)).optional()? {
+                None => 1,
+                Some(n) => n + 1_u32,
+            };
             let mut num_written_features: usize = 0;
             do_send_progress(num_written_features);
-            let mut attribute_set_id = 1_u32;
             for (attr, compacted_stack) in self.indexes.iter() {
                 insert_attributes_stmt.execute({
                     let mut sql_params: Vec<&dyn ToSql> = vec![
