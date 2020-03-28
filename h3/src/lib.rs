@@ -9,6 +9,7 @@ use std::os::raw::c_int;
 use geo_types::{Coordinate, LineString, Point, Polygon};
 
 use h3_sys::{degsToRads, GeoCoord, Geofence, GeoPolygon, H3Index};
+use std::ffi::CString;
 
 #[macro_use]
 mod util;
@@ -186,19 +187,31 @@ pub fn h3_to_string(h3_index: H3Index) -> String {
     format!("{:x}", h3_index)
 }
 
+pub fn string_to_h3(s: &str) -> Option<H3Index> {
+    CString::new(s).map(|cs| unsafe {
+        h3_sys::stringToH3(cs.as_ptr())
+    }).ok()
+}
+
 pub fn is_valid(h3_index: H3Index) -> bool {
     unsafe { h3_sys::h3IsValid(h3_index) != 0 }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{h3_to_string, is_valid};
+    use crate::{h3_to_string, is_valid, string_to_h3};
 
     #[test]
     fn test_h3_to_string() {
         let h3index = 0x89283080ddbffff_u64;
         let h3str = h3_to_string(h3index);
         assert_eq!(h3str, "89283080ddbffff".to_string());
+    }
+
+    #[test]
+    fn test_string_to_h3() {
+        let h3index = string_to_h3("89283080ddbffff").expect("parsing failed");
+        assert_eq!(0x89283080ddbffff_u64, h3index);
     }
 
     #[test]
