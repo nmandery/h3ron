@@ -14,7 +14,7 @@ use h3::compact::CompactedIndexStack;
 
 use crate::geo::polygon_has_dateline_wrap;
 use crate::input::Value;
-use rusqlite::OptionalExtension;
+use rusqlite::{OptionalExtension, NO_PARAMS};
 
 pub type Attributes = Vec<Option<Value>>;
 pub type GroupedH3Indexes = HashMap<Attributes, CompactedIndexStack>;
@@ -51,6 +51,8 @@ impl ConvertedRaster {
         let mut conn = Connection::open(db_file)?;
 
         // create the tables
+        conn.execute("create table if not exists h3_datasets (name TEXT UNIQUE, created DATETIME DEFAULT CURRENT_TIMESTAMP)", NO_PARAMS)?;
+
         let attribute_table_name = format!("{}_attributes", table_name);
         let mut columns = vec![
             ("attribute_set_id".to_string(), "INTEGER".to_string())
@@ -67,7 +69,7 @@ impl ConvertedRaster {
                      attribute_table_name,
                      columns.iter().map(|(c, t)| format!("{} {}", c, t)).collect::<Vec<String>>().join(", ")
             ),
-            params![],
+            NO_PARAMS,
         )?;
 
         conn.execute(
@@ -75,11 +77,17 @@ impl ConvertedRaster {
             &format!("create table if not exists {} (h3index TEXT, h3res INTEGER, attribute_set_id INTEGER)",
                      table_name
             ),
-            params![],
+            NO_PARAMS,
         )?;
 
         let tx = conn.transaction()?;
         {
+            // register the dataset
+            tx.execute(
+                "insert or ignore into h3_datasets (name) values (?1);",
+                params![&table_name],
+            )?;
+
             let mut insert_attributes_stmt = tx.prepare(&format!(
                 "insert into {} ({}) values ({});",
                 attribute_table_name,
@@ -94,7 +102,7 @@ impl ConvertedRaster {
 
             let mut attribute_set_id = match tx.query_row(
                 &format!("select coalesce(max(attribute_set_id), 0) from {}", attribute_table_name),
-                params![],
+                NO_PARAMS,
                 |row| row.get::<usize, u32>(0)).optional()? {
                 None => 1,
                 Some(n) => n + 1_u32,
