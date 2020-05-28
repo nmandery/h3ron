@@ -40,15 +40,20 @@ impl ToSql for Value {
 }
 
 impl ConvertedRaster {
+
     #[cfg(feature = "sqlite")]
     pub fn write_to_sqlite(&self, db_file: &Path, table_name: &str, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
+        let mut conn = Connection::open(db_file)?;
+        self.write_to_sqlite_conn(&mut conn, table_name, send_progress)
+    }
+
+    #[cfg(feature = "sqlite")]
+    pub fn write_to_sqlite_conn(&self, conn: &mut Connection, table_name: &str, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
         let do_send_progress = |counter| {
             if let Some(sp) = &send_progress {
                 sp.send(counter).unwrap();
             }
         };
-
-        let mut conn = Connection::open(db_file)?;
 
         // create the tables
         conn.execute("create table if not exists h3_datasets (name TEXT UNIQUE, created DATETIME DEFAULT CURRENT_TIMESTAMP)", NO_PARAMS)?;
