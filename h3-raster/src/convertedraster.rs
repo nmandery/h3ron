@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+#[cfg(feature = "sqlite")]
 use std::path::Path;
 
 use crossbeam_channel::Sender;
@@ -8,13 +9,14 @@ use gdal::vector::{Defn, Feature, FieldDefn, ToGdal};
 use rusqlite::{Connection, ToSql};
 #[cfg(feature = "sqlite")]
 use rusqlite::types::ToSqlOutput;
+#[cfg(feature = "sqlite")]
+use rusqlite::{OptionalExtension, NO_PARAMS};
 
 use h3::{get_resolution, h3_to_string};
 use h3::compact::CompactedIndexStack;
 
 use crate::geo::polygon_has_dateline_wrap;
 use crate::input::Value;
-use rusqlite::{OptionalExtension, NO_PARAMS};
 
 pub type Attributes = Vec<Option<Value>>;
 pub type GroupedH3Indexes = HashMap<Attributes, CompactedIndexStack>;
