@@ -10,7 +10,8 @@ h3-raster = { path = "../h3-raster", features = ["sqlite"] }
 argh = "0.1.3"
 indicatif = "0.14.0"
 num_cpus = "1.12.0"
-gdal = { git = "https://github.com/georust/gdal", features = []} # needs unreleased version 0.6.0
+#gdal = { git = "https://github.com/georust/gdal", features = []} # needs unreleased version 0.6.0
+gdal = "0.6.0"
 gdal-sys = "0.2.0"
 log = "0.4.8"
 simple_logger = "1.5.0"

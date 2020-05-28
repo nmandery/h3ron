@@ -12,7 +12,8 @@ h3-sys = { path = "../h3-sys" }
 h3 = { path = "../h3" }
 geo-types = "0.4.0"
 log = "0.4.8"
-gdal = { git = "https://github.com/georust/gdal", features = []} # needs unreleased version 0.6.0
+#gdal = { git = "https://github.com/georust/gdal", features = []} # needs unreleased version 0.6.0
+gdal = "0.6.0"
 gdal-sys = "0.2.0"
 gdal-geotransform = { git = "https://github.com/nmandery/gdal-geotransform"}
 crossbeam-channel = "0.4.0"
