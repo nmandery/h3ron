@@ -15,7 +15,10 @@ log = "0.4.8"
 #gdal = { git = "https://github.com/georust/gdal", features = []} # needs unreleased version 0.6.0
 gdal = "0.6.0"
 gdal-sys = "0.2.0"
-gdal-geotransform = { git = "https://github.com/nmandery/gdal-geotransform"}
 crossbeam-channel = "0.4.0"
 ordered-float = "1.0.2"
 rusqlite = { version = "0.21.0", optional = true }
+
+[dependencies.gdal-geotransform]
+git = "https://github.com/nmandery/gdal-geotransform"
+rev = "13fb64a40c4"
