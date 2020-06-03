@@ -56,7 +56,7 @@ impl RasterConverter {
             Ok(srs) =>  if srs.to_wkt().unwrap().is_empty() {
                 } else if srs.ne(SpatialRef::from_epsg(4326).unwrap().borrow()) {
                 return Err("Dataset has to be EPSG:4326") },
-            Err(_) => return Err("could not get Spatial Ref from dataset");
+            Err(_) => return Err("could not get Spatial Ref from dataset")
         };
 
         if h3_resolution > 15 {
