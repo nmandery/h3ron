@@ -52,13 +52,11 @@ impl RasterConverter {
             return Err("Dataset has not enough bands for input specification");
         }
 
-        let srs = match SpatialRef::from_definition(dataset.projection().as_ref()) {
-            Ok(srs) => srs,
-            Err(_) => return Err("can not get SpatialRef from dataset")
-        };
-
-        if srs.ne(SpatialRef::from_epsg(4326).unwrap().borrow()) {
-            return Err("Dataset has to be EPSG:4326")
+        match SpatialRef::from_definition(&dataset.projection()) {
+            Ok(srs) =>  if srs.to_wkt().unwrap().is_empty() {
+                } else if srs.ne(SpatialRef::from_epsg(4326).unwrap().borrow()) {
+                return Err("Dataset has to be EPSG:4326") },
+            Err(_) => return Err("could not get Spatial Ref from dataset");
         };
 
         if h3_resolution > 15 {
