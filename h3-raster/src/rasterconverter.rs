@@ -19,6 +19,7 @@ use crate::iter::ZipMultiIter;
 use crate::tile::{generate_tiles, Tile};
 use crate::convertedraster::{ConvertedRaster, Attributes, GroupedH3Indexes};
 use gdal_geotransform::GeoTransformer;
+use gdal::spatial_ref::SpatialRef;
 
 pub struct ConversionProgress {
     pub tiles_total: usize,
@@ -51,7 +52,14 @@ impl RasterConverter {
             return Err("Dataset has not enough bands for input specification");
         }
 
-        // IMPROVEMENT: add check if dataset is in EPSG:4326
+        let srs = match SpatialRef::from_definition(dataset.projection().as_ref()) {
+            Ok(srs) => srs,
+            Err(_) => return Err("can not get SpatialRef from dataset")
+        };
+
+        if srs.ne(SpatialRef::from_epsg(4326).unwrap().borrow()) {
+            return Err("Dataset has to be EPSG:4326")
+        };
 
         if h3_resolution > 15 {
             return Err("given h3_resolution exceeds the defined range");
