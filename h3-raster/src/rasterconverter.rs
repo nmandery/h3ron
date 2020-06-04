@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
 use std::thread;
 
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam::channel::{bounded, Receiver, Sender, RecvTimeoutError};
 use gdal::raster::Dataset;
 use geo_types::Rect;
 
@@ -18,8 +18,10 @@ use crate::input::{ClassifiedBand, ToValue, Value};
 use crate::iter::ZipMultiIter;
 use crate::tile::{generate_tiles, Tile};
 use crate::convertedraster::{ConvertedRaster, Attributes, GroupedH3Indexes};
+use crate::error::Error;
 use gdal_geotransform::GeoTransformer;
 use gdal::spatial_ref::SpatialRef;
+use std::time::Duration;
 
 pub struct ConversionProgress {
     pub tiles_total: usize,
@@ -42,14 +44,14 @@ struct ConversionSubset {
 
 
 impl RasterConverter {
-    pub fn new(dataset: Dataset, inputs: Vec<ClassifiedBand>, h3_resolution: u8) -> Result<Self, &'static str> {
+    pub fn new(dataset: Dataset, inputs: Vec<ClassifiedBand>, h3_resolution: u8) -> Result<Self, Error> {
         let required_max_band = inputs
             .iter()
             .map(|k| k.source_band)
             .fold(0, max);
 
         if required_max_band > dataset.count() as u8 {
-            return Err("Dataset has not enough bands for input specification");
+            return Err(Error::BandOutOfRange);
         }
 
         // input projection has to be WGS84. Checking if possible, otherwise
@@ -59,60 +61,52 @@ impl RasterConverter {
             if let Ok(sr) = SpatialRef::from_definition(&proj_str) {
                 if let Ok(sr4326) = SpatialRef::from_epsg(4326) {
                     if sr != sr4326 {
-                        return Err("Dataset has to be EPSG:4326");
+                        return Err(Error::InvalidSRS);
                     }
                 }
             }
         }
 
         if h3_resolution > 15 {
-            return Err("given h3_resolution exceeds the defined range");
+            return Err(Error::H3ResolutionOutOfRange);
         }
 
-        let geotransform = match dataset.geo_transform() {
-            Ok(gt) => gt,
-            Err(_) => return Err("can not obtain geotransform from dataset")
-        };
+        let geotransform = dataset.geo_transform()
+            .map_err(|_| Error::NoGeotransformFound)?;
 
         Ok(RasterConverter {
             dataset,
             inputs,
-            geotransformer: GeoTransformer::try_from(geotransform)?,
+            geotransformer: GeoTransformer::try_from(geotransform)
+                .map_err(|_| Error::GeotransformFailed)?,
             h3_resolution,
         })
     }
 
-    fn extract_input_bands(&self, tile: &Tile) -> Result<Vec<Vec<Option<Value>>>, &'static str> {
+    fn extract_input_bands(&self, tile: &Tile) -> Result<Vec<Vec<Option<Value>>>, Error> {
         let mut input_data = vec![];
         let window = (tile.offset_origin.0 as isize, tile.offset_origin.1 as isize);
 
         for band_input in self.inputs.iter() {
-            let band = self.dataset.rasterband(band_input.source_band as isize)
+            let band = self.dataset.rasterband(band_input.source_band as isize)?;
+                /*
                 .map_err(|e| {
                     eprintln!("Could not fetch band {}: {:?}", band_input.source_band, e);
-                    "could not fetch band"
+                    Error::BandNotReadable(band_input.source_band)
                 })?;
-
+*/
             // block_size: https://gis.stackexchange.com/questions/292754/efficiently-read-large-tif-raster-to-a-numpy-array-with-gdal
             macro_rules! extract_band {
                 ($datatype:path) => {{
                     // when the band type does not match $datatype, gdal will cast the values
-                    let band_data_raw = band.read_as::<$datatype>(window, tile.size, tile.size);
-                    match band_data_raw {
-                        Err(e) => {
-                                eprintln!("could not read from band as {}: {:?}", stringify!($datatype), e);
-                                Err("Could not read band")
-                        },
-                        Ok(mut bd) => {
-                            let result: Vec<_> = bd.data.drain(..)
-                                .map(|v| band_input.classifier.classify(v.to_value()))
-                                .collect();
-                            Ok(result)
-                        }
-                    }
+                    let mut bd = band.read_as::<$datatype>(window, tile.size, tile.size)?;
+                    let result: Vec<_> = bd.data.drain(..)
+                        .map(|v| band_input.classifier.classify(v.to_value()))
+                        .collect();
+                    result
                 }}
             }
-            let band_data = match band_input.classifier.value_type() {
+            let band_data: Vec<Option<Value>> = match band_input.classifier.value_type() {
                 Value::Uint8(_) => extract_band!(u8),
                 Value::Uint16(_) => extract_band!(u16),
                 Value::Uint32(_) => extract_band!(u32),
@@ -120,13 +114,13 @@ impl RasterConverter {
                 Value::Int32(_) => extract_band!(i32),
                 Value::Float32(_) => extract_band!(f32),
                 Value::Float64(_) => extract_band!(f64),
-            }?;
+            };
             input_data.push(band_data);
         };
         Ok(input_data)
     }
 
-    pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>) -> Result<ConvertedRaster, &'static str> {
+    pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>) -> Result<ConvertedRaster, Error> {
         let geotransformer = self.geotransformer.clone();
 
         /*
@@ -138,7 +132,6 @@ impl RasterConverter {
 
         let (send_subset, recv_subset): (Sender<ConversionSubset>, Receiver<ConversionSubset>) = bounded(1);
         let (send_result, recv_result) = bounded(1);
-
         let mut join_handles = Vec::new();
         for _ in 0..num_threads {
             let thread_recv_subset = recv_subset.clone();
@@ -168,7 +161,7 @@ impl RasterConverter {
                     } else {
                         convert_subset_by_checking_index_positions(tile_bounds, subset)
                     };
-                    thread_send_result.send(result).unwrap();
+                    thread_send_result.send(result).expect("sending result failed");
                 }
             });
             join_handles.push(join_handle);
@@ -176,8 +169,24 @@ impl RasterConverter {
         std::mem::drop(recv_subset); // no need to receive anything on this thread;
         std::mem::drop(send_result);
 
-        let mut tiles = VecDeque::from(tiles);
         let tiles_total = tiles.len();
+        let mut cs_iter = tiles
+            .iter()
+            .map(|tile| {
+                match self.extract_input_bands(&tile) {
+                    Ok(banddata) => {
+                        let subset = ConversionSubset {
+                            tile: tile.clone(),
+                            geotransformer: geotransformer.clone(),
+                            banddata,
+                            h3_resolution: self.h3_resolution,
+                        };
+                        Ok(subset)
+                    },
+                    Err(e) => Err(e)
+                }
+            });
+
         let tiles_done = RefCell::new(0_usize);
 
         let notify_progress = |sender: Option<Sender<ConversionProgress>>| {
@@ -190,21 +199,6 @@ impl RasterConverter {
         };
         notify_progress(progress_sender.clone());
 
-        let mut build_subset = || {
-            Ok(match tiles.pop_front() {
-                Some(tile) => {
-                    let subset = ConversionSubset {
-                        tile: tile.clone(),
-                        geotransformer: geotransformer.clone(),
-                        banddata: self.extract_input_bands(&tile)?,
-                        h3_resolution: self.h3_resolution,
-                    };
-                    Option::Some(subset)
-                }
-                None => None
-            })
-        };
-
         let mut grouped_indexes = GroupedH3Indexes::new();
         let mut grouped_indexes_add = |mut gi_new: GroupedH3Indexes| {
             for (attributes, mut compacted_stack) in gi_new.drain() {
@@ -216,6 +210,26 @@ impl RasterConverter {
             notify_progress(progress_sender.clone());
         };
 
+        let mut send_subset_o = Some(send_subset);
+        loop {
+            if let Some(sender) = &send_subset_o {
+                while !sender.is_full() {
+                    if let Some(subset_res) = cs_iter.next() {
+                        sender.send(subset_res?).expect("sending subset failed")
+                    } else {
+                        send_subset_o = None; // There is nothing left to send, so let the consumers shut down on channel close
+                        break
+                    }
+                }
+            }
+            match recv_result.recv_timeout(Duration::from_millis(100)) {
+                Ok(grouped_indexes) => grouped_indexes_add(grouped_indexes),
+                Err(e) => if e == RecvTimeoutError::Disconnected {
+                    break
+                }
+            }
+        }
+        /*
         let mut next_subset = build_subset()?;
         while next_subset.is_some() {
             select! {
@@ -224,15 +238,13 @@ impl RasterConverter {
                     next_subset = build_subset()?;
                 }
                 recv(recv_result) -> result => {
-                    match result {
-                        Ok(received_grouped_indexes) => grouped_indexes_add(received_grouped_indexes),
-                        Err(_) => return Err("failed to receive grouped indexes")
+                    if let Ok(received_grouped_indexes) = result {
+                        grouped_indexes_add(received_grouped_indexes);
                     }
                 }
             }
-        }
+        }*/
 
-        std::mem::drop(send_subset); // There is nothing left to send, so let the consumers shut down on channel close
 
         for received_grouped_indexes in recv_result.iter() {
             grouped_indexes_add(received_grouped_indexes)
@@ -248,7 +260,7 @@ impl RasterConverter {
         })
     }
 
-    pub fn convert(&self, num_threads: u32, tile_size: (usize, usize)) -> Result<ConvertedRaster, &'static str> {
+    pub fn convert(&self, num_threads: u32, tile_size: (usize, usize)) -> Result<ConvertedRaster, Error> {
         self.convert_tiles(num_threads, generate_tiles(self.dataset.size(), tile_size), None)
     }
 }

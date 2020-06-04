@@ -2,7 +2,7 @@ use std::collections::HashMap;
 #[cfg(feature = "sqlite")]
 use std::path::Path;
 
-use crossbeam_channel::Sender;
+use crossbeam::channel::Sender;
 use gdal::spatial_ref::SpatialRef;
 use gdal::vector::{Defn, Feature, FieldDefn, ToGdal};
 #[cfg(feature = "sqlite")]

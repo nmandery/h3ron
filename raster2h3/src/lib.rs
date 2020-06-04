@@ -3,7 +3,7 @@ use std::path::Path;
 use std::thread;
 
 use argh::FromArgs;
-use crossbeam_channel::{bounded, Receiver, Sender};
+use crossbeam::channel::{bounded, Receiver, Sender};
 use gdal::raster::Dataset;
 use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
@@ -219,7 +219,11 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
              top_level_args.n_tile_threads
     );
 
-    let converter = RasterConverter::new(dataset, inputs, top_level_args.h3_resolution)?;
+    let converter = RasterConverter::new(dataset, inputs, top_level_args.h3_resolution)
+        .map_err(|e| {
+            log::error!("{:?}", e);
+           "creating rasterconverter failed"
+        })?;
 
     let (progress_send, progress_recv): (Sender<ConversionProgress>, Receiver<ConversionProgress>) = bounded(2);
 
@@ -240,7 +244,10 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
         top_level_args.n_tile_threads,
         tiles,
         Some(progress_send),
-    )?;
+    ).map_err(|e| {
+        log::error!("{:?}", e);
+        "converting tiles failed"
+    })?;
 
     child.join().unwrap();
     Ok(converted)
