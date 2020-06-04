@@ -95,9 +95,6 @@ mod tests {
         let tile_size = (200, 200);
         let tiles = generate_tiles(size, tile_size);
 
-        // println!("XXX: {}", tiles.len());
-        // println!("XXX: {:?}", tiles);
-
         assert_eq!(tiles.len(), 30);
         assert_eq!(tiles.last().unwrap().offset_origin, (800, 1000));
         assert_eq!(tiles.last().unwrap().size, tile_size);

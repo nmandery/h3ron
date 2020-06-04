@@ -26,18 +26,7 @@ impl fmt::Display for Error {
     }
 }
 
-
-impl error::Error for Error {
-    /*
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            Error::GDAL(gdal_err) => Some(gdal_err),
-            _ => None
-        }
-    }
-
-     */
-}
+impl error::Error for Error {}
 
 impl From<gdal::errors::Error> for Error {
     fn from(gdal_err: gdal::errors::Error) -> Self {

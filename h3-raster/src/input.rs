@@ -48,12 +48,12 @@ impl ToValue for f64 {
     fn to_value(&self) -> Value { Value::Float64(self.clone().into()) }
 }
 
-pub trait FromValue<T> {
-    fn from_value(&self) -> Option<T> where Self: Sized;
+pub trait ToOption<T> {
+    fn to_option(&self) -> Option<T> where Self: Sized;
 }
 
-impl FromValue<u8> for Value {
-    fn from_value(&self) -> Option<u8> where Self: Sized {
+impl ToOption<u8> for Value {
+    fn to_option(&self) -> Option<u8> where Self: Sized {
         match self {
             Self::Uint8(v) => Some(*v),
             _ => None
@@ -61,8 +61,8 @@ impl FromValue<u8> for Value {
     }
 }
 
-impl FromValue<u16> for Value {
-    fn from_value(&self) -> Option<u16> where Self: Sized {
+impl ToOption<u16> for Value {
+    fn to_option(&self) -> Option<u16> where Self: Sized {
         match self {
             Self::Uint16(v) => Some(*v),
             _ => None
@@ -70,8 +70,8 @@ impl FromValue<u16> for Value {
     }
 }
 
-impl FromValue<u32> for Value {
-    fn from_value(&self) -> Option<u32> where Self: Sized {
+impl ToOption<u32> for Value {
+    fn to_option(&self) -> Option<u32> where Self: Sized {
         match self {
             Self::Uint32(v) => Some(*v),
             _ => None
@@ -79,8 +79,8 @@ impl FromValue<u32> for Value {
     }
 }
 
-impl FromValue<i16> for Value {
-    fn from_value(&self) -> Option<i16> where Self: Sized {
+impl ToOption<i16> for Value {
+    fn to_option(&self) -> Option<i16> where Self: Sized {
         match self {
             Self::Int16(v) => Some(*v),
             _ => None
@@ -88,8 +88,8 @@ impl FromValue<i16> for Value {
     }
 }
 
-impl FromValue<i32> for Value {
-    fn from_value(&self) -> Option<i32> where Self: Sized {
+impl ToOption<i32> for Value {
+    fn to_option(&self) -> Option<i32> where Self: Sized {
         match self {
             Self::Int32(v) => Some(*v),
             _ => None
@@ -97,8 +97,8 @@ impl FromValue<i32> for Value {
     }
 }
 
-impl FromValue<f32> for Value {
-    fn from_value(&self) -> Option<f32> where Self: Sized {
+impl ToOption<f32> for Value {
+    fn to_option(&self) -> Option<f32> where Self: Sized {
         match self {
             Self::Float32(v) => Some(v.into_inner()),
             _ => None
@@ -106,8 +106,8 @@ impl FromValue<f32> for Value {
     }
 }
 
-impl FromValue<f64> for Value {
-    fn from_value(&self) -> Option<f64> where Self: Sized {
+impl ToOption<f64> for Value {
+    fn to_option(&self) -> Option<f64> where Self: Sized {
         match self {
             Self::Float64(v) => Some(v.into_inner()),
             _ => None
@@ -152,14 +152,14 @@ pub struct ClassifiedBand {
 
 #[cfg(test)]
 mod tests {
-    use crate::input::{FromValue, ToValue, Value};
+    use crate::input::{ToOption, ToValue, Value};
 
     #[test]
     fn test_value_conversion() {
         let i = 5u8;
         let v = i.to_value();
         assert_eq!(Value::Uint8(i), v);
-        let i2 = v.from_value();
+        let i2 = v.to_option();
         assert!(i2.is_some());
         assert_eq!(Some(i), i2);
     }

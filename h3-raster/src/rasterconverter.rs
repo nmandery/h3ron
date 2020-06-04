@@ -89,12 +89,7 @@ impl RasterConverter {
 
         for band_input in self.inputs.iter() {
             let band = self.dataset.rasterband(band_input.source_band as isize)?;
-                /*
-                .map_err(|e| {
-                    eprintln!("Could not fetch band {}: {:?}", band_input.source_band, e);
-                    Error::BandNotReadable(band_input.source_band)
-                })?;
-*/
+
             // block_size: https://gis.stackexchange.com/questions/292754/efficiently-read-large-tif-raster-to-a-numpy-array-with-gdal
             macro_rules! extract_band {
                 ($datatype:path) => {{
@@ -122,13 +117,6 @@ impl RasterConverter {
 
     pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>) -> Result<ConvertedRaster, Error> {
         let geotransformer = self.geotransformer.clone();
-
-        /*
-        let required_bands = self.inputs
-            .iter()
-            .map(|k| k.source_band)
-            .collect::<HashSet<u8>>();
-        */
 
         let (send_subset, recv_subset): (Sender<ConversionSubset>, Receiver<ConversionSubset>) = bounded(1);
         let (send_result, recv_result) = bounded(1);
@@ -229,22 +217,6 @@ impl RasterConverter {
                 }
             }
         }
-        /*
-        let mut next_subset = build_subset()?;
-        while next_subset.is_some() {
-            select! {
-                send(send_subset, next_subset.unwrap()) -> res => {
-                    res.unwrap();
-                    next_subset = build_subset()?;
-                }
-                recv(recv_result) -> result => {
-                    if let Ok(received_grouped_indexes) = result {
-                        grouped_indexes_add(received_grouped_indexes);
-                    }
-                }
-            }
-        }*/
-
 
         for received_grouped_indexes in recv_result.iter() {
             grouped_indexes_add(received_grouped_indexes)
