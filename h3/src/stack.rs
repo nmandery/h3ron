@@ -33,13 +33,13 @@ pub fn compact_mixed(h3_indexes: &[H3Index]) -> Vec<H3Index> {
 /// adding of further indexes
 ///
 /// TODO: custom iterator
-pub struct CompactedIndexStack {
+pub struct IndexStack {
     pub indexes_by_resolution: HashMap<u8, Vec<H3Index>>,
 }
 
-impl<'a> CompactedIndexStack {
-    pub fn new() -> CompactedIndexStack {
-        CompactedIndexStack {
+impl<'a> IndexStack {
+    pub fn new() -> IndexStack {
+        IndexStack {
             indexes_by_resolution: HashMap::new()
         }
     }
@@ -49,7 +49,7 @@ impl<'a> CompactedIndexStack {
     /// Indexes get moved, see Vec::append
     ///
     /// will trigger a re-compacting
-    pub fn append(&mut self, other: &mut Self) {
+    pub fn append(&mut self, other: &mut Self, compact: bool) {
         let mut resolutions_touched = Vec::new();
         for (resolution, h3indexes) in other.indexes_by_resolution.iter_mut() {
             resolutions_touched.push(*resolution);
@@ -57,21 +57,30 @@ impl<'a> CompactedIndexStack {
                 .or_insert_with(Vec::new)
                 .append(h3indexes);
         }
-        if let Some(max_res) = resolutions_touched.iter().max() {
-            self.compact_from_resolution_up(*max_res, resolutions_touched);
+        if compact {
+            if let Some(max_res) = resolutions_touched.iter().max() {
+                self.compact_from_resolution_up(*max_res, resolutions_touched);
+            }
+        }
+    }
+
+    pub fn compact(&mut self) {
+        let max_res = self.indexes_by_resolution.keys().max().map(|v| v.clone());
+        if let Some(r) = max_res {
+            self.compact_from_resolution_up(r, vec![])
         }
     }
 
     /// append the contents of a vector
     ///
     /// Indexes get moved, see Vec::append
-    ///
-    /// will trigger a re-compacting
-    pub fn append_to_resolution(&mut self, resolution: u8, h3indexes: &mut Vec<H3Index>) {
+    pub fn append_to_resolution(&mut self, resolution: u8, h3indexes: &mut Vec<H3Index>, compact: bool) {
         self.indexes_by_resolution.entry(resolution)
             .or_insert_with(Vec::new)
             .append(h3indexes);
-        self.compact_from_resolution_up(resolution, vec![]);
+        if compact {
+            self.compact_from_resolution_up(resolution, vec![]);
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -87,7 +96,7 @@ impl<'a> CompactedIndexStack {
     /// indexes must be of the same resolution
     ///
     /// will trigger a re-compacting
-    pub fn add_indexes(&mut self, h3_indexes: &[H3Index]) {
+    pub fn add_indexes(&mut self, h3_indexes: &[H3Index], compact: bool) {
         if h3_indexes.is_empty() {
             return;
         }
@@ -95,13 +104,14 @@ impl<'a> CompactedIndexStack {
         let res_vec = self.indexes_by_resolution.entry(resolution)
             .or_insert_with(Vec::new);
         h3_indexes.iter().for_each(|h| res_vec.push(*h));
-        self.compact_from_resolution_up(resolution, vec![]);
+        if compact {
+            self.compact_from_resolution_up(resolution, vec![]);
+        }
     }
 
     ///
     ///
-    /// will trigger a re-compacting
-    pub fn add_indexes_mixed_resolutions(&mut self, h3_indexes: &[H3Index]) {
+    pub fn add_indexes_mixed_resolutions(&mut self, h3_indexes: &[H3Index], compact: bool) {
         let mut resolutions_touched = HashSet::new();
         for h3_index in h3_indexes {
             let res = get_resolution(*h3_index) as u8;
@@ -111,9 +121,11 @@ impl<'a> CompactedIndexStack {
                 .push(*h3_index);
         }
 
-        let recompact_res = resolutions_touched.iter().max();
-        if let Some(rr) = recompact_res {
-            self.compact_from_resolution_up(*rr, resolutions_touched.drain().collect::<Vec<u8>>());
+        if compact {
+            let recompact_res = resolutions_touched.iter().max();
+            if let Some(rr) = recompact_res {
+                self.compact_from_resolution_up(*rr, resolutions_touched.drain().collect::<Vec<u8>>());
+            }
         }
     }
 
@@ -151,22 +163,22 @@ impl<'a> CompactedIndexStack {
 
 }
 
-impl Default for CompactedIndexStack {
+impl Default for IndexStack {
     fn default() -> Self {
-        CompactedIndexStack::new()
+        IndexStack::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::compact::CompactedIndexStack;
+    use crate::stack::IndexStack;
 
     #[test]
     fn test_compactedindexstack_is_empty() {
-        let mut stack = CompactedIndexStack::new();
+        let mut stack = IndexStack::new();
         assert!(stack.is_empty());
         assert_eq!(stack.len(), 0);
-        stack.add_indexes(vec![0x89283080ddbffff_u64].as_ref());
+        stack.add_indexes(vec![0x89283080ddbffff_u64].as_ref(), false);
         assert!(!stack.is_empty());
         assert_eq!(stack.len(), 1);
     }

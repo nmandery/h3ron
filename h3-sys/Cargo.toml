@@ -6,6 +6,8 @@ build = "build.rs"
 license = "MIT"
 edition = "2018"
 
+[lib]
+
 [build-dependencies]
 bindgen = "0.52.0"
 cmake = "0.1.42"

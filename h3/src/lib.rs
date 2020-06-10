@@ -13,7 +13,7 @@ use std::ffi::CString;
 
 #[macro_use]
 mod util;
-pub mod compact;
+pub mod stack;
 
 pub fn get_resolution(i: H3Index) -> i32 {
     unsafe { h3_sys::h3GetResolution(i) }

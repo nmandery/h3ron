@@ -1,27 +1,24 @@
 use std::borrow::Borrow;
-use std::cell::RefCell;
 use std::cmp::max;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::convert::TryFrom;
-use std::thread;
 
-use crossbeam::channel::{bounded, Receiver, Sender, RecvTimeoutError};
+use crossbeam::channel::{bounded, Receiver, Sender};
 use gdal::raster::Dataset;
+use gdal::spatial_ref::SpatialRef;
+use gdal_geotransform::GeoTransformer;
 use geo_types::Rect;
 
 use h3::{AreaUnits, k_ring};
-use h3::compact::CompactedIndexStack;
+use h3::stack::IndexStack;
 use h3_sys::H3Index;
 
+use crate::convertedraster::{Attributes, ConvertedRaster, GroupedH3Indexes};
+use crate::error::Error;
 use crate::geo::{area_rect, rect_contains, rect_from_coordinates};
 use crate::input::{ClassifiedBand, ToValue, Value};
 use crate::iter::ZipMultiIter;
 use crate::tile::{generate_tiles, Tile};
-use crate::convertedraster::{ConvertedRaster, Attributes, GroupedH3Indexes};
-use crate::error::Error;
-use gdal_geotransform::GeoTransformer;
-use gdal::spatial_ref::SpatialRef;
-use std::time::Duration;
 
 pub struct ConversionProgress {
     pub tiles_total: usize,
@@ -66,11 +63,9 @@ impl RasterConverter {
                 }
             }
         }
-
         if h3_resolution > 15 {
             return Err(Error::H3ResolutionOutOfRange);
         }
-
         let geotransform = dataset.geo_transform()
             .map_err(|_| Error::NoGeotransformFound)?;
 
@@ -115,127 +110,105 @@ impl RasterConverter {
         Ok(input_data)
     }
 
-    pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>) -> Result<ConvertedRaster, Error> {
-        let geotransformer = self.geotransformer.clone();
-
-        let (send_subset, recv_subset): (Sender<ConversionSubset>, Receiver<ConversionSubset>) = bounded(1);
-        let (send_result, recv_result) = bounded(1);
-        let mut join_handles = Vec::new();
-        for _ in 0..num_threads {
-            let thread_recv_subset = recv_subset.clone();
-            let thread_send_result = send_result.clone();
-            let join_handle = thread::spawn(move || {
-                for subset in thread_recv_subset.iter() {
-                    let tile_bounds = rect_from_coordinates(
-                        subset.geotransformer.pixel_to_coordinate((
-                            subset.tile.offset_origin.0 + subset.tile.size.0,
-                            subset.tile.offset_origin.1 + subset.tile.size.1,
-                        )),
-                        subset.geotransformer.pixel_to_coordinate(subset.tile.offset_origin),
-                    );
-
-                    // switch algorithms depending on the ratio of non-empty-pixels to the approximate number
-                    // of h3 indexes fitting into the tile
-                    //    n_h3_indexes < n_pixels -> fill tile with h3 indexes and check the pixels at the h3 indexes
-                    //    n_h3_indexes > n_pixels -> find pixel clusters -> fill each cluster with h3 indexes individually
-                    let n_h3indexes = max(
-                        (area_rect(&tile_bounds) / h3::hex_area_at_resolution(subset.h3_resolution as i32, AreaUnits::M2)).ceil() as usize,
-                        1,
-                    );
-                    let n_pixels = subset.tile.size.0 * subset.tile.size.1;
-
-                    let result = if (n_h3indexes as f64 * 0.9) as usize > n_pixels {
-                        convert_subset_by_filtering_and_region_growing(tile_bounds, subset)
-                    } else {
-                        convert_subset_by_checking_index_positions(tile_bounds, subset)
-                    };
-                    thread_send_result.send(result).expect("sending result failed");
-                }
-            });
-            join_handles.push(join_handle);
-        }
-        std::mem::drop(recv_subset); // no need to receive anything on this thread;
-        std::mem::drop(send_result);
+    pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>, compact: bool) -> Result<ConvertedRaster, Error> {
 
         let tiles_total = tiles.len();
-        let mut cs_iter = tiles
-            .iter()
-            .map(|tile| {
-                match self.extract_input_bands(&tile) {
-                    Ok(banddata) => {
-                        let subset = ConversionSubset {
-                            tile: tile.clone(),
-                            geotransformer: geotransformer.clone(),
-                            banddata,
-                            h3_resolution: self.h3_resolution,
+        crossbeam::scope(|scope| {
+            let (send_subset, recv_subset): (Sender<ConversionSubset>, Receiver<ConversionSubset>) = bounded(num_threads as usize);
+            let (send_result, recv_result) = bounded(num_threads as usize);
+            let (send_final_result, recv_final_result) = bounded(1);
+
+            for _ in 0..num_threads {
+                let thread_recv_subset = recv_subset.clone();
+                let thread_send_result = send_result.clone();
+                let thread_compact = compact.clone();
+                scope.spawn(move |_| {
+                    for subset in thread_recv_subset.iter() {
+                        let tile_bounds = rect_from_coordinates(
+                            subset.geotransformer.pixel_to_coordinate((
+                                subset.tile.offset_origin.0 + subset.tile.size.0,
+                                subset.tile.offset_origin.1 + subset.tile.size.1,
+                            )),
+                            subset.geotransformer.pixel_to_coordinate(subset.tile.offset_origin),
+                        );
+
+                        // switch algorithms depending on the ratio of non-empty-pixels to the approximate number
+                        // of h3 indexes fitting into the tile
+                        //    n_h3_indexes < n_pixels -> fill tile with h3 indexes and check the pixels at the h3 indexes
+                        //    n_h3_indexes > n_pixels -> find pixel clusters -> fill each cluster with h3 indexes individually
+                        let n_h3indexes = max(
+                            (area_rect(&tile_bounds) / h3::hex_area_at_resolution(subset.h3_resolution as i32, AreaUnits::M2)).ceil() as usize,
+                            1,
+                        );
+                        let n_pixels = subset.tile.size.0 * subset.tile.size.1;
+
+                        let result = if (n_h3indexes as f64 * 0.9) as usize > n_pixels {
+                            convert_subset_by_filtering_and_region_growing(tile_bounds, subset, thread_compact)
+                        } else {
+                            convert_subset_by_checking_index_positions(tile_bounds, subset, thread_compact)
                         };
-                        Ok(subset)
-                    },
-                    Err(e) => Err(e)
-                }
-            });
-
-        let tiles_done = RefCell::new(0_usize);
-
-        let notify_progress = |sender: Option<Sender<ConversionProgress>>| {
-            if let Some(progress_sender) = sender {
-                progress_sender.send(ConversionProgress {
-                    tiles_total,
-                    tiles_done: *tiles_done.borrow(),
-                }).unwrap();
+                        thread_send_result.send(result).expect("sending result failed");
+                    }
+                });
             }
-        };
-        notify_progress(progress_sender.clone());
+            std::mem::drop(recv_subset); // no need to receive anything on this thread;
+            std::mem::drop(send_result);
 
-        let mut grouped_indexes = GroupedH3Indexes::new();
-        let mut grouped_indexes_add = |mut gi_new: GroupedH3Indexes| {
-            for (attributes, mut compacted_stack) in gi_new.drain() {
-                grouped_indexes.entry(attributes)
-                    .or_insert_with(CompactedIndexStack::new)
-                    .append(&mut compacted_stack)
-            }
-            *tiles_done.borrow_mut() += 1;
-            notify_progress(progress_sender.clone());
-        };
+            scope.spawn(move |_| {
+                let mut grouped_indexes = GroupedH3Indexes::new();
+                let mut tiles_done = 0;
+                for mut gi in recv_result.iter() {
+                    for (attributes, mut compacted_stack) in gi.drain() {
+                        grouped_indexes.entry(attributes)
+                            .or_insert_with(IndexStack::new)
+                            .append(&mut compacted_stack, false)
+                    }
 
-        let mut send_subset_o = Some(send_subset);
-        loop {
-            if let Some(sender) = &send_subset_o {
-                while !sender.is_full() {
-                    if let Some(subset_res) = cs_iter.next() {
-                        sender.send(subset_res?).expect("sending subset failed")
-                    } else {
-                        send_subset_o = None; // There is nothing left to send, so let the consumers shut down on channel close
-                        break
+                    if let Some(ps) = &progress_sender {
+                        tiles_done += 1;
+                        ps.send(ConversionProgress {
+                            tiles_total,
+                            tiles_done
+                        }).unwrap();
                     }
                 }
-            }
-            match recv_result.recv_timeout(Duration::from_millis(100)) {
-                Ok(grouped_indexes) => grouped_indexes_add(grouped_indexes),
-                Err(e) => if e == RecvTimeoutError::Disconnected {
-                    break
+                // do the compacting just once instead of at each append to
+                // trade an increased memory usage for a better processing time
+                if compact {
+                    for (_, ci) in grouped_indexes.iter_mut() {
+                        ci.compact();
+                    }
                 }
+                send_final_result.send(grouped_indexes).unwrap()
+            });
+
+            for  tile in tiles.iter() {
+                let banddata = self.extract_input_bands(tile).unwrap();
+                let subset = ConversionSubset {
+                    tile: tile.clone(),
+                    geotransformer: self.geotransformer.clone(),
+                    banddata,
+                    h3_resolution: self.h3_resolution,
+                };
+                send_subset.send(subset).unwrap();
             }
-        }
+            std::mem::drop(send_subset); // no need to receive anything on this thread;
 
-        for received_grouped_indexes in recv_result.iter() {
-            grouped_indexes_add(received_grouped_indexes)
-        }
-
-        // wait for threads to finish
-        for join_handle in join_handles {
-            join_handle.join().unwrap();
-        }
-        Ok(ConvertedRaster {
-            value_types: self.inputs.iter().map(|c| c.classifier.value_type().clone()).collect(),
-            indexes: grouped_indexes,
+            ConvertedRaster {
+                value_types: self.inputs.iter().map(|c| c.classifier.value_type().clone()).collect(),
+                indexes: recv_final_result.recv().unwrap(),
+            }
+        }).map_err(|e| {
+            log::error!("conversion failed: {:?}", e);
+            Error::ConversionFailed
         })
     }
 
-    pub fn convert(&self, num_threads: u32, tile_size: (usize, usize)) -> Result<ConvertedRaster, Error> {
-        self.convert_tiles(num_threads, generate_tiles(self.dataset.size(), tile_size), None)
+    pub fn convert(&self, num_threads: u32, tile_size: (usize, usize), compact: bool) -> Result<ConvertedRaster, Error> {
+        self.convert_tiles(num_threads, generate_tiles(self.dataset.size(), tile_size), None, compact)
     }
 }
+
 
 #[inline]
 fn pixel_to_array_position(tile_pixel: (usize, usize), tile_size: (usize, usize)) -> usize {
@@ -252,11 +225,11 @@ fn array_position_to_pixel(array_pos: usize, tile_size: (usize, usize)) -> (usiz
 ///
 /// On each of these pixel clusters a region growing of h3 indexes is performed until the complete
 /// cluster is covered.
-fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset: ConversionSubset) -> GroupedH3Indexes {
-    // zip the bands and hash by their location in the tile
+fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset: ConversionSubset, compact: bool) -> GroupedH3Indexes {
+// zip the bands and hash by their location in the tile
     let mut attributes_by_pos: HashMap<_, _> = ZipMultiIter::new(&subset.banddata)
         .filter(|(_pos, attributes)| {
-            // at least one value must not be None
+// at least one value must not be None
             attributes.iter().any(|v| v.is_some())
         })
         .collect();
@@ -272,11 +245,11 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset
         let mut indexes_to_check = VecDeque::new();
         let mut indexes_scheduled: HashSet<H3Index> = HashSet::new();
 
-        // find the first h3 index located inside the cluster
+// find the first h3 index located inside the cluster
         for cluster_pos in cluster.iter() {
             let pixel_in_tile = array_position_to_pixel(*cluster_pos, subset.tile.size);
 
-            // find the nearest h3 index for this pixel
+// find the nearest h3 index for this pixel
             let index = h3::coordinate_to_h3index(
                 &subset.geotransformer.pixel_to_coordinate((
                     subset.tile.offset_origin.0 + pixel_in_tile.1,
@@ -290,7 +263,7 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset
                 continue;
             }
 
-            // reverse-check if the h3 index is located in the cluster, or outside of it
+// reverse-check if the h3 index is located in the cluster, or outside of it
             let index_pos = pixel_to_array_position(subset.tile.to_tile_relative_pixel(
                 subset.geotransformer.coordinate_to_pixel(coordinate)
             ), subset.tile.size);
@@ -304,7 +277,7 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset
 
         let mut indexes_visited: HashSet<H3Index> = HashSet::new();
 
-        // start h3 region growing from the first index of the cluster
+// start h3 region growing from the first index of the cluster
         while let Some(this_index) = indexes_to_check.pop_front() {
             indexes_visited.insert(this_index);
 
@@ -331,12 +304,12 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset
             }
         }
 
-        // remove the positions which were visited in this iteration
+// remove the positions which were visited in this iteration
         cluster.iter()
             .for_each(|pos| { let _ = attributes_by_pos.remove(pos); });
     };
 
-    // copy the collected into the grouped indexes to perform compacting
+// copy the collected into the grouped indexes to perform compacting
     for (attributes_ref, mut h3indexes) in indexes_to_add.drain() {
         let attributes = attributes_ref.iter()
             .map(|a| {
@@ -346,8 +319,8 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset
                 }
             }).collect();
         grouped_indexes.entry(attributes)
-            .or_insert_with(CompactedIndexStack::new)
-            .append_to_resolution(subset.h3_resolution, h3indexes.as_mut());
+            .or_insert_with(IndexStack::new)
+            .append_to_resolution(subset.h3_resolution, h3indexes.as_mut(), compact);
     }
 
 
@@ -356,7 +329,7 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset
 
 /// convert using a simple approach by just checking the pixel values at the center points of the h3
 /// indexes
-fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: ConversionSubset) -> GroupedH3Indexes {
+fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: ConversionSubset, compact: bool) -> GroupedH3Indexes {
     let mut indexes_to_check = VecDeque::new();
     indexes_to_check.push_back(
         h3::coordinate_to_h3index(
@@ -367,8 +340,8 @@ fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: Co
 
     let mut grouped_indexes = GroupedH3Indexes::new();
 
-    // IMPROVEMENT: rewrite to use https://doc.rust-lang.org/std/collections/struct.BTreeSet.html#method.pop_first
-    // once this leaves nightly
+// IMPROVEMENT: rewrite to use https://doc.rust-lang.org/std/collections/struct.BTreeSet.html#method.pop_first
+// once this leaves nightly
     let mut indexes_scheduled: HashSet<H3Index> = HashSet::new();
     let mut indexes_visited: HashSet<H3Index> = HashSet::new();
     let mut indexes_to_add: HashMap<Attributes, Vec<H3Index>> = HashMap::new();
@@ -396,21 +369,21 @@ fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: Co
             }
         }).collect();
 
-        // add when the attributes are not all None
+// add when the attributes are not all None
         if attributes.iter().any(|a| a.is_some()) {
             let target_vec = indexes_to_add.entry(attributes.clone()).or_insert_with(Vec::new);
             target_vec.push(this_h3index);
 
-            // attempt to save a bit of space by compacting what we got
+// attempt to save a bit of space by compacting what we got
             if target_vec.len() > 20_000 {
                 grouped_indexes.entry(attributes)
-                    .or_insert_with(CompactedIndexStack::new)
-                    .append_to_resolution(subset.h3_resolution, target_vec);
+                    .or_insert_with(IndexStack::new)
+                    .append_to_resolution(subset.h3_resolution, target_vec, compact);
             }
         }
 
-        // check the neighbors
-        // IMPROVEMENT: re-use the vector used within kring
+// check the neighbors
+// IMPROVEMENT: re-use the vector used within kring
         for neighbor in k_ring(this_h3index, 1).iter() {
             if !(indexes_visited.contains(neighbor) || indexes_scheduled.contains(neighbor)) {
                 indexes_to_check.push_back(*neighbor);
@@ -421,8 +394,8 @@ fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: Co
 
     for (attributes, mut h3indexes) in indexes_to_add.drain() {
         grouped_indexes.entry(attributes)
-            .or_insert_with(CompactedIndexStack::new)
-            .append_to_resolution(subset.h3_resolution, h3indexes.as_mut());
+            .or_insert_with(IndexStack::new)
+            .append_to_resolution(subset.h3_resolution, h3indexes.as_mut(), compact);
     }
 
     grouped_indexes
@@ -447,11 +420,11 @@ fn grow_region_starting_with_index<T>(index_hashmap: &HashMap<usize, T>, start_i
         let pos = array_position_to_pixel(next_index, tile_size);
 
         for i in -1..=1 {
-            if (pos.0 == 0 && i == -1) || (pos.0 == tile_size.0 && i == 1) {
+            if ((pos.0 == 0) && (i == -1)) || ((pos.0 == tile_size.0) && (i == 1)) {
                 continue; // stay inside the tile bounds
             }
             for j in -1..=1 {
-                if (pos.1 == 0 && j == -1) || (pos.1 == tile_size.1 && j == 1) {
+                if ((pos.1 == 0) && (j == -1)) || ((pos.1 == tile_size.1) && (j == 1)) {
                     continue; // stay inside the tile bounds
                 }
                 let next_pos = ((pos.1 as isize + j) as usize, (pos.0 as isize + i) as usize);
@@ -469,6 +442,7 @@ fn grow_region_starting_with_index<T>(index_hashmap: &HashMap<usize, T>, start_i
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::env::temp_dir;
     use std::fs;
     use std::path::Path;
 
@@ -477,7 +451,6 @@ mod tests {
 
     use crate::input::{ClassifiedBand, NoData, Value};
     use crate::rasterconverter::{grow_region_starting_with_index, pixel_to_array_position, RasterConverter};
-    use std::env::temp_dir;
 
     #[test]
     fn test_convert() {
@@ -492,7 +465,7 @@ mod tests {
         ];
         let converter = RasterConverter::new(dataset, inputs, 3).unwrap();
 
-        let converted = converter.convert(2, (300, 300)).unwrap();
+        let converted = converter.convert(2, (300, 300), true).unwrap();
         /*
         for (attr, h3indexes) in converted.indexes.iter() {
             println!("a: {:?} -> {}", attr, h3indexes.len());

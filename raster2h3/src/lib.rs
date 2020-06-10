@@ -244,6 +244,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
         top_level_args.n_tile_threads,
         tiles,
         Some(progress_send),
+        true,
     ).map_err(|e| {
         log::error!("{:?}", e);
         "converting tiles failed"

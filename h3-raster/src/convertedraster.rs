@@ -13,13 +13,13 @@ use rusqlite::types::ToSqlOutput;
 use rusqlite::{OptionalExtension, NO_PARAMS};
 
 use h3::{get_resolution, h3_to_string};
-use h3::compact::CompactedIndexStack;
+use h3::stack::IndexStack;
 
 use crate::geo::polygon_has_dateline_wrap;
 use crate::input::Value;
 
 pub type Attributes = Vec<Option<Value>>;
-pub type GroupedH3Indexes = HashMap<Attributes, CompactedIndexStack>;
+pub type GroupedH3Indexes = HashMap<Attributes, IndexStack>;
 
 pub struct ConvertedRaster {
     pub value_types: Vec<Value>,

@@ -10,6 +10,7 @@ pub enum Error {
     GeotransformFailed,
     BandNotReadable(u8),
     GDAL(gdal::errors::Error),
+    ConversionFailed,
 }
 
 impl fmt::Display for Error {
@@ -21,7 +22,8 @@ impl fmt::Display for Error {
             Error::NoGeotransformFound => write!(f, "Dataset has no geotransform"),
             Error::GeotransformFailed => write!(f, "Geotransform failed"),
             Error::BandNotReadable(band_idx) => write!(f, "Band {} can not be read", band_idx),
-            Error::GDAL(gdal_err) => write!(f, "GDAL: {:?}", gdal_err)
+            Error::GDAL(gdal_err) => write!(f, "GDAL: {:?}", gdal_err),
+            Error::ConversionFailed => write!(f, "Conversion failed"),
         }
     }
 }
