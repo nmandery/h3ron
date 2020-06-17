@@ -325,7 +325,7 @@ pub fn convert_to_sqlite(top_level_args: &TopLevelArguments, to_sqlite_args: &To
     });
 
     log::info!("writing to Sqlite database");
-    let write_result: Result<(), &'static str> = match converted_raster.write_to_sqlite(Path::new(&to_sqlite_args.output_db), &to_sqlite_args.output_table_name, Some(progress_send)) {
+    let write_result: Result<(), &'static str> = match converted_raster.write_to_sqlite(Path::new(&to_sqlite_args.output_db), &to_sqlite_args.output_table_name, false, Some(progress_send)) {
         Ok(()) => Ok(()),
         Err(e) => {
             log::error!("error writing to sqlite db {}: {}", &to_sqlite_args.output_db, e);

@@ -2,15 +2,16 @@ use std::collections::HashMap;
 #[cfg(feature = "sqlite")]
 use std::path::Path;
 
+use byteorder::ByteOrder;
 use crossbeam::channel::Sender;
 use gdal::spatial_ref::SpatialRef;
 use gdal::vector::{Defn, Feature, FieldDefn, ToGdal};
 #[cfg(feature = "sqlite")]
 use rusqlite::{Connection, ToSql};
 #[cfg(feature = "sqlite")]
-use rusqlite::types::ToSqlOutput;
+use rusqlite::{NO_PARAMS, OptionalExtension};
 #[cfg(feature = "sqlite")]
-use rusqlite::{OptionalExtension, NO_PARAMS};
+use rusqlite::types::ToSqlOutput;
 
 use h3::{get_resolution, h3_to_string};
 use h3::stack::IndexStack;
@@ -42,15 +43,14 @@ impl ToSql for Value {
 }
 
 impl ConvertedRaster {
-
     #[cfg(feature = "sqlite")]
-    pub fn write_to_sqlite(&self, db_file: &Path, table_name: &str, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
+    pub fn write_to_sqlite(&self, db_file: &Path, table_name: &str, h3index_as_blob: bool, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
         let mut conn = Connection::open(db_file)?;
-        self.write_to_sqlite_conn(&mut conn, table_name, send_progress)
+        self.write_to_sqlite_conn(&mut conn, table_name, h3index_as_blob, send_progress)
     }
 
     #[cfg(feature = "sqlite")]
-    pub fn write_to_sqlite_conn(&self, conn: &mut Connection, table_name: &str, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
+    pub fn write_to_sqlite_conn(&self, conn: &mut Connection, table_name: &str, h3index_as_blob: bool, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
         let do_send_progress = |counter| {
             if let Some(sp) = &send_progress {
                 sp.send(counter).unwrap();
@@ -79,13 +79,23 @@ impl ConvertedRaster {
             NO_PARAMS,
         )?;
 
-        conn.execute(
-            // using text representation for the indexes as sqlite has not uint64
-            &format!("create table if not exists {} (h3index TEXT, h3res INTEGER, attribute_set_id INTEGER)",
-                     table_name
-            ),
-            NO_PARAMS,
-        )?;
+        if h3index_as_blob {
+            conn.execute(
+                // using text representation for the indexes as sqlite has not uint64
+                &format!("create table if not exists {} (h3index BLOB, h3res INTEGER, attribute_set_id INTEGER)",
+                         table_name
+                ),
+                NO_PARAMS,
+            )?;
+        } else {
+            conn.execute(
+                // using text representation for the indexes as sqlite has not uint64
+                &format!("create table if not exists {} (h3index TEXT, h3res INTEGER, attribute_set_id INTEGER)",
+                         table_name
+                ),
+                NO_PARAMS,
+            )?;
+        }
 
         let tx = conn.transaction()?;
         {
@@ -128,12 +138,22 @@ impl ConvertedRaster {
                 })?;
 
                 for h3index in compacted_stack.indexes_by_resolution.values().flatten() {
-                    let index_str = h3_to_string(*h3index);
                     let resolution = get_resolution(*h3index);
-                    let sql_params: Vec<&dyn ToSql> = vec![
-                        &index_str, &resolution, &attribute_set_id
-                    ];
-                    insert_index_stmt.execute(sql_params)?;
+                    if h3index_as_blob {
+                        let mut buf = [0; 8];
+                        byteorder::LittleEndian::write_u64(&mut buf, *h3index);
+                        let h3index_bytes = buf.to_vec();
+                        let sql_params: Vec<&dyn ToSql> = vec![
+                            &h3index_bytes, &resolution, &attribute_set_id
+                        ];
+                        insert_index_stmt.execute(sql_params)?;
+                    } else {
+                        let index_str = h3_to_string(*h3index);
+                        let sql_params: Vec<&dyn ToSql> = vec![
+                            &index_str, &resolution, &attribute_set_id
+                        ];
+                        insert_index_stmt.execute(sql_params)?;
+                    }
 
                     num_written_features += 1;
                     if (num_written_features % 5000) == 0 {
