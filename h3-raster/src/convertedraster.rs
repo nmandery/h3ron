@@ -50,6 +50,19 @@ impl ConvertedRaster {
     }
 
     #[cfg(feature = "sqlite")]
+    ///
+    /// `h3index_as_blob` allows storing the h3indexes as big endian encoded binary bolb. This
+    /// representation has a smaller size. It also can be converted to the text representation directly in
+    /// sqlite:
+    /// > select lower(trim(quote(h3index), 'X''')) from raster_to_h3 limit 4;
+    /// lower(trim(quote(h3index), 'X'''))
+    /// ----------------------------------
+    /// 081807ffffffffff
+    /// 08111bffffffffff
+    /// 081b37ffffffffff
+    /// 0810fbffffffffff
+    /// Run Time: real 0.001 user 0.000132 sys 0.000132
+    ///
     pub fn write_to_sqlite_conn(&self, conn: &mut Connection, table_name: &str, h3index_as_blob: bool, send_progress: Option<Sender<usize>>) -> rusqlite::Result<()> {
         let do_send_progress = |counter| {
             if let Some(sp) = &send_progress {
@@ -141,7 +154,7 @@ impl ConvertedRaster {
                     let resolution = get_resolution(*h3index);
                     if h3index_as_blob {
                         let mut buf = [0; 8];
-                        byteorder::LittleEndian::write_u64(&mut buf, *h3index);
+                        byteorder::BigEndian::write_u64(&mut buf, *h3index);
                         let h3index_bytes = buf.to_vec();
                         let sql_params: Vec<&dyn ToSql> = vec![
                             &h3index_bytes, &resolution, &attribute_set_id
