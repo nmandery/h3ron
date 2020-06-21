@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, min};
 use std::path::Path;
 
 use argh::FromArgs;
@@ -233,9 +233,11 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
         tiles
     };
 
-    log::info!("starting conversion using {} tiling threads",
-             top_level_args.n_tile_threads
+    let n_tile_threads = min(
+        min(tiles.len(), 100) as u32,
+        top_level_args.n_tile_threads,
     );
+    log::info!("starting conversion using {} tiling threads", n_tile_threads);
 
     let converter = RasterConverter::new(dataset, inputs, top_level_args.h3_resolution)
         .map_err(|e| {
