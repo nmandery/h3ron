@@ -17,7 +17,6 @@ use crate::convertedraster::{Attributes, ConvertedRaster, GroupedH3Indexes};
 use crate::error::Error;
 use crate::geo::{area_rect, rect_contains, rect_from_coordinates};
 use crate::input::{ClassifiedBand, ToValue, Value};
-use crate::iter::ZipMultiIter;
 use crate::tile::{generate_tiles, Tile};
 
 pub struct ConversionProgress {
@@ -143,8 +142,11 @@ impl RasterConverter {
                         let n_pixels = subset.tile.size.0 * subset.tile.size.1;
 
                         let result = if (n_h3indexes as f64 * 0.9) as usize > n_pixels {
+                            println!("convert_subset_by_filtering_and_region_growing");
                             convert_subset_by_filtering_and_region_growing(tile_bounds, subset, thread_compact)
+                            //convert_subset_by_checking_index_positions(tile_bounds, subset, thread_compact)
                         } else {
+                            println!("convert_subset_by_checking_index_positions");
                             convert_subset_by_checking_index_positions(tile_bounds, subset, thread_compact)
                         };
                         thread_send_result.send(result).expect("sending result failed");
@@ -162,6 +164,7 @@ impl RasterConverter {
                         grouped_indexes.entry(attributes)
                             .or_insert_with(IndexStack::new)
                             .append(&mut compacted_stack, false)
+
                     }
 
                     if let Some(ps) = &progress_sender {
@@ -225,14 +228,56 @@ fn array_position_to_pixel(array_pos: usize, tile_size: (usize, usize)) -> (usiz
 ///
 /// On each of these pixel clusters a region growing of h3 indexes is performed until the complete
 /// cluster is covered.
-fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, subset: ConversionSubset, compact: bool) -> GroupedH3Indexes {
+fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut subset: ConversionSubset, compact: bool) -> GroupedH3Indexes {
 // zip the bands and hash by their location in the tile
+    /*
     let mut attributes_by_pos: HashMap<_, _> = ZipMultiIter::new(&subset.banddata)
         .filter(|(_pos, attributes)| {
 // at least one value must not be None
             attributes.iter().any(|v| v.is_some())
         })
         .collect();
+
+     */
+/*
+    let mut attributes_by_pos2 = HashMap::new();
+    for mut v in subset.banddata.drain(..) {
+        let mut idx = 0_usize;
+        for v2 in v.drain(..) {
+            attributes_by_pos2.entry(idx).or_insert_with(Vec::new).push(v2);
+            idx += 1
+        }
+    }
+*/
+
+    let mut attributes_by_pos = {
+        let n_bands = subset.banddata.len();
+        let mut by_pos = Vec::new();
+        if let Some(l) = subset.banddata.iter().map(|v| v.len()).max() {
+            by_pos.reserve(l);
+            for _ in 0..l {
+                by_pos.push(Vec::new())
+            }
+        }
+        for mut band_vec in subset.banddata.drain(..) {
+            let mut idx = 0_usize;
+            for band_pixel in band_vec.drain(..) {
+                by_pos[idx].push(band_pixel);
+                idx += 1
+            }
+        }
+
+        let mut idx = 0_usize;
+        let mut attributes_by_pos = HashMap::new();
+        for pixel_vec in by_pos.drain(..) {
+            if pixel_vec.len() == n_bands && pixel_vec.iter().any(|v| v.is_some()) {
+                attributes_by_pos.insert(idx, pixel_vec);
+            }
+            idx += 1
+        }
+        attributes_by_pos
+    };
+    println!("{}", subset.banddata.len());
 
     let mut grouped_indexes = GroupedH3Indexes::new();
     let mut indexes_to_add = HashMap::new();

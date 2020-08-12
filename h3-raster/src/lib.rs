@@ -9,4 +9,3 @@ pub mod input;
 pub mod convertedraster;
 pub mod rasterconverter;
 pub mod error;
-mod iter;
