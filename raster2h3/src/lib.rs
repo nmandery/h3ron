@@ -75,6 +75,17 @@ fn default_n_tile_threads() -> u32 {
     max(1, num_cpus::get() - 1) as u32
 }
 
+fn parse_tile_size(arg: &str) -> Result<Option<u32>, String> {
+    if arg.is_empty() {
+        Ok(None)
+    } else {
+        let tile_size = parse_u32(arg, "tile size")?;
+        Ok(Some(tile_size))
+    }
+}
+
+fn default_tile_size() -> Option<u32> { None }
+
 #[derive(FromArgs, PartialEq, Debug)]
 /// Convert raster dataset to compacted H3 hexagons.
 pub struct TopLevelArguments {
@@ -89,6 +100,10 @@ pub struct TopLevelArguments {
     /// number of threads to use to analyze tiles
     #[argh(option, short = 'n', from_str_fn(parse_n_tile_threads), default = "default_n_tile_threads()")]
     n_tile_threads: u32,
+
+    /// tile size in pixels
+    #[argh(option, short = 't', from_str_fn(parse_tile_size), default = "default_tile_size()")]
+    tile_size: Option<u32>,
 
     /// bands to extract. Must be in the form of "1:0" for band 1 with the no data
     /// value 0. Multiple bands are possible when the values are separated by a comma.
@@ -161,7 +176,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
     };
 
     let mut inputs = vec![];
-    let mut tile_size = (1000_usize, 1000_usize);
+    let mut band_based_tile_size = (1000_usize, 1000_usize);
     for (band_num, no_data_string) in top_level_args.bands.iter() {
         let raster_band = match dataset.rasterband(*band_num as isize) {
             Ok(rb) => rb,
@@ -170,7 +185,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
                 return Err("can not access raster band");
             }
         };
-        tile_size = tile_size_from_rasterband(&raster_band);
+        band_based_tile_size = tile_size_from_rasterband(&raster_band);
         macro_rules! no_data_classifier {
             ($value_type:path) => {{
                 let value = $value_type(match no_data_string.parse() {
@@ -210,10 +225,14 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
 
     log::info!("dataset size is {} x {} pixels", dataset.size().0, dataset.size().1 );
 
-    let tiles = generate_tiles(dataset.size(), tile_size);
-    log::info!("using a tile size derived of {} x {} pixels derived from the block size -> {} tiles",
-        tile_size.0, tile_size.1, tiles.len()
-    );
+    let tiles = if let Some(tile_size) = top_level_args.tile_size {
+        generate_tiles(dataset.size(), (tile_size as usize, tile_size as usize))
+    } else {
+        let tiles = generate_tiles(dataset.size(), band_based_tile_size);
+        log::info!("using a tile size derived of {} x {} pixels derived from the block size -> {} tiles",
+        band_based_tile_size.0, band_based_tile_size.1, tiles.len());
+        tiles
+    };
 
     log::info!("starting conversion using {} tiling threads",
              top_level_args.n_tile_threads
@@ -222,7 +241,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
     let converter = RasterConverter::new(dataset, inputs, top_level_args.h3_resolution)
         .map_err(|e| {
             log::error!("{:?}", e);
-           "creating rasterconverter failed"
+            "creating rasterconverter failed"
         })?;
 
     let (progress_send, progress_recv): (Sender<ConversionProgress>, Receiver<ConversionProgress>) = bounded(2);
