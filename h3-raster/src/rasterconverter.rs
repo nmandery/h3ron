@@ -276,7 +276,6 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut su
         }
         attributes_by_pos
     };
-    println!("{}", subset.banddata.len());
 
     let mut grouped_indexes = GroupedH3Indexes::new();
     let mut indexes_to_add = HashMap::new();
