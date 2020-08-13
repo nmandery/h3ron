@@ -18,6 +18,7 @@ use h3::stack::IndexStack;
 
 use crate::geo::polygon_has_dateline_wrap;
 use crate::input::Value;
+use std::cmp::max;
 
 pub type Attributes = Vec<Option<Value>>;
 pub type GroupedH3Indexes = HashMap<Attributes, IndexStack>;
@@ -138,6 +139,7 @@ impl ConvertedRaster {
                 Some(n) => n + 1_u32,
             };
             let mut num_written_features: usize = 0;
+            let progress_step_size = max(self.count_h3indexes() / 100, 1);
             do_send_progress(num_written_features);
             for (attr, compacted_stack) in self.indexes.iter() {
                 insert_attributes_stmt.execute({
@@ -169,7 +171,7 @@ impl ConvertedRaster {
                     }
 
                     num_written_features += 1;
-                    if (num_written_features % 5000) == 0 {
+                    if (num_written_features % progress_step_size) == 0 {
                         do_send_progress(num_written_features);
                     }
                 }
@@ -220,6 +222,7 @@ impl ConvertedRaster {
         let defn = Defn::from_layer(layer);
 
         let mut num_written_features: usize = 0;
+        let progress_step_size = max(self.count_h3indexes() / 100, 1);
         do_send_progress(num_written_features);
         for (attr, compacted_stack) in self.indexes.iter() {
             for h3index in compacted_stack.indexes_by_resolution.values().flatten() {
@@ -258,7 +261,7 @@ impl ConvertedRaster {
                 }
 
                 num_written_features += 1;
-                if (num_written_features % 5000) == 0 {
+                if (num_written_features % progress_step_size) == 0 {
                     do_send_progress(num_written_features);
                 }
             }
