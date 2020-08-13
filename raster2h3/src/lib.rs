@@ -1,17 +1,16 @@
 use std::cmp::max;
 use std::path::Path;
-use std::thread;
 
 use argh::FromArgs;
 use crossbeam::channel::{bounded, Receiver, Sender};
 use gdal::raster::Dataset;
-use indicatif::{ProgressBar, ProgressStyle};
 use regex::Regex;
 
 use h3_raster::convertedraster::ConvertedRaster;
 use h3_raster::input::{ClassifiedBand, NoData, Value};
 use h3_raster::rasterconverter::{ConversionProgress, RasterConverter};
 use h3_raster::tile::{generate_tiles, tile_size_from_rasterband};
+use h3_util::progress::{Progress, ApplyProgress};
 
 fn parse_u32(arg: &str, name: &str) -> Result<u32, String> {
     match arg.parse::<u32>() {
@@ -246,30 +245,19 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
 
     let (progress_send, progress_recv): (Sender<ConversionProgress>, Receiver<ConversionProgress>) = bounded(2);
 
-    let pb = ProgressBar::new(tiles.len() as u64);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:50.green/blue}] {pos}/{len} ({eta})")
-        .progress_chars("#>-"));
-
-    let child = thread::spawn(move || {
-        for progress_update in progress_recv.iter() {
-            pb.set_position(progress_update.tiles_done as u64);
-        }
-        pb.set_message("done");
-        pb.abandon();
-    });
-
-    let converted = converter.convert_tiles(
-        top_level_args.n_tile_threads,
-        tiles,
-        Some(progress_send),
-        true,
-    ).map_err(|e| {
+    let mut progress = Progress::new(tiles.len() as u64, progress_recv, "tiles finished");
+    let converted = progress.apply(|| {
+        converter.convert_tiles(
+            top_level_args.n_tile_threads,
+            tiles,
+            Some(progress_send),
+            true,
+        )
+    }).map_err(|e| {
         log::error!("{:?}", e);
         "converting tiles failed"
     })?;
 
-    child.join().unwrap();
     Ok(converted)
 }
 
@@ -293,27 +281,16 @@ pub fn convert_to_ogr(top_level_args: &TopLevelArguments, to_ogr_args: &ToOgrArg
     };
 
     let (progress_send, progress_recv): (Sender<usize>, Receiver<usize>) = bounded(2);
+    let mut progress = Progress::new(converted_raster.count_h3indexes() as u64, progress_recv, "features written");
 
-    let pb = ProgressBar::new(converted_raster.count_h3indexes() as u64);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:50.green/blue}] {pos}/{len} ({eta})")
-        .progress_chars("#>-"));
-
-    let child = thread::spawn(move || {
-        for progress_update in progress_recv.iter() {
-            pb.set_position(progress_update as u64);
-        }
-        pb.set_message("done");
-        pb.abandon();
+    let write_result = progress.apply(|| {
+        converted_raster.write_to_ogr_dataset(
+            &mut ogr_dataset,
+            &to_ogr_args.output_layer_name,
+            false, // TODO: expose as switch,
+            Some(progress_send),
+        )
     });
-
-    let write_result = converted_raster.write_to_ogr_dataset(
-        &mut ogr_dataset,
-        &to_ogr_args.output_layer_name,
-        false, // TODO: expose as switch,
-        Some(progress_send),
-    );
-    child.join().unwrap();
 
     match write_result {
         Ok(()) => Ok(()),
@@ -330,35 +307,16 @@ pub fn convert_to_sqlite(top_level_args: &TopLevelArguments, to_sqlite_args: &To
 
     let (progress_send, progress_recv): (Sender<usize>, Receiver<usize>) = bounded(2);
 
-    let pb = ProgressBar::new(converted_raster.count_h3indexes() as u64);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:50.green/blue}] {pos}/{len} ({eta})")
-        .progress_chars("#>-"));
-
-    let child = thread::spawn(move || {
-        for progress_update in progress_recv.iter() {
-            pb.set_position(progress_update as u64);
-        }
-        pb.set_message("done");
-        pb.abandon();
-    });
-
-    log::info!("writing to Sqlite database");
-    let write_result: Result<(), &'static str> = match converted_raster.write_to_sqlite(Path::new(&to_sqlite_args.output_db), &to_sqlite_args.output_table_name, false, Some(progress_send)) {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            log::error!("error writing to sqlite db {}: {}", &to_sqlite_args.output_db, e);
-            return Err("error writing to sqlite db");
-        }
-    };
-    child.join().unwrap();
-
-    match write_result {
-        Ok(()) => Ok(()),
-        Err(e) => {
-            log::error!("sqlite error: {}", e);
-            Err("unable to write to sqlite database")
-        }
-    }
+    let mut progress = Progress::new(converted_raster.count_h3indexes() as u64, progress_recv, "h3indexes written");
+    progress.apply(|| {
+        let write_result: Result<(), &'static str> = match converted_raster.write_to_sqlite(Path::new(&to_sqlite_args.output_db), &to_sqlite_args.output_table_name, false, Some(progress_send)) {
+            Ok(()) => Ok(()),
+            Err(e) => {
+                log::error!("error writing to sqlite db {}: {}", &to_sqlite_args.output_db, e);
+                Err("error writing to sqlite db")
+            }
+        };
+        write_result
+    })
 }
 

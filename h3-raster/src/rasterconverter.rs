@@ -142,11 +142,10 @@ impl RasterConverter {
                         let n_pixels = subset.tile.size.0 * subset.tile.size.1;
 
                         let result = if (n_h3indexes as f64 * 0.9) as usize > n_pixels {
-                            println!("convert_subset_by_filtering_and_region_growing");
+                            // log::debug!("convert_subset_by_filtering_and_region_growing");
                             convert_subset_by_filtering_and_region_growing(tile_bounds, subset, thread_compact)
-                            //convert_subset_by_checking_index_positions(tile_bounds, subset, thread_compact)
                         } else {
-                            println!("convert_subset_by_checking_index_positions");
+                            // log::debug!("convert_subset_by_checking_index_positions");
                             convert_subset_by_checking_index_positions(tile_bounds, subset, thread_compact)
                         };
                         thread_send_result.send(result).expect("sending result failed");
