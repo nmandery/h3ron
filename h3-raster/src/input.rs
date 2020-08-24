@@ -2,8 +2,9 @@ use std::cmp::Eq;
 use std::fmt::Debug;
 
 use ordered_float::OrderedFloat;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, PartialEq, Hash, Clone)]
+#[derive(Debug, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub enum Value {
     Int16(i16),
     Uint8(u8),

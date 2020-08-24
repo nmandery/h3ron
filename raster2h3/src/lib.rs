@@ -110,7 +110,7 @@ pub struct TopLevelArguments {
     bands: BandArguments,
 
     #[argh(subcommand)]
-    pub(crate) subcommand: Subcommands,
+    pub subcommand: Subcommands,
 }
 
 #[derive(FromArgs, PartialEq, Debug)]
@@ -321,4 +321,3 @@ pub fn convert_to_sqlite(top_level_args: &TopLevelArguments, to_sqlite_args: &To
         write_result
     })
 }
-

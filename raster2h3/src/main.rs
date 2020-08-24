@@ -17,7 +17,7 @@ fn main() {
         },
         Subcommands::ToSqlite(to_sqlite_args) => {
            convert_to_sqlite(&args, to_sqlite_args)
-        }
+        },
     };
 
     if let Err(msg) = result {
