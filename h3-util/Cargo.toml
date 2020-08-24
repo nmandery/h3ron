@@ -5,8 +5,8 @@ authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
 [dependencies]
-crossbeam = "0.7.3"
-indicatif = "0.14.0"
-atty = "0.2.14"
-log = "0.4.8"
+crossbeam = "0.7"
+indicatif = "0.14"
+atty = "0.2"
+log = "^0.4"
 h3-raster = { path = "../h3-raster" }

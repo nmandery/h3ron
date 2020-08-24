@@ -1,10 +1,15 @@
 [package]
 name = "h3"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
+[features]
+with-geo-types-0_4 = ["geo-types-04"]
+with-geo-types-0_6 = ["geo-types-06"]
+
 [dependencies]
 h3-sys = { path = "../h3-sys" }
-geo-types = "0.4.0"
-log = "0.4.8"
+log = "^0.4"
+geo-types-04 = { version = "^0.4", package = "geo-types", optional = true }
+geo-types-06 = { version = "^0.6", package = "geo-types", optional = true }

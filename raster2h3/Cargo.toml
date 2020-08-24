@@ -1,20 +1,20 @@
 [package]
 name = "raster2h3"
-version = "0.0.7"
+version = "0.1.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
 [dependencies]
-h3 = { path = "../h3" }
+h3 = { path = "../h3", features = []}
 h3-raster = { path = "../h3-raster", features = ["sqlite"] }
 h3-util = { path = "../h3-util", features = []}
 argh = "0.1.3"
 num_cpus = "1.12.0"
-gdal = "0.6.0"
-gdal-sys = "0.2.0"
-log = "0.4.8"
-simple_logger = "1.5.0"
-regex = "1.3.4"
-crossbeam = "0.7.3"
+gdal = "^0.6.0"
+gdal-sys = "^0.2.0"
+log = "^0.4"
+simple_logger = "^1.5"
+regex = "^1.3"
+crossbeam = "0.7"
 jemallocator = "0.3.2"
 serde = { version = "1.0", features = ["derive"] }

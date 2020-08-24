@@ -2,10 +2,12 @@ use std::collections::HashMap;
 #[cfg(feature = "sqlite")]
 use std::path::Path;
 
+#[cfg(feature = "sqlite")]
 use byteorder::ByteOrder;
 use crossbeam::channel::Sender;
 use gdal::spatial_ref::SpatialRef;
-use gdal::vector::{Defn, Feature, FieldDefn, ToGdal};
+use gdal::vector::{Defn, Feature, FieldDefn, Geometry};
+use gdal_sys::OGRwkbGeometryType;
 #[cfg(feature = "sqlite")]
 use rusqlite::{Connection, ToSql};
 #[cfg(feature = "sqlite")]
@@ -235,8 +237,15 @@ impl ConvertedRaster {
                     }
 
                     // build the feature
+                    let mut gdal_geom = Geometry::empty(OGRwkbGeometryType::wkbPolygon)?;
+                    let mut exterior_ring = Geometry::empty(OGRwkbGeometryType::wkbLinearRing)?;
+                    for (i, p) in poly.exterior().points_iter().enumerate() {
+                        exterior_ring.set_point_2d(i, (p.x(), p.y()))
+                    }
+                    gdal_geom.add_geometry(exterior_ring)?;
+                    //gdal_geom.add_geometry()
                     let mut feature = Feature::new(&defn)?;
-                    feature.set_geometry(poly.to_gdal().unwrap()).unwrap();
+                    feature.set_geometry(gdal_geom)?;
                     feature.set_field_string(index_field_name, &h3_to_string(*h3index))?;
                     feature.set_field_integer(res_field_name, get_resolution(*h3index))?;
 

@@ -1,6 +1,6 @@
 [package]
 name = "h3-raster"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
@@ -9,18 +9,18 @@ sqlite = [ "rusqlite", "byteorder" ]
 
 [dependencies]
 h3-sys = { path = "../h3-sys" }
-h3 = { path = "../h3" }
-geo-types = "0.4.0"
+h3 = { path = "../h3", features = ["with-geo-types-0_6"]}
+geo-types = "^0.6.0"
 log = "0.4.8"
 #gdal = { git = "https://github.com/georust/gdal", features = []} # needs unreleased version 0.6.0
-gdal = "0.6.0"
-gdal-sys = "0.2.0"
-crossbeam = "0.7.3"
+gdal = "^0.6.0"
+gdal-sys = "^0.2.0"
+crossbeam = "0.7"
 ordered-float = { version = "2.0.0", features = ["serde"]}
-rusqlite = { version = "0.21.0", optional = true }
+rusqlite = { version = "0.21", optional = true }
 byteorder = { version = "1.2", optional = true }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
 
 [dependencies.gdal-geotransform]
 git = "https://github.com/nmandery/gdal-geotransform"
-rev = "13fb64a40c4"
+rev = "f3ed939e0e"

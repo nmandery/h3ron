@@ -111,5 +111,4 @@ mod tests {
         assert_eq!(tiles.first().unwrap().size, tile_size);
         assert_eq!(tiles.last().unwrap().size, (190, 180));
     }
-
 }

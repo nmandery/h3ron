@@ -1,4 +1,4 @@
-extern crate geo_types;
+//extern crate geo_types;
 extern crate h3_sys;
 
 use std::collections::HashMap;
@@ -6,7 +6,11 @@ use std::iter::Iterator;
 use std::mem::MaybeUninit;
 use std::os::raw::c_int;
 
-use geo_types::{Coordinate, LineString, Point, Polygon};
+#[cfg(feature = "with-geo-types-0_4")]
+use geo_types_04::{Coordinate, LineString, Point, Polygon};
+
+#[cfg(feature = "with-geo-types-0_6")]
+use geo_types_06::{Coordinate, LineString, Point, Polygon};
 
 use h3_sys::{degsToRads, GeoCoord, Geofence, GeoPolygon, H3Index};
 use std::ffi::CString;
