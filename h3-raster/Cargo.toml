@@ -9,10 +9,9 @@ sqlite = [ "rusqlite", "byteorder" ]
 
 [dependencies]
 h3-sys = { path = "../h3-sys" }
-h3 = { path = "../h3", features = ["with-geo-types-0_6"]}
-geo-types = "^0.6.0"
+h3 = { path = "../h3", features = ["with-geo-types-0_4"], default_features = false}
+geo-types = "^0.4.0"
 log = "0.4.8"
-#gdal = { git = "https://github.com/georust/gdal", features = []} # needs unreleased version 0.6.0
 gdal = "^0.6.0"
 gdal-sys = "^0.2.0"
 crossbeam = "0.7"
@@ -23,4 +22,4 @@ serde = { version = "1", features = ["derive"] }
 
 [dependencies.gdal-geotransform]
 git = "https://github.com/nmandery/gdal-geotransform"
-rev = "f3ed939e0e"
+rev = "13fb64a4"

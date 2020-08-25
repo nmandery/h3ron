@@ -1,10 +1,10 @@
 use geo_types::{Coordinate, CoordinateType, Polygon, Rect, LineString};
 
 pub fn rect_contains(rect: &Rect<f64>, coordinate: &Coordinate<f64>) -> bool {
-    (rect.min().x <= coordinate.x)
-        && (rect.min().y <= coordinate.y)
-        && (rect.max().x >= coordinate.x)
-        && (rect.max().y >= coordinate.y)
+    (rect.min.x <= coordinate.x)
+        && (rect.min.y <= coordinate.y)
+        && (rect.max.x >= coordinate.x)
+        && (rect.max.y >= coordinate.y)
 }
 
 pub fn rect_from_coordinates(c1: Coordinate<f64>, c2: Coordinate<f64>) -> Rect<f64> {
@@ -38,11 +38,11 @@ pub fn area_linearring(ring: &LineString<f64>) -> f64 {
 /// rect (wgs84) in square meters
 pub fn area_rect(bounds: &Rect<f64>) -> f64 {
     let ring = LineString::from(vec![
-        Coordinate { x: bounds.min().x, y: bounds.min().y },
-        Coordinate { x: bounds.min().x, y: bounds.max().y },
-        Coordinate { x: bounds.max().x, y: bounds.max().y },
-        Coordinate { x: bounds.max().x, y: bounds.min().y },
-        Coordinate { x: bounds.min().x, y: bounds.min().y },
+        Coordinate { x: bounds.min.x, y: bounds.min.y },
+        Coordinate { x: bounds.min.x, y: bounds.max.y },
+        Coordinate { x: bounds.max.x, y: bounds.max.y },
+        Coordinate { x: bounds.max.x, y: bounds.min.y },
+        Coordinate { x: bounds.min.x, y: bounds.min.y },
     ]);
     area_linearring(&ring)
 }
