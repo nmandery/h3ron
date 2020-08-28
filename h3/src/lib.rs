@@ -20,6 +20,8 @@ use std::fmt;
 #[macro_use]
 mod util;
 pub mod stack;
+pub mod localij;
+pub mod error;
 
 #[derive(Debug)]
 pub enum Error {
@@ -226,6 +228,56 @@ pub fn polyfill_polygon(poly: &Polygon<f64>, h3_resolution: i32) -> Vec<H3Index>
     h3_indexes
 }
 
+pub fn point_to_h3index(pt: &Point<f64>, h3_resolution: i32) -> H3Index {
+    unsafe {
+        let gc = point_to_geocoord(pt);
+        h3_sys::geoToH3(&gc, h3_resolution as c_int)
+    }
+}
+
+pub fn polygon_from_h3index(h3index: H3Index) -> Option<Polygon<f64>> {
+    let gb = unsafe {
+        let mut mu = MaybeUninit::<h3_sys::GeoBoundary>::uninit();
+        h3_sys::h3ToGeoBoundary(h3index, mu.as_mut_ptr());
+        mu.assume_init()
+    };
+
+    if gb.numVerts > 0 {
+        let mut nodes = vec![];
+        for i in 0..gb.numVerts {
+            nodes.push((
+                unsafe { h3_sys::radsToDegs(gb.verts[i as usize].lon) },
+                unsafe { h3_sys::radsToDegs(gb.verts[i as usize].lat) },
+            ));
+        }
+        nodes.push((*nodes.first().unwrap()).clone());
+        Some(Polygon::new(LineString::from(nodes), vec![]))
+    } else {
+        None
+    }
+}
+
+pub fn coordinate_to_h3index(c: &Coordinate<f64>, h3_resolution: i32) -> H3Index {
+    unsafe {
+        let gc = coordinate_to_geocoord(c);
+        h3_sys::geoToH3(&gc, h3_resolution as c_int)
+    }
+}
+
+pub fn coordinate_from_h3index(h3index: H3Index) -> Coordinate<f64> {
+    unsafe {
+        let mut gc = GeoCoord {
+            lat: 0.0,
+            lon: 0.0,
+        };
+        h3_sys::h3ToGeo(h3index, &mut gc);
+
+        Coordinate {
+            x: h3_sys::radsToDegs(gc.lon),
+            y: h3_sys::radsToDegs(gc.lat),
+        }
+    }
+}
 
 /// group indexes by their resolution
 pub fn group_h3indexes_by_resolution(h3_indexes: &[H3Index]) -> HashMap<i32, Vec<H3Index>> {
@@ -238,6 +290,40 @@ pub fn group_h3indexes_by_resolution(h3_indexes: &[H3Index]) -> HashMap<i32, Vec
     m
 }
 
+pub fn k_ring(h3_index: H3Index, k: i32) -> Vec<H3Index> {
+    let max_size = unsafe { h3_sys::maxKringSize(k) as usize };
+    let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
+
+    unsafe {
+        h3_sys::kRing(h3_index, k as c_int, h3_indexes_out.as_mut_ptr());
+    }
+    remove_zero_indexes_from_vec!(h3_indexes_out);
+    h3_indexes_out
+}
+
+pub fn to_children(h3_index: H3Index, child_resolution: i32) -> Vec<H3Index> {
+    let max_size = unsafe { h3_sys::maxH3ToChildrenSize(h3_index, child_resolution as c_int) };
+    let mut h3_indexes_out: Vec<h3_sys::H3Index> = vec![0; max_size as usize];
+    unsafe {
+        h3_sys::h3ToChildren(h3_index, child_resolution as c_int, h3_indexes_out.as_mut_ptr());
+    }
+    remove_zero_indexes_from_vec!(h3_indexes_out);
+    h3_indexes_out
+}
+
+pub fn h3_to_string(h3_index: H3Index) -> String {
+    format!("{:x}", h3_index)
+}
+
+pub fn string_to_h3(s: &str) -> Option<H3Index> {
+    CString::new(s).map(|cs| unsafe {
+        h3_sys::stringToH3(cs.as_ptr())
+    }).ok()
+}
+
+pub fn is_valid(h3_index: H3Index) -> bool {
+    unsafe { h3_sys::h3IsValid(h3_index) != 0 }
+}
 
 #[cfg(test)]
 mod tests {
