@@ -186,6 +186,15 @@ pub fn k_ring(h3_index: H3Index, k: i32) -> Vec<H3Index> {
     h3_indexes_out
 }
 
+pub fn to_children(h3_index: H3Index, child_resolution: i32) -> Vec<H3Index> {
+    let max_size = unsafe { h3_sys::maxH3ToChildrenSize(h3_index, child_resolution as c_int) };
+    let mut h3_indexes_out: Vec<h3_sys::H3Index> = vec![0; max_size as usize];
+    unsafe {
+        h3_sys::h3ToChildren(h3_index, child_resolution as c_int, h3_indexes_out.as_mut_ptr());
+    }
+    remove_zero_indexes_from_vec!(h3_indexes_out);
+    h3_indexes_out
+}
 
 pub fn h3_to_string(h3_index: H3Index) -> String {
     format!("{:x}", h3_index)
