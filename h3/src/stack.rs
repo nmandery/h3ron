@@ -1,45 +1,19 @@
 use std::collections::{HashMap, HashSet};
-use crate::get_resolution;
-use std::os::raw::c_int;
+
 use h3_sys::H3Index;
 
-pub fn compact(h3_indexes: &[H3Index]) -> Vec<H3Index> {
-    let mut h3_indexes_out: Vec<H3Index> = vec![0; h3_indexes.len()];
-    unsafe {
-        h3_sys::compact(h3_indexes.as_ptr(), h3_indexes_out.as_mut_ptr(), h3_indexes.len() as c_int);
-    }
-    remove_zero_indexes_from_vec!(h3_indexes_out);
-    h3_indexes_out
-}
-
-/// compact h3indexes of mixed resolutions
-pub fn compact_mixed(h3_indexes: &[H3Index]) -> Vec<H3Index> {
-    let mut h3_indexes_by_res = HashMap::new();
-    for h3_index in h3_indexes {
-        h3_indexes_by_res.entry(get_resolution(*h3_index) as u8)
-            .or_insert_with(Vec::new)
-            .push(*h3_index);
-    }
-    let mut out_h3indexes = vec![];
-    for (_, res_indexes) in h3_indexes_by_res.drain() {
-        let mut compacted = compact(&res_indexes);
-        out_h3indexes.append(&mut compacted);
-    }
-    out_h3indexes
-}
-
+use crate::compact;
+use crate::index::Index;
 
 /// structure to keep compacted h3 indexes to allow more or less efficient
 /// adding of further indexes
-///
-/// TODO: custom iterator
-pub struct IndexStack {
+pub struct H3IndexStack {
     pub indexes_by_resolution: HashMap<u8, Vec<H3Index>>,
 }
 
-impl<'a> IndexStack {
-    pub fn new() -> IndexStack {
-        IndexStack {
+impl<'a> H3IndexStack {
+    pub fn new() -> H3IndexStack {
+        H3IndexStack {
             indexes_by_resolution: HashMap::new()
         }
     }
@@ -65,7 +39,7 @@ impl<'a> IndexStack {
     }
 
     pub fn compact(&mut self) {
-        let max_res = self.indexes_by_resolution.keys().max().map(|v| v.clone());
+        let max_res = self.indexes_by_resolution.keys().max().copied();
         if let Some(r) = max_res {
             self.compact_from_resolution_up(r, vec![])
         }
@@ -100,7 +74,7 @@ impl<'a> IndexStack {
         if h3_indexes.is_empty() {
             return;
         }
-        let resolution = get_resolution(*h3_indexes.first().unwrap()) as u8;
+        let resolution = Index::from(*h3_indexes.first().unwrap()).resolution();
         let res_vec = self.indexes_by_resolution.entry(resolution)
             .or_insert_with(Vec::new);
         h3_indexes.iter().for_each(|h| res_vec.push(*h));
@@ -114,7 +88,7 @@ impl<'a> IndexStack {
     pub fn add_indexes_mixed_resolutions(&mut self, h3_indexes: &[H3Index], compact: bool) {
         let mut resolutions_touched = HashSet::new();
         for h3_index in h3_indexes {
-            let res = get_resolution(*h3_index) as u8;
+            let res = Index::from(*h3_index).resolution();
             resolutions_touched.insert(res);
             self.indexes_by_resolution.entry(res)
                 .or_insert_with(Vec::new)
@@ -151,7 +125,7 @@ impl<'a> IndexStack {
             if let Some(indexes_to_compact) = self.indexes_by_resolution.remove(&res) {
                 let compacted = compact(&indexes_to_compact);
                 for h3_index in compacted {
-                    let res = get_resolution(h3_index) as u8;
+                    let res = Index::from(h3_index).resolution();
                     resolutions_touched.insert(res);
                     self.indexes_by_resolution.entry(res)
                         .or_insert_with(Vec::new)
@@ -160,22 +134,21 @@ impl<'a> IndexStack {
             }
         }
     }
-
 }
 
-impl Default for IndexStack {
+impl Default for H3IndexStack {
     fn default() -> Self {
-        IndexStack::new()
+        H3IndexStack::new()
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::stack::IndexStack;
+    use crate::stack::H3IndexStack;
 
     #[test]
     fn test_compactedindexstack_is_empty() {
-        let mut stack = IndexStack::new();
+        let mut stack = H3IndexStack::new();
         assert!(stack.is_empty());
         assert_eq!(stack.len(), 0);
         stack.add_indexes(vec![0x89283080ddbffff_u64].as_ref(), false);
