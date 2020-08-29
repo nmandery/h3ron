@@ -15,15 +15,16 @@ use rusqlite::{NO_PARAMS, OptionalExtension};
 #[cfg(feature = "sqlite")]
 use rusqlite::types::ToSqlOutput;
 
-use h3::{get_resolution, h3_to_string};
-use h3::stack::IndexStack;
+use h3::index::Index;
+use h3::stack::H3IndexStack;
+//use h3_sys::H3Index;
 
 use crate::geo::polygon_has_dateline_wrap;
 use crate::input::Value;
 use std::cmp::max;
 
 pub type Attributes = Vec<Option<Value>>;
-pub type GroupedH3Indexes = HashMap<Attributes, IndexStack>;
+pub type GroupedH3Indexes = HashMap<Attributes, H3IndexStack>;
 
 pub struct ConvertedRaster {
     pub value_types: Vec<Value>,
@@ -155,7 +156,8 @@ impl ConvertedRaster {
                 })?;
 
                 for h3index in compacted_stack.indexes_by_resolution.values().flatten() {
-                    let resolution = get_resolution(*h3index);
+                    let index = Index::from(*h3index);
+                    let resolution = index.resolution();
                     if h3index_as_blob {
                         let mut buf = [0; 8];
                         byteorder::BigEndian::write_u64(&mut buf, *h3index);
@@ -165,9 +167,9 @@ impl ConvertedRaster {
                         ];
                         insert_index_stmt.execute(sql_params)?;
                     } else {
-                        let index_str = h3_to_string(*h3index);
+                        let index_string = index.to_string();
                         let sql_params: Vec<&dyn ToSql> = vec![
-                            &index_str, &resolution, &attribute_set_id
+                            &index_string, &resolution, &attribute_set_id
                         ];
                         insert_index_stmt.execute(sql_params)?;
                     }
@@ -228,7 +230,8 @@ impl ConvertedRaster {
         do_send_progress(num_written_features);
         for (attr, compacted_stack) in self.indexes.iter() {
             for h3index in compacted_stack.indexes_by_resolution.values().flatten() {
-                if let Some(poly) = h3::polygon_from_h3index(*h3index) {
+                let index = Index::from(*h3index);
+                let poly = index.polygon();
 
                     // ignore indexes spanning the whole extend as they are
                     // located on the "backside" of the world
@@ -246,8 +249,8 @@ impl ConvertedRaster {
                     //gdal_geom.add_geometry()
                     let mut feature = Feature::new(&defn)?;
                     feature.set_geometry(gdal_geom)?;
-                    feature.set_field_string(index_field_name, &h3_to_string(*h3index))?;
-                    feature.set_field_integer(res_field_name, get_resolution(*h3index))?;
+                    feature.set_field_string(index_field_name, &index.to_string())?;
+                    feature.set_field_integer(res_field_name, index.resolution() as i32)?;
 
                     for (i, val_opt) in attr.iter().enumerate() {
                         if let Some(val) = val_opt {
@@ -267,7 +270,6 @@ impl ConvertedRaster {
                         }
                     }
                     feature.create(layer)?;
-                }
 
                 num_written_features += 1;
                 if (num_written_features % progress_step_size) == 0 {

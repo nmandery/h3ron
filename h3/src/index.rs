@@ -120,7 +120,7 @@ impl Index {
     }
 
 
-    pub fn from_coordinate(c: &Coordinate<f64>, h3_resolution: i32) -> Self {
+    pub fn from_coordinate(c: &Coordinate<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = coordinate_to_geocoord(c);
             h3_sys::geoToH3(&gc, h3_resolution as c_int)

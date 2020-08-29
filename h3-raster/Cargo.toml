@@ -9,6 +9,7 @@ sqlite = [ "rusqlite", "byteorder" ]
 
 [dependencies]
 h3-sys = { path = "../h3-sys" }
+h3-util = { path = "../h3-util" }
 h3 = { path = "../h3", features = ["with-geo-types-0_4"], default_features = false}
 geo-types = "^0.4.0"
 log = "0.4.8"

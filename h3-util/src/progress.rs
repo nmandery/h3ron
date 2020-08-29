@@ -1,7 +1,6 @@
 use std::thread;
 
 use crossbeam::channel::Receiver;
-use h3_raster::rasterconverter::ConversionProgress;
 use indicatif::{ProgressBar, ProgressStyle};
 
 pub trait ProgressPosition {
@@ -10,10 +9,6 @@ pub trait ProgressPosition {
 
 impl ProgressPosition for usize {
     fn position(&self) -> u64 { *self as u64 }
-}
-
-impl ProgressPosition for ConversionProgress {
-    fn position(&self) -> u64 { self.tiles_done as u64 }
 }
 
 pub struct Progress {

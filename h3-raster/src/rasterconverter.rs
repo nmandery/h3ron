@@ -9,19 +9,25 @@ use gdal::spatial_ref::SpatialRef;
 use gdal_geotransform::GeoTransformer;
 use geo_types::Rect;
 
-use h3::{AreaUnits, k_ring};
-use h3::stack::IndexStack;
+use h3::{AreaUnits};
+use h3::stack::H3IndexStack;
 use h3_sys::H3Index;
+use h3_util::progress::ProgressPosition;
 
 use crate::convertedraster::{Attributes, ConvertedRaster, GroupedH3Indexes};
 use crate::error::Error;
 use crate::geo::{area_rect, rect_contains, rect_from_coordinates};
 use crate::input::{ClassifiedBand, ToValue, Value};
 use crate::tile::{generate_tiles, Tile};
+use h3::index::Index;
 
 pub struct ConversionProgress {
     pub tiles_total: usize,
     pub tiles_done: usize,
+}
+
+impl ProgressPosition for ConversionProgress {
+    fn position(&self) -> u64 { self.tiles_done as u64 }
 }
 
 pub struct RasterConverter {
@@ -110,7 +116,6 @@ impl RasterConverter {
     }
 
     pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>, compact: bool) -> Result<ConvertedRaster, Error> {
-
         let tiles_total = tiles.len();
         crossbeam::scope(|scope| {
             let (send_subset, recv_subset): (Sender<ConversionSubset>, Receiver<ConversionSubset>) = bounded(num_threads as usize);
@@ -161,16 +166,15 @@ impl RasterConverter {
                 for mut gi in recv_result.iter() {
                     for (attributes, mut compacted_stack) in gi.drain() {
                         grouped_indexes.entry(attributes)
-                            .or_insert_with(IndexStack::new)
+                            .or_insert_with(H3IndexStack::new)
                             .append(&mut compacted_stack, false)
-
                     }
 
                     if let Some(ps) = &progress_sender {
                         tiles_done += 1;
                         ps.send(ConversionProgress {
                             tiles_total,
-                            tiles_done
+                            tiles_done,
                         }).unwrap();
                     }
                 }
@@ -184,7 +188,7 @@ impl RasterConverter {
                 send_final_result.send(grouped_indexes).unwrap()
             });
 
-            for  tile in tiles.iter() {
+            for tile in tiles.iter() {
                 let banddata = self.extract_input_bands(tile).unwrap();
                 let subset = ConversionSubset {
                     tile: tile.clone(),
@@ -238,16 +242,16 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut su
         .collect();
 
      */
-/*
-    let mut attributes_by_pos2 = HashMap::new();
-    for mut v in subset.banddata.drain(..) {
-        let mut idx = 0_usize;
-        for v2 in v.drain(..) {
-            attributes_by_pos2.entry(idx).or_insert_with(Vec::new).push(v2);
-            idx += 1
+    /*
+        let mut attributes_by_pos2 = HashMap::new();
+        for mut v in subset.banddata.drain(..) {
+            let mut idx = 0_usize;
+            for v2 in v.drain(..) {
+                attributes_by_pos2.entry(idx).or_insert_with(Vec::new).push(v2);
+                idx += 1
+            }
         }
-    }
-*/
+    */
 
     let mut attributes_by_pos = {
         let n_bands = subset.banddata.len();
@@ -288,43 +292,44 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut su
         let mut indexes_to_check = VecDeque::new();
         let mut indexes_scheduled: HashSet<H3Index> = HashSet::new();
 
-// find the first h3 index located inside the cluster
+        // find the first h3 index located inside the cluster
         for cluster_pos in cluster.iter() {
             let pixel_in_tile = array_position_to_pixel(*cluster_pos, subset.tile.size);
 
-// find the nearest h3 index for this pixel
-            let index = h3::coordinate_to_h3index(
+            // find the nearest h3 index for this pixel
+            let index = Index::from_coordinate(
                 &subset.geotransformer.pixel_to_coordinate((
                     subset.tile.offset_origin.0 + pixel_in_tile.1,
                     subset.tile.offset_origin.1 + pixel_in_tile.0
                 )),
-                subset.h3_resolution as i32,
+                subset.h3_resolution,
             );
 
-            let coordinate = h3::coordinate_from_h3index(index);
+            let coordinate = index.coordinate();
             if !rect_contains(&tile_bounds, &coordinate) {
                 continue;
             }
 
-// reverse-check if the h3 index is located in the cluster, or outside of it
+            // reverse-check if the h3 index is located in the cluster, or outside of it
             let index_pos = pixel_to_array_position(subset.tile.to_tile_relative_pixel(
                 subset.geotransformer.coordinate_to_pixel(coordinate)
             ), subset.tile.size);
 
             if cluster.contains(&index_pos) {
-                indexes_to_check.push_back(index);
-                indexes_scheduled.insert(index);
+                indexes_to_check.push_back(index.h3index());
+                indexes_scheduled.insert(index.h3index());
                 break;
             }
         }
 
         let mut indexes_visited: HashSet<H3Index> = HashSet::new();
 
-// start h3 region growing from the first index of the cluster
-        while let Some(this_index) = indexes_to_check.pop_front() {
-            indexes_visited.insert(this_index);
+        // start h3 region growing from the first index of the cluster
+        while let Some(this_h3index) = indexes_to_check.pop_front() {
+            indexes_visited.insert(this_h3index);
+            let this_index = Index::from(this_h3index);
 
-            let this_coordinate = h3::coordinate_from_h3index(this_index);
+            let this_coordinate = this_index.coordinate();
             if !rect_contains(&tile_bounds, &this_coordinate) {
                 continue;
             }
@@ -337,22 +342,22 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut su
             }
 
             if let Some(attributes) = attributes_by_pos.get(&this_index_pos) {
-                indexes_to_add.entry(attributes.clone()).or_insert_with(Vec::new).push(this_index);
-                for neighbor in k_ring(this_index, 1).iter() {
-                    if !(indexes_visited.contains(neighbor) || indexes_scheduled.contains(neighbor)) {
-                        indexes_to_check.push_back(*neighbor);
-                        indexes_scheduled.insert(*neighbor);
+                indexes_to_add.entry(attributes.clone()).or_insert_with(Vec::new).push(this_h3index);
+                for neighbor in this_index.k_ring(1).iter() {
+                    if !(indexes_visited.contains( &neighbor.h3index()) || indexes_scheduled.contains(&neighbor.h3index())) {
+                        indexes_to_check.push_back(neighbor.h3index());
+                        indexes_scheduled.insert(neighbor.h3index());
                     }
                 }
             }
         }
 
-// remove the positions which were visited in this iteration
+        // remove the positions which were visited in this iteration
         cluster.iter()
             .for_each(|pos| { let _ = attributes_by_pos.remove(pos); });
     };
 
-// copy the collected into the grouped indexes to perform compacting
+    // copy the collected into the grouped indexes to perform compacting
     for (attributes_ref, mut h3indexes) in indexes_to_add.drain() {
         let attributes = attributes_ref.iter()
             .map(|a| {
@@ -362,7 +367,7 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut su
                 }
             }).collect();
         grouped_indexes.entry(attributes)
-            .or_insert_with(IndexStack::new)
+            .or_insert_with(H3IndexStack::new)
             .append_to_resolution(subset.h3_resolution, h3indexes.as_mut(), compact);
     }
 
@@ -375,16 +380,16 @@ fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut su
 fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: ConversionSubset, compact: bool) -> GroupedH3Indexes {
     let mut indexes_to_check = VecDeque::new();
     indexes_to_check.push_back(
-        h3::coordinate_to_h3index(
+        Index::from_coordinate(
             subset.geotransformer.pixel_to_coordinate(subset.tile.center_pixel()).borrow(),
-            subset.h3_resolution as i32,
-        )
+            subset.h3_resolution,
+        ).h3index()
     );
 
     let mut grouped_indexes = GroupedH3Indexes::new();
 
-// IMPROVEMENT: rewrite to use https://doc.rust-lang.org/std/collections/struct.BTreeSet.html#method.pop_first
-// once this leaves nightly
+    // IMPROVEMENT: rewrite to use https://doc.rust-lang.org/std/collections/struct.BTreeSet.html#method.pop_first
+    // once this leaves nightly
     let mut indexes_scheduled: HashSet<H3Index> = HashSet::new();
     let mut indexes_visited: HashSet<H3Index> = HashSet::new();
     let mut indexes_to_add: HashMap<Attributes, Vec<H3Index>> = HashMap::new();
@@ -392,7 +397,8 @@ fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: Co
         indexes_visited.insert(this_h3index);
         indexes_scheduled.remove(&this_h3index);
 
-        let coordinate = h3::coordinate_from_h3index(this_h3index);
+        let this_index = Index::from(this_h3index);
+        let coordinate = this_index.coordinate();
         if !rect_contains(&tile_bounds, &coordinate) {
             continue;
         }
@@ -412,32 +418,32 @@ fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: Co
             }
         }).collect();
 
-// add when the attributes are not all None
+        // add when the attributes are not all None
         if attributes.iter().any(|a| a.is_some()) {
             let target_vec = indexes_to_add.entry(attributes.clone()).or_insert_with(Vec::new);
             target_vec.push(this_h3index);
 
-// attempt to save a bit of space by compacting what we got
+            // attempt to save a bit of space by compacting what we got
             if target_vec.len() > 20_000 {
                 grouped_indexes.entry(attributes)
-                    .or_insert_with(IndexStack::new)
+                    .or_insert_with(H3IndexStack::new)
                     .append_to_resolution(subset.h3_resolution, target_vec, compact);
             }
         }
 
-// check the neighbors
-// IMPROVEMENT: re-use the vector used within kring
-        for neighbor in k_ring(this_h3index, 1).iter() {
-            if !(indexes_visited.contains(neighbor) || indexes_scheduled.contains(neighbor)) {
-                indexes_to_check.push_back(*neighbor);
-                indexes_scheduled.insert(*neighbor);
+        // check the neighbors
+        // IMPROVEMENT: re-use the vector used within kring
+        for neighbor in this_index.k_ring(1).iter() {
+            if !(indexes_visited.contains(&neighbor.h3index()) || indexes_scheduled.contains(&neighbor.h3index())) {
+                indexes_to_check.push_back(neighbor.h3index());
+                indexes_scheduled.insert(neighbor.h3index());
             }
         }
     }
 
     for (attributes, mut h3indexes) in indexes_to_add.drain() {
         grouped_indexes.entry(attributes)
-            .or_insert_with(IndexStack::new)
+            .or_insert_with(H3IndexStack::new)
             .append_to_resolution(subset.h3_resolution, h3indexes.as_mut(), compact);
     }
 

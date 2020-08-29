@@ -9,4 +9,3 @@ crossbeam = "0.7"
 indicatif = "0.14"
 atty = "0.2"
 log = "^0.4"
-h3-raster = { path = "../h3-raster" }
