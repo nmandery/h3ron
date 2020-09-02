@@ -138,6 +138,55 @@ impl Index {
         remove_zero_indexes_from_vec!(h3_indexes_out);
         h3indexes_to_indexes(h3_indexes_out)
     }
+
+    pub fn hex_ring(&self, k: u32) -> Result<Vec<Index>, Error> {
+        // calculation of max_size taken from
+        // https://github.com/uber/h3-py/blob/dd08189b378429291c342d0af3d3cc1e38a659d5/src/h3/_cy/cells.pyx#L111
+        let max_size = if k > 0 { 6 * k as usize } else { 1 };
+        let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
+
+        let res = unsafe {
+            h3_sys::hexRing(self.0, k as c_int, h3_indexes_out.as_mut_ptr()) as c_int
+        };
+        if res == 0 {
+            remove_zero_indexes_from_vec!(h3_indexes_out);
+            Ok(h3indexes_to_indexes(h3_indexes_out))
+        } else {
+            Err(Error::PentagonalDistortion)
+        }
+    }
+
+    pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, Index)> {
+        let max_size = unsafe { h3_sys::maxKringSize(k_max as c_int) as usize };
+        let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
+        let mut distances_out: Vec<c_int> = vec![0; max_size];
+        unsafe {
+            h3_sys::kRingDistances(self.0, k_max as c_int, h3_indexes_out.as_mut_ptr(), distances_out.as_mut_ptr())
+        };
+        self.associate_index_distances(h3_indexes_out, distances_out, k_min)
+    }
+
+    pub fn hex_range_distances(&self, k_min: u32, k_max: u32) -> Result<Vec<(u32, Index)>, Error> {
+        let max_size = unsafe { h3_sys::maxKringSize(k_max as c_int) as usize };
+        let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
+        let mut distances_out: Vec<c_int> = vec![0; max_size];
+        let res = unsafe {
+            h3_sys::hexRangeDistances(self.0, k_max as c_int, h3_indexes_out.as_mut_ptr(), distances_out.as_mut_ptr()) as c_int
+        };
+        if res == 0 {
+            Ok(self.associate_index_distances(h3_indexes_out, distances_out, k_min))
+        } else {
+            Err(Error::PentagonalDistortion) // may also be PentagonEncountered
+        }
+    }
+
+    fn associate_index_distances(&self, mut h3_indexes_out: Vec<H3Index>, distances_out: Vec<c_int>, k_min: u32) -> Vec<(u32, Index)> {
+        h3_indexes_out.drain(..)
+            .enumerate()
+            .filter(|(idx, h3index)| { *h3index != 0 && distances_out[*idx] >= k_min as i32 })
+            .map(|(idx, h3index)| { (distances_out[idx] as u32, Index::from(h3index)) })
+            .collect()
+    }
 }
 
 impl ToString for Index {
@@ -192,5 +241,49 @@ mod tests {
     fn test_is_valid() {
         assert_eq!(Index::from(0x89283080ddbffff_u64).is_valid(), true);
         assert_eq!(Index::from(0_u64).is_valid(), false);
+    }
+
+    #[test]
+    fn test_hex_ring_1() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let ring = idx.hex_ring(1).unwrap();
+        assert_eq!(ring.len(), 6);
+        assert!(ring.iter().all(|index| index.is_valid()));
+    }
+
+    #[test]
+    fn test_hex_ring_0() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let ring = idx.hex_ring(0).unwrap();
+        assert_eq!(ring.len(), 1);
+        assert!(ring.iter().all(|index| index.is_valid()));
+    }
+
+    #[test]
+    fn test_k_ring_distances() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let k_min = 2;
+        let k_max = 2;
+        let indexes = idx.k_ring_distances(k_min, k_max);
+        assert!(indexes.len() > 10);
+        for (k, index) in indexes.iter() {
+            assert!(index.is_valid());
+            assert!(*k >= k_min);
+            assert!(*k <= k_max);
+        }
+    }
+
+    #[test]
+    fn test_hex_range_distances() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let k_min = 2;
+        let k_max = 2;
+        let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
+        assert!(indexes.len() > 10);
+        for (k, index) in indexes.iter() {
+            assert!(index.is_valid());
+            assert!(*k >= k_min);
+            assert!(*k <= k_max);
+        }
     }
 }

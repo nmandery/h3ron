@@ -5,6 +5,7 @@ pub enum Error {
     NoLocalIJCoordinates,
     InvalidInput,
     InvalidH3Index,
+    PentagonalDistortion,
 }
 
 impl fmt::Display for Error {
@@ -13,6 +14,7 @@ impl fmt::Display for Error {
             Self::InvalidInput => write!(f, "invalid input"),
             Self::InvalidH3Index => write!(f, "invalid h3 index"),
             Self::NoLocalIJCoordinates => write!(f, "no local IJ coordinates found"),
+            Self::PentagonalDistortion => write!(f, "pentagonal distortion"),
         }
     }
 }
