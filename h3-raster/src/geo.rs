@@ -1,13 +1,18 @@
-use geo_types::{Coordinate, CoordinateType, Polygon, Rect, LineString};
+use std::cmp::min;
+use std::ops::Range;
 
-pub fn rect_contains(rect: &Rect<f64>, coordinate: &Coordinate<f64>) -> bool {
+use geo_types::{Coordinate, CoordinateType, LineString, Polygon, Rect};
+
+pub fn rect_contains<T>(rect: &Rect<T>, coordinate: &Coordinate<T>) -> bool
+    where T: CoordinateType {
     (rect.min.x <= coordinate.x)
         && (rect.min.y <= coordinate.y)
         && (rect.max.x >= coordinate.x)
         && (rect.max.y >= coordinate.y)
 }
 
-pub fn rect_from_coordinates(c1: Coordinate<f64>, c2: Coordinate<f64>) -> Rect<f64> {
+pub fn rect_from_coordinates<T>(c1: Coordinate<T>, c2: Coordinate<T>) -> Rect<T>
+    where T: CoordinateType {
     Rect::new(
         Coordinate {
             x: if c1.x > c2.x { c2.x } else { c1.x },
@@ -67,4 +72,47 @@ pub fn polygon_has_dateline_wrap<T: CoordinateType>(poly: &Polygon<T>) -> bool {
             )
         });
     (xmax - xmin) > T::from(270.0).unwrap()
+}
+
+/// generates a list of coordinates which form a circle
+///
+/// TODO: generating circle with a continuous series of values for the outer_radius
+/// will probably result in a few holes at larger diameters.
+pub struct Circle {
+    pub outer_radius: u32,
+    r2_outer: u32,
+    r2_inner: u32,
+    rr: u32,
+    range: Range<u32>,
+}
+
+impl Circle {
+    pub fn new(outer_radius: u32, width: u32) -> Self {
+        let r2_outer = outer_radius.pow(2);
+        let r2_inner = (outer_radius - min(width, outer_radius)).pow(2);
+        let area = r2_outer << 2;
+        Self {
+            outer_radius,
+            r2_outer,
+            r2_inner,
+            rr: outer_radius << 1,
+            range: 0..area,
+        }
+    }
+}
+
+impl Iterator for Circle {
+    type Item = Coordinate<i32>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(i) = self.range.next() {
+            let tx = (i % self.rr) as i32 - self.outer_radius as i32;
+            let ty = (i / self.rr) as i32 - self.outer_radius as i32;
+            let t = tx.pow(2) + ty.pow(2);
+            if ((self.r2_inner as i32) <= t) && (t <= self.r2_outer as i32) {
+                return Some(Coordinate { x: tx, y: ty });
+            }
+        }
+        None
+    }
 }

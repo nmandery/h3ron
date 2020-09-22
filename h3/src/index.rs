@@ -128,8 +128,8 @@ impl Index {
         Index::from(h3index)
     }
 
-    pub fn k_ring(&self, k: i32) -> Vec<Index> {
-        let max_size = unsafe { h3_sys::maxKringSize(k) as usize };
+    pub fn k_ring(&self, k: u32) -> Vec<Index> {
+        let max_size = unsafe { h3_sys::maxKringSize(k as i32) as usize };
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
 
         unsafe {
@@ -223,6 +223,8 @@ mod tests {
     use std::str::FromStr;
 
     use crate::index::Index;
+    use std::collections::HashMap;
+    use h3_sys::H3Index;
 
     #[test]
     fn test_h3_to_string() {
@@ -279,6 +281,30 @@ mod tests {
         let k_min = 2;
         let k_max = 2;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
+        assert!(indexes.len() > 10);
+        for (k, index) in indexes.iter() {
+            assert!(index.is_valid());
+            assert!(*k >= k_min);
+            assert!(*k <= k_max);
+        }
+    }
+
+    #[test]
+    fn test_hex_range_distances_2() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let k_min = 0;
+        let k_max = 10;
+        let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
+
+        let mut indexes_resolutions: HashMap<H3Index, Vec<u32>>= HashMap::new();
+        for (dist, idx) in indexes.iter() {
+            indexes_resolutions.entry(idx.h3index())
+                .and_modify(|v| v.push(*dist))
+                .or_insert_with(|| vec![*dist]);
+
+        }
+
+        println!("{:?}", indexes_resolutions);
         assert!(indexes.len() > 10);
         for (k, index) in indexes.iter() {
             assert!(index.is_valid());

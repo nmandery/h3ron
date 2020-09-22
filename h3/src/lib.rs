@@ -74,6 +74,8 @@ pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
 }
 
 
+///
+/// the input vec must be deduplicated
 pub fn compact(h3_indexes: &[H3Index]) -> Vec<H3Index> {
     let mut h3_indexes_out: Vec<H3Index> = vec![0; h3_indexes.len()];
     unsafe {

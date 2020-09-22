@@ -1,56 +1,92 @@
 use std::cmp::min;
 
 use gdal::raster::RasterBand;
+use geo_types::{Coordinate, Rect};
+
+use crate::geo::rect_from_coordinates;
+use crate::error::Error;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dimensions {
+    pub width: usize,
+    pub height: usize,
+}
+
+impl From<(usize, usize)> for Dimensions {
+    fn from(t: (usize, usize)) -> Self {
+        Dimensions {
+            width: t.0,
+            height: t.1,
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Tile {
     /// offset to origin (top-left corner)
-    /// (x, y)
-    pub offset_origin: (usize, usize),
+    pub offset_origin: Coordinate<usize>,
 
-    /// size of the tile (width, height)
-    pub size: (usize, usize),
+    /// size of the tile
+    pub size: Dimensions,
 }
 
 
 impl Tile {
     /// global center pixel of the tile
-    pub fn center_pixel(&self) -> (usize, usize) {
-        (
-            self.offset_origin.0 + (self.size.0 as f64 / 2.0).floor() as usize,
-            self.offset_origin.1 + (self.size.1 as f64 / 2.0).floor() as usize
-        )
+    pub fn center_pixel(&self) -> Coordinate<usize> {
+        Coordinate {
+            x: self.offset_origin.x + (self.size.width as f64 / 2.0).round() as usize,
+            y: self.offset_origin.y + (self.size.height as f64 / 2.0).round() as usize,
+        }
     }
 
-    pub fn to_tile_relative_pixel(&self, pixel: (usize, usize)) -> (usize, usize) {
-        (
-            pixel.0 - self.offset_origin.0,
-            pixel.1 - self.offset_origin.1,
-        )
+
+    pub fn to_tile_relative_pixel(&self, pixel: &Coordinate<usize>) -> Result<Coordinate<usize>,Error> {
+        if pixel.x < self.offset_origin.x || pixel.y < self.offset_origin.y {
+            Err(Error::OutOfBounds)
+        } else {
+            Ok(Coordinate {
+                x: pixel.x - self.offset_origin.x,
+                y: pixel.y - self.offset_origin.y,
+            })
+        }
     }
 
     /// convert a pixel coordinate from the tile to a global pixel coordinate
     /// in the un-tiled dataset
     /// (x, y)
-    pub fn get_global_coordinate(&self, c: (usize, usize)) -> (usize, usize) {
-        (self.offset_origin.0 + c.0, self.offset_origin.1 + c.1)
+    pub fn get_global_coordinate(&self, c: &Coordinate<usize>) -> Coordinate<usize> {
+        Coordinate {
+            x: self.offset_origin.x + c.x,
+            y: self.offset_origin.y + c.y,
+        }
+    }
+
+    pub fn bounds(&self) -> Rect<usize> {
+        rect_from_coordinates(
+            self.offset_origin,
+            Coordinate {
+                x: self.offset_origin.x + self.size.width,
+                y: self.offset_origin.y + self.size.height,
+            },
+        )
     }
 }
 
 
-pub fn generate_tiles(full_size: (usize, usize), tile_size: (usize, usize)) -> Vec<Tile> {
+pub fn generate_tiles(full_size: &Dimensions, tile_size: &Dimensions) -> Vec<Tile> {
     let mut tiles = vec![];
-    for tx in 0..(full_size.0 as f64 / tile_size.0 as f64).ceil() as usize {
-        for ty in 0..(full_size.1 as f64 / tile_size.1 as f64).ceil() as usize {
+    for tx in 0..(full_size.width as f64 / tile_size.width as f64).ceil() as usize {
+        for ty in 0..(full_size.height as f64 / tile_size.height as f64).ceil() as usize {
             tiles.push(Tile {
-                offset_origin: (
-                    tx * tile_size.0,
-                    ty * tile_size.1,
-                ),
-                size: (
-                    min(full_size.0 - (tx * tile_size.0), tile_size.0),
-                    min(full_size.1 - (ty * tile_size.1), tile_size.1),
-                ),
+                offset_origin: Coordinate {
+                    x: tx * tile_size.width,
+                    y: ty * tile_size.height,
+                },
+                size: Dimensions {
+                    width: min(full_size.width - (tx * tile_size.width), tile_size.width),
+                    height: min(full_size.height - (ty * tile_size.height), tile_size.height),
+                },
             })
         }
     }
@@ -65,50 +101,70 @@ pub fn generate_tiles(full_size: (usize, usize), tile_size: (usize, usize)) -> V
 /// raster band for more efficient IO.
 ///
 /// see https://gis.stackexchange.com/questions/292754/efficiently-read-large-tif-raster-to-a-numpy-array-with-gdal
-pub fn tile_size_from_rasterband(rasterband: &RasterBand) -> (usize, usize) {
+pub fn tile_size_from_rasterband(rasterband: &RasterBand, min_num_tiles: usize) -> Dimensions {
     let block_size = rasterband.block_size();
     let band_size = rasterband.size();
+    let threshold = min(
+        (band_size.0 * band_size.1) / min_num_tiles,
+        2_000_000
+    );
     let mut tile_size = block_size;
     loop {
         let new_tile_size = (
             if tile_size.0 > tile_size.1 { tile_size.0 } else { tile_size.0 + block_size.0 },
             if tile_size.1 > tile_size.0 { tile_size.1 } else { tile_size.1 + block_size.1 },
         );
-        if ((new_tile_size.0 * new_tile_size.1) > 4_000_000)
+        if ((new_tile_size.0 * new_tile_size.1) > threshold)
             || (new_tile_size.0 > band_size.0)
             || (new_tile_size.1 > band_size.1) {
             break;
         }
         tile_size = new_tile_size
     }
-    tile_size
+    tile_size.into()
 }
 
 
 #[cfg(test)]
 mod tests {
+    use geo_types::Coordinate;
+
+    use crate::tile::Dimensions;
+
     use super::generate_tiles;
 
     #[test]
     fn test_tiles_equal_size() {
-        let size = (1000, 1200);
-        let tile_size = (200, 200);
-        let tiles = generate_tiles(size, tile_size);
+        let size = Dimensions {
+            width: 1000,
+            height: 1200,
+        };
+        let tile_size = Dimensions {
+            width: 200,
+            height: 200,
+        };
+        let tiles = generate_tiles(&size, &tile_size);
 
         assert_eq!(tiles.len(), 30);
-        assert_eq!(tiles.last().unwrap().offset_origin, (800, 1000));
+        assert_eq!(tiles.last().unwrap().offset_origin, Coordinate { x: 800, y: 1000 });
         assert_eq!(tiles.last().unwrap().size, tile_size);
     }
 
     #[test]
     fn test_tiles_not_equal_size() {
-        let size = (990, 1180);
-        let tile_size = (200, 200);
-        let tiles = generate_tiles(size, tile_size);
+        let size = Dimensions {
+            width: 990,
+            height: 1180,
+        };
+        let tile_size = Dimensions {
+            width: 200,
+            height: 200,
+        };
+        let tiles = generate_tiles(&size, &tile_size);
 
         assert_eq!(tiles.len(), 30);
-        assert_eq!(tiles.last().unwrap().offset_origin, (800, 1000));
+        assert_eq!(tiles.last().unwrap().offset_origin, Coordinate { x: 800, y: 1000 });
         assert_eq!(tiles.first().unwrap().size, tile_size);
-        assert_eq!(tiles.last().unwrap().size, (190, 180));
+        assert_eq!(tiles.last().unwrap().size, Dimensions { width: 190, height: 180 });
     }
 }

@@ -1,25 +1,24 @@
-use std::borrow::Borrow;
 use std::cmp::max;
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
 use crossbeam::channel::{bounded, Receiver, Sender};
-use gdal::raster::Dataset;
+use gdal::raster::{Buffer, Dataset, RasterBand};
+use gdal::raster::types::GdalType;
 use gdal::spatial_ref::SpatialRef;
-use gdal_geotransform::GeoTransformer;
-use geo_types::Rect;
+use geo_types::{Coordinate, Polygon, Rect};
 
-use h3::{AreaUnits};
+use h3::{AreaUnits, polyfill};
+use h3::index::Index;
 use h3::stack::H3IndexStack;
-use h3_sys::H3Index;
 use h3_util::progress::ProgressPosition;
 
-use crate::convertedraster::{Attributes, ConvertedRaster, GroupedH3Indexes};
+use crate::convertedraster::{ConvertedRaster, GroupedH3Indexes};
 use crate::error::Error;
-use crate::geo::{area_rect, rect_contains, rect_from_coordinates};
-use crate::input::{ClassifiedBand, ToValue, Value};
-use crate::tile::{generate_tiles, Tile};
-use h3::index::Index;
+use crate::geo::{area_rect, rect_from_coordinates};
+use crate::geotransform::GeoTransformer;
+use crate::input::{ClassifiedBand, Classifier, ToValue, Value};
+use crate::tile::{Dimensions, generate_tiles, Tile};
 
 pub struct ConversionProgress {
     pub tiles_total: usize,
@@ -37,13 +36,126 @@ pub struct RasterConverter {
     h3_resolution: u8,
 }
 
-struct ConversionSubset {
-    pub tile: Tile,
-    pub geotransformer: GeoTransformer,
-    banddata: Vec<Vec<Option<Value>>>,
-    h3_resolution: u8,
+
+fn position_to_pixel(tile: &Tile, pos: usize) -> Result<Coordinate<usize>, Error> {
+    let pixel = Coordinate {
+        x: pos % tile.size.width,
+        y: pos / tile.size.width,
+    };
+    if pixel.x > tile.size.width || pixel.y > tile.size.height {
+        Err(Error::OutOfBounds)
+    } else {
+        Ok(pixel)
+    }
 }
 
+fn pixel_to_position(tile: &Tile, tile_pixel: &Coordinate<usize>) -> Result<usize, Error> {
+    Ok((tile_pixel.y * tile.size.width) + tile_pixel.x)
+}
+
+
+struct SparseCoordinateMap<T> {
+    pub inner: HashMap<usize, T>,
+    pub tile: Tile,
+    pub geotransformer: GeoTransformer,
+}
+
+impl<T> SparseCoordinateMap<T> {
+    pub fn new(tile: Tile, geotransformer: GeoTransformer) -> Self {
+        Self {
+            inner: Default::default(),
+            tile,
+            geotransformer,
+        }
+    }
+
+    pub fn bounds(&self) -> Rect<f64> {
+        rect_from_coordinates(
+            self.geotransformer.pixel_to_coordinate(
+                &self.tile.get_global_coordinate(&Coordinate { x: self.tile.size.width, y: self.tile.size.height })),
+            self.geotransformer.pixel_to_coordinate(&self.tile.offset_origin),
+        )
+    }
+
+    pub fn value_at_coordinate(&self, c: &Coordinate<f64>) -> Result<Option<(usize, &T)>, Error> {
+        let pos = self.coordinate_to_position(c)?;
+        let value = if let Some(v) = self.inner.get(&pos) {
+            Some((pos, v))
+        } else {
+            None
+        };
+        Ok(value)
+    }
+
+    #[allow(dead_code)]
+    pub fn value_at_position(&self, pos: &usize) -> Option<&T> {
+        self.inner.get(pos)
+    }
+
+    /// return a random value, or None when the Map is empty
+    pub fn random_value(&self) -> Option<(usize, &T)> {
+        if let Some((pos, value)) = self.inner.iter().next() {
+            Some((*pos, value))
+        } else {
+            None
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    pub fn remove(&mut self, position: &usize) -> Option<T> {
+        self.inner.remove(position)
+    }
+
+    /// convert the key of the inner map to the pixel coordinates within
+    /// the tile
+    fn position_to_pixel(&self, pos: usize) -> Result<Coordinate<usize>, Error> {
+        position_to_pixel(&self.tile, pos)
+    }
+
+    /// convert the pixel coordinates from the tile to the key of the inner map
+    fn pixel_to_position(&self, tile_pixel: &Coordinate<usize>) -> Result<usize, Error> {
+        pixel_to_position(&self.tile, tile_pixel)
+    }
+
+    pub fn position_to_coordinate(&self, pos: usize) -> Result<Coordinate<f64>, Error> {
+        let pixel = self.position_to_pixel(pos)?;
+        let c = self.geotransformer.pixel_to_coordinate(
+            &self.tile.get_global_coordinate(&pixel)
+        );
+        Ok(c)
+    }
+
+    pub fn coordinate_to_position(&self, c: &Coordinate<f64>) -> Result<usize, Error> {
+        let pixel = {
+            let pixel_in_dataset = self.geotransformer.coordinate_to_pixel(c);
+            // make the pixel relative to the tile, not the dataset
+            self.tile.to_tile_relative_pixel(&pixel_in_dataset)?
+        };
+        self.pixel_to_position(&pixel)
+    }
+}
+
+type ValueSparseCoordinateMap = SparseCoordinateMap<Vec<Option<Value>>>;
+
+
+fn classifiy_band_and_append<T: Copy + GdalType + ToValue>(scm: &mut ValueSparseCoordinateMap, num_values: usize, band_i: usize, band: &RasterBand, tile: &Tile, classifier: &Box<dyn Classifier>) -> Result<(), Error> {
+    let window = (tile.offset_origin.x as isize, tile.offset_origin.y as isize);
+    let tile_size = (tile.size.width, tile.size.height);
+    let bd: Buffer<T> = band.read_as(window, tile_size, tile_size)?;
+    for (i, raw_value) in bd.data.iter().enumerate() {
+        let classified_value = classifier.classify(raw_value.to_value());
+        if classified_value.is_some() {
+            let entry = scm.inner.entry(i)
+                .or_insert_with(|| vec![None; num_values]);
+            entry[band_i] = classified_value;
+        }
+    }
+    Ok(())
+}
 
 impl RasterConverter {
     pub fn new(dataset: Dataset, inputs: Vec<ClassifiedBand>, h3_resolution: u8) -> Result<Self, Error> {
@@ -60,11 +172,9 @@ impl RasterConverter {
         // it is assumed that the SRS is correct
         let proj_str = dataset.projection();
         if !proj_str.is_empty() {
-            if let Ok(sr) = SpatialRef::from_definition(&proj_str) {
-                if let Ok(sr4326) = SpatialRef::from_epsg(4326) {
-                    if sr != sr4326 {
-                        return Err(Error::InvalidSRS);
-                    }
+            if let (Ok(sr), Ok(sr4326)) = (SpatialRef::from_definition(&proj_str), SpatialRef::from_epsg(4326)) {
+                if sr != sr4326 {
+                    return Err(Error::InvalidSRS);
                 }
             }
         }
@@ -77,87 +187,69 @@ impl RasterConverter {
         Ok(RasterConverter {
             dataset,
             inputs,
-            geotransformer: GeoTransformer::try_from(geotransform)
-                .map_err(|_| Error::GeotransformFailed)?,
+            geotransformer: GeoTransformer::try_from(geotransform)?,
             h3_resolution,
         })
     }
 
-    fn extract_input_bands(&self, tile: &Tile) -> Result<Vec<Vec<Option<Value>>>, Error> {
-        let mut input_data = vec![];
-        let window = (tile.offset_origin.0 as isize, tile.offset_origin.1 as isize);
 
-        for band_input in self.inputs.iter() {
+    fn extract_input_bands(&self, tile: &Tile, geotransformer: &GeoTransformer) -> Result<ValueSparseCoordinateMap, Error> {
+        let mut scm = ValueSparseCoordinateMap::new(tile.clone(), geotransformer.clone());
+        for (band_i, band_input) in self.inputs.iter().enumerate() {
             let band = self.dataset.rasterband(band_input.source_band as isize)?;
-
-            // block_size: https://gis.stackexchange.com/questions/292754/efficiently-read-large-tif-raster-to-a-numpy-array-with-gdal
-            macro_rules! extract_band {
-                ($datatype:path) => {{
-                    // when the band type does not match $datatype, gdal will cast the values
-                    let mut bd = band.read_as::<$datatype>(window, tile.size, tile.size)?;
-                    let result: Vec<_> = bd.data.drain(..)
-                        .map(|v| band_input.classifier.classify(v.to_value()))
-                        .collect();
-                    result
-                }}
-            }
-            let band_data: Vec<Option<Value>> = match band_input.classifier.value_type() {
-                Value::Uint8(_) => extract_band!(u8),
-                Value::Uint16(_) => extract_band!(u16),
-                Value::Uint32(_) => extract_band!(u32),
-                Value::Int16(_) => extract_band!(i16),
-                Value::Int32(_) => extract_band!(i32),
-                Value::Float32(_) => extract_band!(f32),
-                Value::Float64(_) => extract_band!(f64),
+            match band_input.classifier.value_type() {
+                Value::Uint8(_) => classifiy_band_and_append::<u8>(&mut scm, self.inputs.len(), band_i, &band, tile, &band_input.classifier)?,
+                Value::Uint16(_) => classifiy_band_and_append::<u16>(&mut scm, self.inputs.len(), band_i, &band, tile, &band_input.classifier)?,
+                Value::Uint32(_) => classifiy_band_and_append::<u32>(&mut scm, self.inputs.len(), band_i, &band, tile, &band_input.classifier)?,
+                Value::Int16(_) => classifiy_band_and_append::<i16>(&mut scm, self.inputs.len(), band_i, &band, tile, &band_input.classifier)?,
+                Value::Int32(_) => classifiy_band_and_append::<i32>(&mut scm, self.inputs.len(), band_i, &band, tile, &band_input.classifier)?,
+                Value::Float32(_) => classifiy_band_and_append::<f32>(&mut scm, self.inputs.len(), band_i, &band, tile, &band_input.classifier)?,
+                Value::Float64(_) => classifiy_band_and_append::<f64>(&mut scm, self.inputs.len(), band_i, &band, tile, &band_input.classifier)?,
             };
-            input_data.push(band_data);
         };
-        Ok(input_data)
+        Ok(scm)
     }
 
     pub fn convert_tiles(&self, num_threads: u32, tiles: Vec<Tile>, progress_sender: Option<Sender<ConversionProgress>>, compact: bool) -> Result<ConvertedRaster, Error> {
         let tiles_total = tiles.len();
         crossbeam::scope(|scope| {
-            let (send_subset, recv_subset): (Sender<ConversionSubset>, Receiver<ConversionSubset>) = bounded(num_threads as usize);
+            let (send_scm, recv_scm): (Sender<ValueSparseCoordinateMap>, Receiver<ValueSparseCoordinateMap>) = bounded(num_threads as usize);
             let (send_result, recv_result) = bounded(num_threads as usize);
             let (send_final_result, recv_final_result) = bounded(1);
 
             for _ in 0..num_threads {
-                let thread_recv_subset = recv_subset.clone();
+                let thread_recv_scm = recv_scm.clone();
                 let thread_send_result = send_result.clone();
-                let thread_compact = compact.clone();
+                let thread_h3_resolution = self.h3_resolution;
                 scope.spawn(move |_| {
-                    for subset in thread_recv_subset.iter() {
-                        let tile_bounds = rect_from_coordinates(
-                            subset.geotransformer.pixel_to_coordinate((
-                                subset.tile.offset_origin.0 + subset.tile.size.0,
-                                subset.tile.offset_origin.1 + subset.tile.size.1,
-                            )),
-                            subset.geotransformer.pixel_to_coordinate(subset.tile.offset_origin),
-                        );
+                    for scm in thread_recv_scm.iter() {
+                        let tile_bounds = scm.bounds();
 
                         // switch algorithms depending on the ratio of non-empty-pixels to the approximate number
                         // of h3 indexes fitting into the tile
-                        //    n_h3_indexes < n_pixels -> fill tile with h3 indexes and check the pixels at the h3 indexes
-                        //    n_h3_indexes > n_pixels -> find pixel clusters -> fill each cluster with h3 indexes individually
                         let n_h3indexes = max(
-                            (area_rect(&tile_bounds) / h3::hex_area_at_resolution(subset.h3_resolution as i32, AreaUnits::M2)).ceil() as usize,
+                            (area_rect(&tile_bounds) / h3::hex_area_at_resolution(thread_h3_resolution as i32, AreaUnits::M2)).ceil() as usize,
                             1,
                         );
-                        let n_pixels = subset.tile.size.0 * subset.tile.size.1;
+                        let h3indexes_per_pixel = n_h3indexes as f64 / (scm.tile.size.width * scm.tile.size.height) as f64;
 
-                        let result = if (n_h3indexes as f64 * 0.9) as usize > n_pixels {
-                            // log::debug!("convert_subset_by_filtering_and_region_growing");
-                            convert_subset_by_filtering_and_region_growing(tile_bounds, subset, thread_compact)
+                        let mut grouped_indexes = if h3indexes_per_pixel > 1.0 {
+                            //log::debug!("convert_by_filtering_and_region_growing");
+                            convert_by_growing_rings(h3indexes_per_pixel, thread_h3_resolution, scm)
                         } else {
-                            // log::debug!("convert_subset_by_checking_index_positions");
-                            convert_subset_by_checking_index_positions(tile_bounds, subset, thread_compact)
+                            //log::debug!("convert_by_checking_index_positions");
+                            convert_by_checking_index_positions(tile_bounds, thread_h3_resolution, scm, compact)
                         };
-                        thread_send_result.send(result).expect("sending result failed");
+                        if compact {
+                            for stack in grouped_indexes.values_mut() {
+                                stack.compact();
+                            }
+                        }
+                        thread_send_result.send(grouped_indexes).expect("sending result failed");
                     }
                 });
             }
-            std::mem::drop(recv_subset); // no need to receive anything on this thread;
+            std::mem::drop(recv_scm); // no need to receive anything on this thread;
             std::mem::drop(send_result);
 
             scope.spawn(move |_| {
@@ -189,16 +281,10 @@ impl RasterConverter {
             });
 
             for tile in tiles.iter() {
-                let banddata = self.extract_input_bands(tile).unwrap();
-                let subset = ConversionSubset {
-                    tile: tile.clone(),
-                    geotransformer: self.geotransformer.clone(),
-                    banddata,
-                    h3_resolution: self.h3_resolution,
-                };
-                send_subset.send(subset).unwrap();
+                let scm = self.extract_input_bands(tile, &self.geotransformer).unwrap();
+                send_scm.send(scm).unwrap();
             }
-            std::mem::drop(send_subset); // no need to receive anything on this thread;
+            std::mem::drop(send_scm); // no need to receive anything on this thread;
 
             ConvertedRaster {
                 value_types: self.inputs.iter().map(|c| c.classifier.value_type().clone()).collect(),
@@ -210,349 +296,138 @@ impl RasterConverter {
         })
     }
 
-    pub fn convert(&self, num_threads: u32, tile_size: (usize, usize), compact: bool) -> Result<ConvertedRaster, Error> {
-        self.convert_tiles(num_threads, generate_tiles(self.dataset.size(), tile_size), None, compact)
+    pub fn convert(&self, num_threads: u32, tile_size: &Dimensions, compact: bool) -> Result<ConvertedRaster, Error> {
+        let tiles = generate_tiles(
+            &self.dataset.size().into(),
+            tile_size,
+        );
+        self.convert_tiles(num_threads, tiles, None, compact)
     }
 }
 
-
-#[inline]
-fn pixel_to_array_position(tile_pixel: (usize, usize), tile_size: (usize, usize)) -> usize {
-    (tile_pixel.1 * tile_size.0) + tile_pixel.0
-}
-
-#[inline]
-fn array_position_to_pixel(array_pos: usize, tile_size: (usize, usize)) -> (usize, usize) {
-    (array_pos / tile_size.0, array_pos % tile_size.0)
-}
 
 /// convert by pre-filtering the raster values reducing them to just the raster pixel which have
-/// an actual value. After that the clusters of pixels are determinated using region growing.
-///
-/// On each of these pixel clusters a region growing of h3 indexes is performed until the complete
-/// cluster is covered.
-fn convert_subset_by_filtering_and_region_growing(tile_bounds: Rect<f64>, mut subset: ConversionSubset, compact: bool) -> GroupedH3Indexes {
-// zip the bands and hash by their location in the tile
-    /*
-    let mut attributes_by_pos: HashMap<_, _> = ZipMultiIter::new(&subset.banddata)
-        .filter(|(_pos, attributes)| {
-// at least one value must not be None
-            attributes.iter().any(|v| v.is_some())
-        })
-        .collect();
-
-     */
-    /*
-        let mut attributes_by_pos2 = HashMap::new();
-        for mut v in subset.banddata.drain(..) {
-            let mut idx = 0_usize;
-            for v2 in v.drain(..) {
-                attributes_by_pos2.entry(idx).or_insert_with(Vec::new).push(v2);
-                idx += 1
-            }
-        }
-    */
-
-    let mut attributes_by_pos = {
-        let n_bands = subset.banddata.len();
-        let mut by_pos = Vec::new();
-        if let Some(l) = subset.banddata.iter().map(|v| v.len()).max() {
-            by_pos.reserve(l);
-            for _ in 0..l {
-                by_pos.push(Vec::new())
-            }
-        }
-        for mut band_vec in subset.banddata.drain(..) {
-            let mut idx = 0_usize;
-            for band_pixel in band_vec.drain(..) {
-                by_pos[idx].push(band_pixel);
-                idx += 1
-            }
-        }
-
-        let mut idx = 0_usize;
-        let mut attributes_by_pos = HashMap::new();
-        for pixel_vec in by_pos.drain(..) {
-            if pixel_vec.len() == n_bands && pixel_vec.iter().any(|v| v.is_some()) {
-                attributes_by_pos.insert(idx, pixel_vec);
-            }
-            idx += 1
-        }
-        attributes_by_pos
-    };
+/// an actual value. After that the clusters of pixels are determinated using k_rings.
+fn convert_by_growing_rings(h3indexes_per_pixel: f64, h3_resolution: u8, mut scm: ValueSparseCoordinateMap) -> GroupedH3Indexes {
+    let max_distance = (6.0 * h3indexes_per_pixel.sqrt()).ceil() as u32;
+    //println!("h3_per_px: {} max_distance = {}", h3indexes_per_pixel, max_distance);
 
     let mut grouped_indexes = GroupedH3Indexes::new();
-    let mut indexes_to_add = HashMap::new();
+    while let Some((position, _attributes)) = scm.random_value() {
+        let mut max_distance_per_position = HashMap::new();
+        max_distance_per_position.insert(position, 0_u32);
 
-    while !attributes_by_pos.is_empty() {
-        let (array_pos, _attributes) = attributes_by_pos.iter().next().unwrap();
+        if let Ok(coordinate) = scm.position_to_coordinate(position) {
+            let index = Index::from_coordinate(&coordinate, h3_resolution);
 
-        let cluster = grow_region_starting_with_index(&attributes_by_pos, *array_pos, subset.tile.size);
+            // grow a ring around the index to grow a "bubble" in which to check for other indexes
+            let other_indexes = match index.hex_range_distances(0, max_distance) {
+                Ok(other_indexes) => {
+                    other_indexes
+                }
+                Err(_) => {
+                    // hex_ring is the cheapest to calculate, but may fail in pentagons and some other cases
+                    // so we use a fallback
+                    index.k_ring_distances(0, max_distance)
+                }
+            };
 
-        let mut indexes_to_check = VecDeque::new();
-        let mut indexes_scheduled: HashSet<H3Index> = HashSet::new();
+            for (distance, other_index) in other_indexes {
+                let other_coordinate = other_index.coordinate();
+                if let Ok(Some((other_position, other_attributes))) = scm.value_at_coordinate(&other_coordinate) {
 
-        // find the first h3 index located inside the cluster
-        for cluster_pos in cluster.iter() {
-            let pixel_in_tile = array_position_to_pixel(*cluster_pos, subset.tile.size);
+                    // add to grouped_indexes
+                    let stack = match grouped_indexes.get_mut(other_attributes) {
+                        Some(stack) => stack,
+                        None => {
+                            grouped_indexes.insert(other_attributes.clone(), H3IndexStack::new());
+                            grouped_indexes.get_mut(other_attributes).unwrap()
+                        }
+                    };
+                    stack.indexes_by_resolution.entry(h3_resolution)
+                        .and_modify(|v| { v.push(other_index.h3index()) })
+                        .or_insert_with(|| {
+                            let mut v = vec![];
+                            v.push(other_index.h3index());
+                            v
+                        });
 
-            // find the nearest h3 index for this pixel
-            let index = Index::from_coordinate(
-                &subset.geotransformer.pixel_to_coordinate((
-                    subset.tile.offset_origin.0 + pixel_in_tile.1,
-                    subset.tile.offset_origin.1 + pixel_in_tile.0
-                )),
-                subset.h3_resolution,
-            );
-
-            let coordinate = index.coordinate();
-            if !rect_contains(&tile_bounds, &coordinate) {
-                continue;
-            }
-
-            // reverse-check if the h3 index is located in the cluster, or outside of it
-            let index_pos = pixel_to_array_position(subset.tile.to_tile_relative_pixel(
-                subset.geotransformer.coordinate_to_pixel(coordinate)
-            ), subset.tile.size);
-
-            if cluster.contains(&index_pos) {
-                indexes_to_check.push_back(index.h3index());
-                indexes_scheduled.insert(index.h3index());
-                break;
-            }
-        }
-
-        let mut indexes_visited: HashSet<H3Index> = HashSet::new();
-
-        // start h3 region growing from the first index of the cluster
-        while let Some(this_h3index) = indexes_to_check.pop_front() {
-            indexes_visited.insert(this_h3index);
-            let this_index = Index::from(this_h3index);
-
-            let this_coordinate = this_index.coordinate();
-            if !rect_contains(&tile_bounds, &this_coordinate) {
-                continue;
-            }
-            let this_index_pos = pixel_to_array_position(subset.tile.to_tile_relative_pixel(
-                subset.geotransformer.coordinate_to_pixel(this_coordinate)
-            ), subset.tile.size);
-
-            if !cluster.contains(&this_index_pos) {
-                continue;
-            }
-
-            if let Some(attributes) = attributes_by_pos.get(&this_index_pos) {
-                indexes_to_add.entry(attributes.clone()).or_insert_with(Vec::new).push(this_h3index);
-                for neighbor in this_index.k_ring(1).iter() {
-                    if !(indexes_visited.contains( &neighbor.h3index()) || indexes_scheduled.contains(&neighbor.h3index())) {
-                        indexes_to_check.push_back(neighbor.h3index());
-                        indexes_scheduled.insert(neighbor.h3index());
-                    }
+                    // schedule for a later removal
+                    max_distance_per_position.entry(other_position)
+                        .and_modify(|v| {
+                            if distance > *v {
+                                *v = distance
+                            }
+                        })
+                        .or_insert(distance);
                 }
             }
         }
-
-        // remove the positions which were visited in this iteration
-        cluster.iter()
-            .for_each(|pos| { let _ = attributes_by_pos.remove(pos); });
-    };
-
-    // copy the collected into the grouped indexes to perform compacting
-    for (attributes_ref, mut h3indexes) in indexes_to_add.drain() {
-        let attributes = attributes_ref.iter()
-            .map(|a| {
-                match a {
-                    Some(v) => Some(v.clone()),
-                    None => None
-                }
-            }).collect();
-        grouped_indexes.entry(attributes)
-            .or_insert_with(H3IndexStack::new)
-            .append_to_resolution(subset.h3_resolution, h3indexes.as_mut(), compact);
+        for (pos, pos_max_distance) in max_distance_per_position.drain() {
+            // allow overlapps to be sure to not remove pixels, which may have only
+            // been partially covered.
+            if pos_max_distance < max_distance {
+                scm.remove(&pos);
+            }
+        }
     }
 
-
+    for stack in grouped_indexes.values_mut() {
+        // there will be duplicated h3indexes caused by overlapping rings
+        stack.dedup();
+    }
     grouped_indexes
 }
 
 /// convert using a simple approach by just checking the pixel values at the center points of the h3
 /// indexes
-fn convert_subset_by_checking_index_positions(tile_bounds: Rect<f64>, subset: ConversionSubset, compact: bool) -> GroupedH3Indexes {
-    let mut indexes_to_check = VecDeque::new();
-    indexes_to_check.push_back(
-        Index::from_coordinate(
-            subset.geotransformer.pixel_to_coordinate(subset.tile.center_pixel()).borrow(),
-            subset.h3_resolution,
-        ).h3index()
-    );
-
+fn convert_by_checking_index_positions(tile_bounds: Rect<f64>, h3_resolution: u8, scm: ValueSparseCoordinateMap, compact: bool) -> GroupedH3Indexes {
     let mut grouped_indexes = GroupedH3Indexes::new();
 
-    // IMPROVEMENT: rewrite to use https://doc.rust-lang.org/std/collections/struct.BTreeSet.html#method.pop_first
-    // once this leaves nightly
-    let mut indexes_scheduled: HashSet<H3Index> = HashSet::new();
-    let mut indexes_visited: HashSet<H3Index> = HashSet::new();
-    let mut indexes_to_add: HashMap<Attributes, Vec<H3Index>> = HashMap::new();
-    while let Some(this_h3index) = indexes_to_check.pop_front() {
-        indexes_visited.insert(this_h3index);
-        indexes_scheduled.remove(&this_h3index);
+    for h3index in polyfill(&Polygon::from(tile_bounds), h3_resolution).drain(..) {
+        let index = Index::from(h3index);
+        if let Ok(Some((_position, attributes))) = scm.value_at_coordinate(&index.coordinate()) {
+            // add when the attributes are not all None
+            if attributes.iter().any(|a| a.is_some()) {
+                let stack = match grouped_indexes.get_mut(attributes) {
+                    Some(stack) => stack,
+                    None => {
+                        grouped_indexes.insert(attributes.clone(), H3IndexStack::new());
+                        grouped_indexes.get_mut(attributes).unwrap()
+                    }
+                };
+                let target_vec = stack.indexes_by_resolution.entry(h3_resolution).or_insert_with(Vec::new);
+                target_vec.push(index.h3index());
 
-        let this_index = Index::from(this_h3index);
-        let coordinate = this_index.coordinate();
-        if !rect_contains(&tile_bounds, &coordinate) {
-            continue;
-        }
-        let array_pos = pixel_to_array_position(
-            subset.tile.to_tile_relative_pixel(
-                subset.geotransformer.coordinate_to_pixel(coordinate)
-            ),
-            subset.tile.size);
-
-        let attributes: Vec<_> = subset.banddata.iter().map(|bd| {
-            match bd.get(array_pos) {
-                Some(v) => v.clone(),
-                None => {
-                    log::warn!("could not read value from band at index {}", array_pos);
-                    None
+                // attempt to save a bit of space by compacting
+                if compact && target_vec.len() % 10_000 == 0 {
+                    stack.compact();
                 }
             }
-        }).collect();
-
-        // add when the attributes are not all None
-        if attributes.iter().any(|a| a.is_some()) {
-            let target_vec = indexes_to_add.entry(attributes.clone()).or_insert_with(Vec::new);
-            target_vec.push(this_h3index);
-
-            // attempt to save a bit of space by compacting what we got
-            if target_vec.len() > 20_000 {
-                grouped_indexes.entry(attributes)
-                    .or_insert_with(H3IndexStack::new)
-                    .append_to_resolution(subset.h3_resolution, target_vec, compact);
-            }
         }
-
-        // check the neighbors
-        // IMPROVEMENT: re-use the vector used within kring
-        for neighbor in this_index.k_ring(1).iter() {
-            if !(indexes_visited.contains(&neighbor.h3index()) || indexes_scheduled.contains(&neighbor.h3index())) {
-                indexes_to_check.push_back(neighbor.h3index());
-                indexes_scheduled.insert(neighbor.h3index());
-            }
-        }
-    }
-
-    for (attributes, mut h3indexes) in indexes_to_add.drain() {
-        grouped_indexes.entry(attributes)
-            .or_insert_with(H3IndexStack::new)
-            .append_to_resolution(subset.h3_resolution, h3indexes.as_mut(), compact);
     }
 
     grouped_indexes
 }
 
-/// perform region growing to find all indexes connected indexes
-///
-/// diagonal neighbors will be treated as being part of the cluster
-fn grow_region_starting_with_index<T>(index_hashmap: &HashMap<usize, T>, start_index: usize, tile_size: (usize, usize)) -> HashSet<usize> {
-    let mut indexes_of_cluster = HashSet::new();
-    let mut indexes_to_check = VecDeque::new();
-    indexes_to_check.push_back(start_index);
-
-    while let Some(next_index) = indexes_to_check.pop_back() {
-        if !index_hashmap.contains_key(&next_index) {
-            continue;
-        }
-        if indexes_of_cluster.contains(&next_index) {
-            continue;
-        }
-        indexes_of_cluster.insert(next_index);
-        let pos = array_position_to_pixel(next_index, tile_size);
-
-        for i in -1..=1 {
-            if ((pos.0 == 0) && (i == -1)) || ((pos.0 == tile_size.0) && (i == 1)) {
-                continue; // stay inside the tile bounds
-            }
-            for j in -1..=1 {
-                if ((pos.1 == 0) && (j == -1)) || ((pos.1 == tile_size.1) && (j == 1)) {
-                    continue; // stay inside the tile bounds
-                }
-                let next_pos = ((pos.1 as isize + j) as usize, (pos.0 as isize + i) as usize);
-                let map_key = pixel_to_array_position(next_pos, tile_size);
-                if !indexes_of_cluster.contains(&map_key) {
-                    indexes_to_check.push_back(map_key);
-                }
-            }
-        }
-    }
-    indexes_of_cluster
-}
-
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-    use std::env::temp_dir;
-    use std::fs;
-    use std::path::Path;
-
-    use gdal::raster::Dataset;
-    use gdal::vector::Driver;
-
-    use crate::input::{ClassifiedBand, NoData, Value};
-    use crate::rasterconverter::{grow_region_starting_with_index, pixel_to_array_position, RasterConverter};
+    use geo_types::Coordinate;
+    use crate::rasterconverter::{pixel_to_position, position_to_pixel};
+    use crate::tile::Tile;
 
     #[test]
-    fn test_convert() {
-        let path = Path::new("data/land_shallow_topo_1024.tif");
-        let dataset = Dataset::open(path).unwrap();
+    fn test_converting_pixels_to_positions() {
+        let tile = Tile {
+            offset_origin: Coordinate { x: 0_usize, y: 0_usize },
+            size: (200_usize, 300_usize).into(),
+        };
 
-        let inputs = vec![
-            ClassifiedBand {
-                classifier: Box::new(NoData::new(Value::Uint8(0))),
-                source_band: 2,
-            },
-        ];
-        let converter = RasterConverter::new(dataset, inputs, 3).unwrap();
-
-        let converted = converter.convert(2, (300, 300), true).unwrap();
-        /*
-        for (attr, h3indexes) in converted.indexes.iter() {
-            println!("a: {:?} -> {}", attr, h3indexes.len());
-        }
-        */
-
-        // write to file
-        let mut outfile = temp_dir();
-        outfile.push("h3-from-raster.shp");
-        println!("writing to {:?}", outfile);
-        let _ = fs::remove_file(outfile.clone());
-        let drv = Driver::get("ESRI Shapefile").unwrap();
-        let mut ds = drv.create(&outfile).unwrap();
-
-        converted.write_to_ogr_dataset(&mut ds, "l1", false, None).unwrap();
-        drop(ds); // close
-
-        let mut ds2 = gdal::vector::Dataset::open(&outfile).unwrap();
-        let layer = ds2.layer(0).unwrap();
-        assert!(layer.features().next().is_some());
-    }
-
-    #[test]
-    fn test_grow_region_starting_with_index() {
-        let indata: Vec<usize> = vec![
-            0, 0, 0, 0, 0, 0, 0, 1, 0, 0,
-            0, 0, 0, 0, 0, 0, 1, 1, 1, 0,
-            0, 1, 1, 1, 1, 1, 0, 1, 0, 0,
-            1, 1, 0, 0, 0, 0, 0, 0, 0, 1 // last one should not be found
-        ];
-        let inmap: HashMap<_, _> = indata.iter().enumerate().filter(|(_, v)| { **v != 0_usize }).collect();
-        let tile_size = (10, 4);
-        let start_index = pixel_to_array_position((7, 0), tile_size);
-        let positions = grow_region_starting_with_index(&inmap, start_index, tile_size);
-        assert_eq!(positions.len(), 12);
-        positions.iter().for_each(|p| {
-            assert_eq!(inmap.get(p), Some(&&1_usize))
-        })
+        let pos = pixel_to_position(&tile, &Coordinate { x: 60_usize, y: 1_usize }).unwrap();
+        assert_eq!(pos, 200 + 60);
+        let pixel = position_to_pixel(&tile, pos).unwrap();
+        assert_eq!(pixel, Coordinate { x: 60_usize, y: 1_usize });
     }
 }
 

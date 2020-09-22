@@ -1,6 +1,6 @@
 [package]
 name = "h3-raster"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
@@ -12,6 +12,7 @@ h3-sys = { path = "../h3-sys" }
 h3-util = { path = "../h3-util" }
 h3 = { path = "../h3", features = ["with-geo-types-0_4"], default_features = false}
 geo-types = "^0.4.0"
+geo = "^0.12"
 log = "0.4.8"
 gdal = "^0.6.0"
 gdal-sys = "^0.2.0"
@@ -21,6 +22,6 @@ rusqlite = { version = "0.21", optional = true }
 byteorder = { version = "1.2", optional = true }
 serde = { version = "1", features = ["derive"] }
 
-[dependencies.gdal-geotransform]
-git = "https://github.com/nmandery/gdal-geotransform"
-rev = "13fb64a4"
+#[dependencies.gdal-geotransform]
+#git = "https://github.com/nmandery/gdal-geotransform"
+#rev = "13fb64a4"

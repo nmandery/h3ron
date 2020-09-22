@@ -9,8 +9,8 @@ use regex::Regex;
 use h3_raster::convertedraster::ConvertedRaster;
 use h3_raster::input::{ClassifiedBand, NoData, Value};
 use h3_raster::rasterconverter::{ConversionProgress, RasterConverter};
-use h3_raster::tile::{generate_tiles, tile_size_from_rasterband};
-use h3_util::progress::{Progress, ApplyProgress};
+use h3_raster::tile::{Dimensions, generate_tiles, tile_size_from_rasterband};
+use h3_util::progress::{ApplyProgress, Progress};
 
 fn parse_u32(arg: &str, name: &str) -> Result<u32, String> {
     match arg.parse::<u32>() {
@@ -175,7 +175,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
     };
 
     let mut inputs = vec![];
-    let mut band_based_tile_size = (1000_usize, 1000_usize);
+    let mut band_based_tile_size = Dimensions { width: 1000, height: 1000 };
     for (band_num, no_data_string) in top_level_args.bands.iter() {
         let raster_band = match dataset.rasterband(*band_num as isize) {
             Ok(rb) => rb,
@@ -184,7 +184,7 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
                 return Err("can not access raster band");
             }
         };
-        band_based_tile_size = tile_size_from_rasterband(&raster_band);
+        band_based_tile_size = tile_size_from_rasterband(&raster_band, top_level_args.n_tile_threads as usize);
         macro_rules! no_data_classifier {
             ($value_type:path) => {{
                 let value = $value_type(match no_data_string.parse() {
@@ -225,11 +225,11 @@ fn convert_raster(top_level_args: &TopLevelArguments) -> Result<ConvertedRaster,
     log::info!("dataset size is {} x {} pixels", dataset.size().0, dataset.size().1 );
 
     let tiles = if let Some(tile_size) = top_level_args.tile_size {
-        generate_tiles(dataset.size(), (tile_size as usize, tile_size as usize))
+        generate_tiles(&dataset.size().into(), &Dimensions { width: tile_size as usize, height: tile_size as usize })
     } else {
-        let tiles = generate_tiles(dataset.size(), band_based_tile_size);
+        let tiles = generate_tiles(&dataset.size().into(), &band_based_tile_size);
         log::info!("using a tile size derived of {} x {} pixels derived from the block size -> {} tiles",
-        band_based_tile_size.0, band_based_tile_size.1, tiles.len());
+        band_based_tile_size.width, band_based_tile_size.height, tiles.len());
         tiles
     };
 

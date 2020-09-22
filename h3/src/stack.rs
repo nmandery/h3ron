@@ -103,6 +103,13 @@ impl<'a> H3IndexStack {
         }
     }
 
+    pub fn dedup(&mut self) {
+        for indexes in self.indexes_by_resolution.values_mut() {
+            indexes.sort();
+            indexes.dedup();
+        }
+    }
+
     /// compact all resolution from the given to 0
     ///
     /// resolutions are skipped when the compating of the

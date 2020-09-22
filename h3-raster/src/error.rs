@@ -11,6 +11,7 @@ pub enum Error {
     BandNotReadable(u8),
     GDAL(gdal::errors::Error),
     ConversionFailed,
+    OutOfBounds,
 }
 
 impl fmt::Display for Error {
@@ -24,6 +25,7 @@ impl fmt::Display for Error {
             Error::BandNotReadable(band_idx) => write!(f, "Band {} can not be read", band_idx),
             Error::GDAL(gdal_err) => write!(f, "GDAL: {:?}", gdal_err),
             Error::ConversionFailed => write!(f, "Conversion failed"),
+            Error::OutOfBounds => write!(f, "Out of bounds"),
         }
     }
 }
