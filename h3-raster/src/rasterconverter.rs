@@ -6,16 +6,17 @@ use crossbeam::channel::{bounded, Receiver, Sender};
 use gdal::raster::{Buffer, Dataset, RasterBand};
 use gdal::raster::types::GdalType;
 use gdal::spatial_ref::SpatialRef;
+use geo::algorithm::centroid::Centroid;
 use geo_types::{Coordinate, Polygon, Rect};
 
-use h3::{AreaUnits, polyfill};
+use h3::{max_k_ring_size, polyfill};
 use h3::index::Index;
 use h3::stack::H3IndexStack;
 use h3_util::progress::ProgressPosition;
 
 use crate::convertedraster::{ConvertedRaster, GroupedH3Indexes};
 use crate::error::Error;
-use crate::geo::{area_rect, rect_from_coordinates};
+use crate::geo::{area_linearring, area_rect, rect_from_coordinates};
 use crate::geotransform::GeoTransformer;
 use crate::input::{ClassifiedBand, Classifier, ToValue, Value};
 use crate::tile::{Dimensions, generate_tiles, Tile};
@@ -223,29 +224,47 @@ impl RasterConverter {
                 let thread_h3_resolution = self.h3_resolution;
                 scope.spawn(move |_| {
                     for scm in thread_recv_scm.iter() {
-                        let tile_bounds = scm.bounds();
+                        if !scm.is_empty() {
+                            let tile_bounds = scm.bounds();
+                            let centroid_index = Index::from_coordinate(&tile_bounds.centroid().0, thread_h3_resolution);
 
-                        // switch algorithms depending on the ratio of non-empty-pixels to the approximate number
-                        // of h3 indexes fitting into the tile
-                        let n_h3indexes = max(
-                            (area_rect(&tile_bounds) / h3::hex_area_at_resolution(thread_h3_resolution as i32, AreaUnits::M2)).ceil() as usize,
-                            1,
-                        );
-                        let h3indexes_per_pixel = n_h3indexes as f64 / (scm.tile.size.width * scm.tile.size.height) as f64;
+                            // switch algorithms depending on the expected workload of the tile
+                            // of h3 indexes fitting into the tile
+                            let n_h3indexes_per_tile = max(
+                                (area_rect(&tile_bounds) / area_linearring(&centroid_index.polygon().exterior())).ceil() as usize,
+                                1,
+                            );
+                            let n_h3indexes_per_pixel = n_h3indexes_per_tile as f64 / (scm.tile.size.width * scm.tile.size.height) as f64;
+                            let ring_max_distance = (6.0 * n_h3indexes_per_pixel.sqrt()).ceil() as u32;
 
-                        let mut grouped_indexes = if h3indexes_per_pixel > 1.0 {
-                            //log::debug!("convert_by_filtering_and_region_growing");
-                            convert_by_growing_rings(h3indexes_per_pixel, thread_h3_resolution, scm)
-                        } else {
-                            //log::debug!("convert_by_checking_index_positions");
-                            convert_by_checking_index_positions(tile_bounds, thread_h3_resolution, scm, compact)
-                        };
-                        if compact {
-                            for stack in grouped_indexes.values_mut() {
-                                stack.compact();
+                            // assumes a somewhat clustered spatial distribution of the pixels within the tile
+                            let expected_indexes_to_visit_for_ring_growing = (
+                                scm.inner.len() as f64
+                                    * max_k_ring_size(ring_max_distance) as f64
+                                    * (1.0 - 0.7) // expect a 70% coverage of pixels within a kring
+                            ).ceil() as usize + (scm.inner.len() as f64 * n_h3indexes_per_pixel).ceil()  as usize;
+                            /*
+                            log::debug!(
+                                "n_h3indexes_per_tile: {} , expected_indexes_to_visit_for_ring_growing: {}",
+                                n_h3indexes_per_tile,
+                                expected_indexes_to_visit_for_ring_growing
+                            );
+                             */
+
+                            let mut grouped_indexes = if n_h3indexes_per_tile > expected_indexes_to_visit_for_ring_growing {
+                                //log::debug!("convert_by_filtering_and_region_growing(ring_max_distance={})\n", ring_max_distance);
+                                convert_by_growing_rings(ring_max_distance, thread_h3_resolution, scm)
+                            } else {
+                                //log::debug!("convert_by_checking_index_positions\n");
+                                convert_by_checking_index_positions(tile_bounds, thread_h3_resolution, scm, compact)
+                            };
+                            if compact {
+                                for stack in grouped_indexes.values_mut() {
+                                    stack.compact();
+                                }
                             }
+                            thread_send_result.send(grouped_indexes).expect("sending result failed");
                         }
-                        thread_send_result.send(grouped_indexes).expect("sending result failed");
                     }
                 });
             }
@@ -308,10 +327,7 @@ impl RasterConverter {
 
 /// convert by pre-filtering the raster values reducing them to just the raster pixel which have
 /// an actual value. After that the clusters of pixels are determinated using k_rings.
-fn convert_by_growing_rings(h3indexes_per_pixel: f64, h3_resolution: u8, mut scm: ValueSparseCoordinateMap) -> GroupedH3Indexes {
-    let max_distance = (6.0 * h3indexes_per_pixel.sqrt()).ceil() as u32;
-    //println!("h3_per_px: {} max_distance = {}", h3indexes_per_pixel, max_distance);
-
+fn convert_by_growing_rings(ring_max_distance: u32, h3_resolution: u8, mut scm: ValueSparseCoordinateMap) -> GroupedH3Indexes {
     let mut grouped_indexes = GroupedH3Indexes::new();
     while let Some((position, _attributes)) = scm.random_value() {
         let mut max_distance_per_position = HashMap::new();
@@ -321,14 +337,14 @@ fn convert_by_growing_rings(h3indexes_per_pixel: f64, h3_resolution: u8, mut scm
             let index = Index::from_coordinate(&coordinate, h3_resolution);
 
             // grow a ring around the index to grow a "bubble" in which to check for other indexes
-            let other_indexes = match index.hex_range_distances(0, max_distance) {
+            let other_indexes = match index.hex_range_distances(0, ring_max_distance) {
                 Ok(other_indexes) => {
                     other_indexes
                 }
                 Err(_) => {
                     // hex_ring is the cheapest to calculate, but may fail in pentagons and some other cases
                     // so we use a fallback
-                    index.k_ring_distances(0, max_distance)
+                    index.k_ring_distances(0, ring_max_distance)
                 }
             };
 
@@ -366,7 +382,7 @@ fn convert_by_growing_rings(h3indexes_per_pixel: f64, h3_resolution: u8, mut scm
         for (pos, pos_max_distance) in max_distance_per_position.drain() {
             // allow overlapps to be sure to not remove pixels, which may have only
             // been partially covered.
-            if pos_max_distance < max_distance {
+            if pos_max_distance < ring_max_distance {
                 scm.remove(&pos);
             }
         }
@@ -414,6 +430,7 @@ fn convert_by_checking_index_positions(tile_bounds: Rect<f64>, h3_resolution: u8
 #[cfg(test)]
 mod tests {
     use geo_types::Coordinate;
+
     use crate::rasterconverter::{pixel_to_position, position_to_pixel};
     use crate::tile::Tile;
 

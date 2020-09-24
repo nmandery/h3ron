@@ -106,7 +106,7 @@ pub fn tile_size_from_rasterband(rasterband: &RasterBand, min_num_tiles: usize) 
     let band_size = rasterband.size();
     let threshold = min(
         (band_size.0 * band_size.1) / min_num_tiles,
-        2_000_000
+        4_000_000
     );
     let mut tile_size = block_size;
     loop {

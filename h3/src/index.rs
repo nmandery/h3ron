@@ -14,6 +14,7 @@ use h3_sys::{GeoCoord, H3Index};
 use crate::error::Error;
 use crate::geo::{coordinate_to_geocoord, point_to_geocoord};
 use crate::util::h3indexes_to_indexes;
+use crate::max_k_ring_size;
 
 #[derive(PartialOrd, PartialEq, Clone, Debug)]
 pub struct Index(H3Index);
@@ -157,7 +158,7 @@ impl Index {
     }
 
     pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, Index)> {
-        let max_size = unsafe { h3_sys::maxKringSize(k_max as c_int) as usize };
+        let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
         unsafe {

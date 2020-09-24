@@ -101,3 +101,7 @@ pub fn compact_mixed(h3_indexes: &[H3Index]) -> Vec<H3Index> {
     out_h3indexes
 }
 
+
+pub fn max_k_ring_size(k: u32) -> usize {
+    unsafe { h3_sys::maxKringSize(k as c_int) as usize }
+}
