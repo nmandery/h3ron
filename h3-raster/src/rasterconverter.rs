@@ -1,7 +1,7 @@
 use std::cmp::max;
-use std::collections::HashMap;
 use std::convert::TryFrom;
 
+use ahash::AHashMap;
 use crossbeam::channel::{bounded, Receiver, Sender};
 use gdal::raster::{Buffer, Dataset, RasterBand};
 use gdal::raster::types::GdalType;
@@ -20,6 +20,7 @@ use crate::geo::{area_linearring, area_rect, rect_from_coordinates};
 use crate::geotransform::GeoTransformer;
 use crate::input::{ClassifiedBand, Classifier, ToValue, Value};
 use crate::tile::{Dimensions, generate_tiles, Tile};
+use std::collections::HashMap;
 
 pub struct ConversionProgress {
     pub tiles_total: usize,
@@ -56,6 +57,7 @@ fn pixel_to_position(tile: &Tile, tile_pixel: &Coordinate<usize>) -> Result<usiz
 
 
 struct SparseCoordinateMap<T> {
+    //pub inner: AHashMap<usize, T>,
     pub inner: HashMap<usize, T>,
     pub tile: Tile,
     pub geotransformer: GeoTransformer,
@@ -242,7 +244,7 @@ impl RasterConverter {
                                 scm.inner.len() as f64
                                     * max_k_ring_size(ring_max_distance) as f64
                                     * (1.0 - 0.7) // expect a 70% coverage of pixels within a kring
-                            ).ceil() as usize + (scm.inner.len() as f64 * n_h3indexes_per_pixel).ceil()  as usize;
+                            ).ceil() as usize + (scm.inner.len() as f64 * n_h3indexes_per_pixel).ceil() as usize;
                             /*
                             log::debug!(
                                 "n_h3indexes_per_tile: {} , expected_indexes_to_visit_for_ring_growing: {}",
@@ -330,7 +332,8 @@ impl RasterConverter {
 fn convert_by_growing_rings(ring_max_distance: u32, h3_resolution: u8, mut scm: ValueSparseCoordinateMap) -> GroupedH3Indexes {
     let mut grouped_indexes = GroupedH3Indexes::new();
     while let Some((position, _attributes)) = scm.random_value() {
-        let mut max_distance_per_position = HashMap::new();
+        //let mut max_distance_per_position: AHashMap<usize, u32> = Default::default();
+        let mut max_distance_per_position: HashMap<usize, u32> = Default::default();
         max_distance_per_position.insert(position, 0_u32);
 
         if let Ok(coordinate) = scm.position_to_coordinate(position) {
