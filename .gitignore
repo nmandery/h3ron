@@ -1,3 +1,9 @@
 Cargo.lock
 target
 .idea
+*.gpkg
+*.gpkg-wal
+*.gpkg-shm
+perf.data
+perf.data.old
+flamegraph*.svg
