@@ -21,7 +21,6 @@ ordered-float = { version = "2.0.0", features = ["serde"]}
 rusqlite = { version = "0.21", optional = true }
 byteorder = { version = "1.2", optional = true }
 serde = { version = "1", features = ["derive"] }
-ahash = "0.4"
 
 #[dependencies.gdal-geotransform]
 #git = "https://github.com/nmandery/gdal-geotransform"

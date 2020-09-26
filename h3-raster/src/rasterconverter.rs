@@ -1,7 +1,7 @@
 use std::cmp::max;
+use std::collections::HashMap;
 use std::convert::TryFrom;
 
-use ahash::AHashMap;
 use crossbeam::channel::{bounded, Receiver, Sender};
 use gdal::raster::{Buffer, Dataset, RasterBand};
 use gdal::raster::types::GdalType;
@@ -20,7 +20,6 @@ use crate::geo::{area_linearring, area_rect, rect_from_coordinates};
 use crate::geotransform::GeoTransformer;
 use crate::input::{ClassifiedBand, Classifier, ToValue, Value};
 use crate::tile::{Dimensions, generate_tiles, Tile};
-use std::collections::HashMap;
 
 pub struct ConversionProgress {
     pub tiles_total: usize,
