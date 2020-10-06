@@ -35,6 +35,35 @@ pub fn hex_area_at_resolution(resolution: i32, units: AreaUnits) -> f64 {
     }
 }
 
+unsafe fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
+    Geofence {
+        numVerts: ring.len() as c_int,
+        verts: ring.as_mut_ptr(),
+    }
+}
+
+
+pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
+    unsafe {
+        let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(&poly.exterior());
+        let mut interiors: Vec<Vec<GeoCoord>> = poly.interiors().iter()
+            .map(|ls| linestring_to_geocoords(ls))
+            .collect();
+
+        let mut holes: Vec<Geofence> = interiors
+            .iter_mut()
+            .map(|ring| to_geofence(ring))
+            .collect();
+
+        let gp = GeoPolygon {
+            geofence: to_geofence(&mut exterior),
+            numHoles: holes.len() as c_int,
+            holes: holes.as_mut_ptr(),
+        };
+
+        h3_sys::maxPolyfillSize(&gp, h3_resolution as c_int) as usize
+    }
+}
 
 pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
     let mut h3_indexes = unsafe {
@@ -42,13 +71,6 @@ pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
         let mut interiors: Vec<Vec<GeoCoord>> = poly.interiors().iter()
             .map(|ls| linestring_to_geocoords(ls))
             .collect();
-
-        fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
-            Geofence {
-                numVerts: ring.len() as c_int,
-                verts: ring.as_mut_ptr(),
-            }
-        }
 
         let mut holes: Vec<Geofence> = interiors
             .iter_mut()

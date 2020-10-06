@@ -9,7 +9,7 @@ use gdal::spatial_ref::SpatialRef;
 use geo::algorithm::centroid::Centroid;
 use geo_types::{Coordinate, Polygon, Rect};
 
-use h3::{max_k_ring_size, polyfill};
+use h3::{max_k_ring_size, polyfill, max_polyfill_size};
 use h3::index::Index;
 use h3::stack::H3IndexStack;
 use h3_util::progress::ProgressPosition;
@@ -56,7 +56,6 @@ fn pixel_to_position(tile: &Tile, tile_pixel: &Coordinate<usize>) -> Result<usiz
 
 
 struct SparseCoordinateMap<T> {
-    //pub inner: AHashMap<usize, T>,
     pub inner: HashMap<usize, T>,
     pub tile: Tile,
     pub geotransformer: GeoTransformer,
@@ -238,21 +237,28 @@ impl RasterConverter {
                             let n_h3indexes_per_pixel = n_h3indexes_per_tile as f64 / (scm.tile.size.width * scm.tile.size.height) as f64;
                             let ring_max_distance = (6.0 * n_h3indexes_per_pixel.sqrt()).ceil() as u32;
 
+                            // n_h3indexes_polyfill may greatly exceed n_h3indexes_per_tile as polyfill finds the max k_ring
+                            // which covers the given polygon, and (internally) checks all h3index if they are
+                            // covered by the polygon. This is even more the case when the input-file has line-based blocks, this
+                            // will result in long-stretched tiles which require large k-rings to fill.
+                            let n_h3indexes_polyfill = max_polyfill_size(&Polygon::from(tile_bounds), thread_h3_resolution);
+
                             // assumes a somewhat clustered spatial distribution of the pixels within the tile
                             let expected_indexes_to_visit_for_ring_growing = (
                                 scm.inner.len() as f64
                                     * max_k_ring_size(ring_max_distance) as f64
-                                    * (1.0 - 0.7) // expect a 70% coverage of pixels within a kring
-                            ).ceil() as usize + (scm.inner.len() as f64 * n_h3indexes_per_pixel).ceil() as usize;
+                                    * (1.0 - 0.7) // expect a 70% coverage of pixels within a k_ring
+                            ).ceil() as usize;
                             /*
-                            log::debug!(
-                                "n_h3indexes_per_tile: {} , expected_indexes_to_visit_for_ring_growing: {}",
+                            println!(
+                                "n_h3indexes_per_tile: {} , expected_indexes_to_visit_for_ring_growing: {}, n_h3indexes_polyfill: {}",
                                 n_h3indexes_per_tile,
-                                expected_indexes_to_visit_for_ring_growing
+                                expected_indexes_to_visit_for_ring_growing,
+                                n_h3indexes_polyfill
                             );
                              */
 
-                            let mut grouped_indexes = if n_h3indexes_per_tile > expected_indexes_to_visit_for_ring_growing {
+                            let mut grouped_indexes = if n_h3indexes_polyfill > expected_indexes_to_visit_for_ring_growing {
                                 //log::debug!("convert_by_filtering_and_region_growing(ring_max_distance={})\n", ring_max_distance);
                                 convert_by_growing_rings(ring_max_distance, thread_h3_resolution, scm)
                             } else {
@@ -331,7 +337,6 @@ impl RasterConverter {
 fn convert_by_growing_rings(ring_max_distance: u32, h3_resolution: u8, mut scm: ValueSparseCoordinateMap) -> GroupedH3Indexes {
     let mut grouped_indexes = GroupedH3Indexes::new();
     while let Some((position, _attributes)) = scm.random_value() {
-        //let mut max_distance_per_position: AHashMap<usize, u32> = Default::default();
         let mut max_distance_per_position: HashMap<usize, u32> = Default::default();
         max_distance_per_position.insert(position, 0_u32);
 

@@ -114,7 +114,7 @@ pub fn tile_size_from_rasterband(rasterband: &RasterBand, min_num_tiles: usize) 
             if tile_size.0 > tile_size.1 { tile_size.0 } else { tile_size.0 + block_size.0 },
             if tile_size.1 > tile_size.0 { tile_size.1 } else { tile_size.1 + block_size.1 },
         );
-        if ((new_tile_size.0 * new_tile_size.1) > threshold)
+        if ((new_tile_size.0 * new_tile_size.1) >= threshold)
             || (new_tile_size.0 > band_size.0)
             || (new_tile_size.1 > band_size.1) {
             break;
