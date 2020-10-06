@@ -224,7 +224,7 @@ impl RasterConverter {
                 let thread_h3_resolution = self.h3_resolution;
                 scope.spawn(move |_| {
                     for scm in thread_recv_scm.iter() {
-                        if !scm.is_empty() {
+                        let grouped_indexes = if !scm.is_empty() {
                             let tile_bounds = scm.bounds();
                             let centroid_index = Index::from_coordinate(&tile_bounds.centroid().0, thread_h3_resolution);
 
@@ -270,8 +270,12 @@ impl RasterConverter {
                                     stack.compact();
                                 }
                             }
-                            thread_send_result.send(grouped_indexes).expect("sending result failed");
+                            grouped_indexes
                         }
+                        else {
+                            GroupedH3Indexes::new()
+                        };
+                        thread_send_result.send(grouped_indexes).expect("sending result failed");
                     }
                 });
             }
