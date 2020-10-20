@@ -22,7 +22,7 @@ impl<'a> H3IndexStack {
     ///
     /// Indexes get moved, see Vec::append
     ///
-    /// will trigger a re-compacting
+    /// will trigger a re-compacting when compact is true
     pub fn append(&mut self, other: &mut Self, compact: bool) {
         let mut resolutions_touched = Vec::new();
         for (resolution, h3indexes) in other.indexes_by_resolution.iter_mut() {
@@ -129,7 +129,9 @@ impl<'a> H3IndexStack {
                 continue;
             }
 
-            if let Some(indexes_to_compact) = self.indexes_by_resolution.remove(&res) {
+            if let Some(mut indexes_to_compact) = self.indexes_by_resolution.remove(&res) {
+                indexes_to_compact.sort();
+                indexes_to_compact.dedup();
                 let compacted = compact(&indexes_to_compact);
                 for h3_index in compacted {
                     let res = Index::from(h3_index).resolution();
