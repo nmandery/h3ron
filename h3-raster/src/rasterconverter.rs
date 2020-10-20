@@ -391,12 +391,15 @@ fn convert_by_growing_rings(ring_max_distance: u32, h3_resolution: u8, mut scm: 
             }
         }
         for (pos, pos_max_distance) in max_distance_per_position.drain() {
-            // allow overlapps to be sure to not remove pixels, which may have only
+            // allow overlaps to be sure to not remove pixels, which may have only
             // been partially covered.
             if pos_max_distance < ring_max_distance {
                 scm.remove(&pos);
             }
         }
+        // be sure to not run into an endless loop when the
+        // rings are too small
+        scm.remove(&position);
     }
 
     for stack in grouped_indexes.values_mut() {
