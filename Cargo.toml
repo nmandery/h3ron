@@ -5,6 +5,7 @@ members = [
     "h3",
     "h3-raster",
     "h3-util",
+    "h3-ndarray",
     "raster2h3",
 ]
 [profile.release]
