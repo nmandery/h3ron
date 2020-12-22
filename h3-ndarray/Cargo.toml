@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 ndarray = "^0.14"
 geo-types = "^0.6"
+
+[dev-dependencies]
+approx = "^0.4"
