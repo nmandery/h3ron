@@ -56,9 +56,18 @@ pub fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T) -> Vec
     boxes
 }
 
+pub enum NearestH3ResolutionSearchMode {
+    /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
+    /// as small as possible.
+    SmallestAreaDifference,
+
+    /// chose the h3 rsoulution where the area of the h3index is smaller than the area of a pixel.
+    IndexAreaSmallerThanPixelArea,
+}
+
 /// find the h3 resolution closed to the size of a pixel in an array
 /// of the given shape with the given transform
-pub fn nearest_h3_resolution(shape: &[usize; 2], transform: &Transform) -> u8 {
+pub fn nearest_h3_resolution(shape: &[usize; 2], transform: &Transform, search_mode: NearestH3ResolutionSearchMode) -> u8 {
     let bbox_array = Rect::new(
         transform * &Coordinate::from((0.0_f64, 0.0_f64)),
         transform * &Coordinate::from((
@@ -77,20 +86,30 @@ pub fn nearest_h3_resolution(shape: &[usize; 2], transform: &Transform) -> u8 {
         let area_h3_index = area_linearring(Index::from_coordinate(&center_array, h3_res)
             .polygon()
             .exterior());
-        let new_area_difference = if area_h3_index > area_pixel {
-            area_h3_index - area_pixel
-        } else {
-            area_pixel - area_h3_index
-        };
-        if let Some(old_area_difference) = area_difference {
-            if old_area_difference < new_area_difference {
-                closest_h3_res = h3_res - 1;
+
+        match search_mode {
+            NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea => if area_h3_index <= area_pixel {
+                closest_h3_res = h3_res;
                 break;
-            } else {
-                area_difference = Some(new_area_difference);
             }
-        } else {
-            area_difference = Some(new_area_difference);
+
+            NearestH3ResolutionSearchMode::SmallestAreaDifference => {
+                let new_area_difference = if area_h3_index > area_pixel {
+                    area_h3_index - area_pixel
+                } else {
+                    area_pixel - area_h3_index
+                };
+                if let Some(old_area_difference) = area_difference {
+                    if old_area_difference < new_area_difference {
+                        closest_h3_res = h3_res - 1;
+                        break;
+                    } else {
+                        area_difference = Some(new_area_difference);
+                    }
+                } else {
+                    area_difference = Some(new_area_difference);
+                }
+            }
         }
     }
 
@@ -99,7 +118,7 @@ pub fn nearest_h3_resolution(shape: &[usize; 2], transform: &Transform) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use crate::algo::{find_boxes_containing_data, nearest_h3_resolution};
+    use crate::algo::{find_boxes_containing_data, nearest_h3_resolution, NearestH3ResolutionSearchMode};
     use crate::transform::Transform;
 
     #[test]
@@ -146,7 +165,10 @@ mod tests {
         let gt = Transform::from_rasterio(&[
             0.0011965049999999992, 0.0, 8.11377, 0.0, -0.001215135, 49.40792
         ]);
-        let h3_res = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt);
-        assert_eq!(h3_res, 10); // TODO: validate
+        let h3_res1 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, NearestH3ResolutionSearchMode::SmallestAreaDifference);
+        assert_eq!(h3_res1, 10); // TODO: validate
+
+        let h3_res2 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea);
+        assert_eq!(h3_res2, 11); // TODO: validate
     }
 }
