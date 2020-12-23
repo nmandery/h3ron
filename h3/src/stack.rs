@@ -105,7 +105,7 @@ impl<'a> H3IndexStack {
 
     pub fn dedup(&mut self) {
         for indexes in self.indexes_by_resolution.values_mut() {
-            indexes.sort();
+            indexes.sort_unstable();
             indexes.dedup();
         }
     }
@@ -130,7 +130,7 @@ impl<'a> H3IndexStack {
             }
 
             if let Some(mut indexes_to_compact) = self.indexes_by_resolution.remove(&res) {
-                indexes_to_compact.sort();
+                indexes_to_compact.sort_unstable();
                 indexes_to_compact.dedup();
                 let compacted = compact(&indexes_to_compact);
                 for h3_index in compacted {
