@@ -56,16 +56,17 @@ pub fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T) -> Vec
     boxes
 }
 
-/// find the h3 resolution closed to the size of a pixel
-pub fn nearest_h3_resolution<T>(a: &ArrayView2<T>, transform: &Transform) -> u8 {
+/// find the h3 resolution closed to the size of a pixel in an array
+/// of the given shape with the given transform
+pub fn nearest_h3_resolution(shape: &[usize; 2], transform: &Transform) -> u8 {
     let bbox_array = Rect::new(
         transform * &Coordinate::from((0.0_f64, 0.0_f64)),
         transform * &Coordinate::from((
-            (a.shape()[0] - 1) as f64,
-            (a.shape()[1] - 1) as f64
+            (shape[0] - 1) as f64,
+            (shape[1] - 1) as f64
         )),
     );
-    let area_pixel = area_rect(&bbox_array) / (a.shape()[0] * a.shape()[1]) as f64;
+    let area_pixel = area_rect(&bbox_array) / (shape[0] * shape[1]) as f64;
     let center_array = bbox_array.center();
 
     let mut closest_h3_res = 0;
@@ -100,7 +101,6 @@ pub fn nearest_h3_resolution<T>(a: &ArrayView2<T>, transform: &Transform) -> u8 
 mod tests {
     use crate::algo::{find_boxes_containing_data, nearest_h3_resolution};
     use crate::transform::Transform;
-    use ndarray::Array2;
 
     #[test]
     fn test_find_boxes_containig_data() {
@@ -146,8 +146,7 @@ mod tests {
         let gt = Transform::from_rasterio(&[
             0.0011965049999999992, 0.0, 8.11377, 0.0, -0.001215135, 49.40792
         ]);
-        let dummy_arr = Array2::<u8>::zeros((2000, 2000));
-        let h3_res = nearest_h3_resolution(&dummy_arr.view(), &gt);
+        let h3_res = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt);
         assert_eq!(h3_res, 10); // TODO: validate
     }
 }
