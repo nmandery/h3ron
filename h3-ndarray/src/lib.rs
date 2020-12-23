@@ -9,6 +9,7 @@ extern crate approx;
 mod algo;
 pub mod transform;
 pub mod error;
+pub mod sphere;
 
 #[cfg(test)]
 mod tests {

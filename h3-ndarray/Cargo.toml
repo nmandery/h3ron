@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 ndarray = "^0.14"
 geo-types = "^0.6"
+h3 = { path = "../h3", features = ["with-geo-types-0_6"], default_features = false}
 
 [dev-dependencies]
 approx = "^0.4"

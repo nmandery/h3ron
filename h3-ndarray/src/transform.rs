@@ -32,6 +32,7 @@ pub struct Transform {
 }
 
 impl Transform {
+    #![allow(clippy::many_single_char_names)]
     pub fn new(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> Self {
         Self {
             a,

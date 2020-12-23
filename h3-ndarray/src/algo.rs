@@ -1,5 +1,8 @@
 use ndarray::{ArrayView2, Axis};
 use geo_types::{Rect, Coordinate};
+use crate::transform::Transform;
+use crate::sphere::{area_rect, area_linearring};
+use h3::index::Index;
 
 fn find_continous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_value: &T) -> Vec<(usize, usize)> where T: Sized + PartialEq {
     let mut chunks = Vec::new();
@@ -11,8 +14,8 @@ fn find_continous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_va
                 current_chunk_start = Some(r0pos);
             }
         } else if let Some(begin) = current_chunk_start {
-                chunks.push((begin, r0pos - 1));
-                current_chunk_start = None;
+            chunks.push((begin, r0pos - 1));
+            current_chunk_start = None;
         }
     }
     if let Some(begin) = current_chunk_start {
@@ -33,7 +36,6 @@ pub fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T) -> Vec
     for chunk_0raw_indexes in find_continous_chunks_along_axis(a, 0, nodata_value) {
         let sv = a.slice(s![chunk_0raw_indexes.0..=chunk_0raw_indexes.1, ..]);
         for chunks_1raw_indexes in find_continous_chunks_along_axis(&sv, 1, nodata_value) {
-
             let sv2 = sv.slice(s![0..=(chunk_0raw_indexes.1-chunk_0raw_indexes.0), chunks_1raw_indexes.0..=chunks_1raw_indexes.1]);
 
             // one more iteration along axis 0 to get the specific range for that axis 1 range
@@ -54,13 +56,54 @@ pub fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T) -> Vec
     boxes
 }
 
+/// find the h3 resolution closed to the size of a pixel
+pub fn nearest_h3_resolution<T>(a: &ArrayView2<T>, transform: &Transform) -> u8 {
+    let bbox_array = Rect::new(
+        transform * &Coordinate::from((0.0_f64, 0.0_f64)),
+        transform * &Coordinate::from((
+            (a.shape()[0] - 1) as f64,
+            (a.shape()[1] - 1) as f64
+        )),
+    );
+    let area_pixel = area_rect(&bbox_array) / (a.shape()[0] * a.shape()[1]) as f64;
+    let center_array = bbox_array.center();
+
+    let mut closest_h3_res = 0;
+    let mut area_difference = None;
+    for h3_res in 0..=16 {
+        // calculate the area of the center index to avoid using the approximate values
+        // of the h3 hexArea functions
+        let area_h3_index = area_linearring(Index::from_coordinate(&center_array, h3_res)
+            .polygon()
+            .exterior());
+        let new_area_difference = if area_h3_index > area_pixel {
+            area_h3_index - area_pixel
+        } else {
+            area_pixel - area_h3_index
+        };
+        if let Some(old_area_difference) = area_difference {
+            if old_area_difference < new_area_difference {
+                closest_h3_res = h3_res - 1;
+                break;
+            } else {
+                area_difference = Some(new_area_difference);
+            }
+        } else {
+            area_difference = Some(new_area_difference);
+        }
+    }
+
+    closest_h3_res
+}
 
 #[cfg(test)]
 mod tests {
-    use crate::algo::find_boxes_containing_data;
+    use crate::algo::{find_boxes_containing_data, nearest_h3_resolution};
+    use crate::transform::Transform;
+    use ndarray::Array2;
 
     #[test]
-    fn test_a() {
+    fn test_find_boxes_containig_data() {
         let arr = array![
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
@@ -83,7 +126,7 @@ mod tests {
             //dbg!(rect);
             for x in rect.min().x..=rect.max().x {
                 for y in rect.min().y..=rect.max().y {
-                    arr_copy[(x,y)] = 0;
+                    arr_copy[(x, y)] = 0;
                 }
             }
         }
@@ -91,9 +134,20 @@ mod tests {
         //dbg!(n_elements_in_boxes);
 
         // there should be far less indexes to visit now
-        assert!(n_elements_in_boxes < (n_elements/2));
+        assert!(n_elements_in_boxes < (n_elements / 2));
 
         // all elements should have been removed
         assert_eq!(arr_copy.sum(), 0);
+    }
+
+    #[test]
+    fn test_nearest_h3_resolution() {
+        // transform of the included r.tiff
+        let gt = Transform::from_rasterio(&[
+            0.0011965049999999992, 0.0, 8.11377, 0.0, -0.001215135, 49.40792
+        ]);
+        let dummy_arr = Array2::<u8>::zeros((2000, 2000));
+        let h3_res = nearest_h3_resolution(&dummy_arr.view(), &gt);
+        assert_eq!(h3_res, 10); // TODO: validate
     }
 }
