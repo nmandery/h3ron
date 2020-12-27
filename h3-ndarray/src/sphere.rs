@@ -1,5 +1,7 @@
 use geo_types::{LineString, Coordinate, Rect};
 
+const EARTH_RADIUS_EQUATOR: f64 = 6_378_137_f64;
+
 /// calculate the approximate area of the given
 /// linestring ring  (wgs84) in square meters
 pub fn area_linearring(ring: &LineString<f64>) -> f64 {
@@ -10,7 +12,7 @@ pub fn area_linearring(ring: &LineString<f64>) -> f64 {
             (coords[1].x - coords[0].x).to_radians()
                 * (2.0 + coords[0].y.to_radians().sin() + coords[1].y.to_radians().sin())
         })
-        .sum::<f64>().abs() * 6_378_137_f64.powi(2) / 2.0
+        .sum::<f64>().abs() * EARTH_RADIUS_EQUATOR.powi(2) / 2.0
 }
 
 /// calculate the approximate area of the given

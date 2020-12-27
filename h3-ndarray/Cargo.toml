@@ -4,12 +4,16 @@ version = "0.1.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 ndarray = "^0.14"
 geo-types = "^0.6"
-h3 = { path = "../h3", features = ["with-geo-types-0_6"], default_features = false}
+
+[dependencies.h3]
+path = "../h3"
+features = [
+    "with-geo-types-0_6"
+]
+default_features = false
 
 [dev-dependencies]
 approx = "^0.4"
