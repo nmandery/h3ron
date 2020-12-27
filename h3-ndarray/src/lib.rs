@@ -9,5 +9,5 @@ extern crate approx;
 mod array_util;
 pub mod transform;
 pub mod error;
-pub mod sphere;
+mod sphere;
 pub mod resolution;

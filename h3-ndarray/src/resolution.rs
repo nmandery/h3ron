@@ -1,10 +1,15 @@
-use crate::transform::Transform;
-use crate::error::Error;
+use crate::{
+    transform::Transform,
+    error::Error,
+    sphere::{
+        area_rect,
+        area_linearring,
+    },
+};
 use geo_types::{
     Rect,
-    Coordinate
+    Coordinate,
 };
-use crate::sphere::{area_rect, area_linearring};
 use h3::index::Index;
 
 pub enum NearestH3ResolutionSearchMode {
@@ -20,7 +25,7 @@ pub enum NearestH3ResolutionSearchMode {
 /// of the given shape with the given transform
 pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
     if shape.len() != 2 {
-        return Err(Error::UnsupportedArrayShape)
+        return Err(Error::UnsupportedArrayShape);
     }
     if shape[0] == 0 || shape[1] == 0 {
         return Err(Error::EmptyArray);
