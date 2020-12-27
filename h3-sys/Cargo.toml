@@ -1,6 +1,6 @@
 [package]
 name = "h3-sys"
-version = "3.6.4" # version matches the bundled libh3
+version = "3.7.1" # version matches the bundled libh3
 description = "bindings to libh3, bindgen generated, libh3 is bundled"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 build = "build.rs"
