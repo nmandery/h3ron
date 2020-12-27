@@ -80,14 +80,14 @@ pub fn nearest_h3_resolution(shape: &[usize; 2], transform: &Transform, search_m
         )),
     );
     let area_pixel = area_rect(&bbox_array) / (shape[0] * shape[1]) as f64;
-    let center_array = bbox_array.center();
+    let center_of_array = bbox_array.center();
 
     let mut nearest_h3_res = 0;
     let mut area_difference = None;
     for h3_res in 0..=16 {
         // calculate the area of the center index to avoid using the approximate values
         // of the h3 hexArea functions
-        let area_h3_index = area_linearring(Index::from_coordinate(&center_array, h3_res)
+        let area_h3_index = area_linearring(Index::from_coordinate(&center_of_array, h3_res)
             .polygon()
             .exterior());
 

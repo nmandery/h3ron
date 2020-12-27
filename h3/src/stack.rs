@@ -67,6 +67,25 @@ impl<'a> H3IndexStack {
             .any(|h3indexes| !h3indexes.is_empty())
     }
 
+    /// check if the stack contains the index or any of its parents
+    ///
+    /// This function is pretty inefficient.
+    pub fn contains(&self, h3index: H3Index) -> bool {
+        if self.is_empty() {
+            return false;
+        }
+        let mut index = Index::from(h3index);
+        for r in index.resolution()..=0 {
+            index = index.get_parent(r);
+            if let Some(r_indexes) = self.indexes_by_resolution.get(&r) {
+                if r_indexes.contains(&index.h3index()) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
     /// indexes must be of the same resolution
     ///
     /// will trigger a re-compacting
