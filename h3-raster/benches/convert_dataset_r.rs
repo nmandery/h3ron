@@ -9,7 +9,7 @@ use h3_raster::rasterconverter::RasterConverter;
 use h3_raster::tile::Dimensions;
 
 fn convert_r_dataset(h3_res: u8, n_threads: usize) {
-    let filename = format!("{}/data/r.tiff", env!("CARGO_MANIFEST_DIR"));
+    let filename = format!("{}/../data/r.tiff", env!("CARGO_MANIFEST_DIR"));
     let ds = Dataset::open(Path::new(&filename)).unwrap();
     let band_idx = 1;
     let tile_size = Dimensions {width: 250, height: 250};
