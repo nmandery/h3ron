@@ -4,6 +4,7 @@ use std::fmt;
 pub enum Error {
     TransformNotInvertible,
     EmptyArray,
+    UnsupportedArrayShape,
 }
 
 impl fmt::Display for Error {
@@ -11,6 +12,7 @@ impl fmt::Display for Error {
         match self {
             Self::TransformNotInvertible => write!(f, "transform is not invertible"),
             Self::EmptyArray => write!(f, "empty array"),
+            Self::UnsupportedArrayShape => write!(f, "unsupported array shape"),
         }
     }
 }

@@ -17,3 +17,9 @@ default_features = false
 
 [dev-dependencies]
 approx = "^0.4"
+
+[dev-dependencies.gdal]
+version = "^0.7"
+features = [
+    "array"
+]

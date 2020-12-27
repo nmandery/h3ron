@@ -6,15 +6,8 @@ extern crate ndarray;
 #[macro_use]
 extern crate approx;
 
-mod algo;
+mod array_util;
 pub mod transform;
 pub mod error;
 pub mod sphere;
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
-}
+pub mod resolution;
