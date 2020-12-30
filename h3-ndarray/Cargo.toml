@@ -5,8 +5,13 @@ authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
 
 [dependencies]
-ndarray = "^0.14"
 geo-types = "^0.6"
+
+[dependencies.ndarray]
+version = "^0.14"
+features = [
+    "rayon"
+]
 
 [dependencies.h3]
 path = "../h3"

@@ -6,7 +6,7 @@ extern crate ndarray;
 #[macro_use]
 extern crate approx;
 
-mod array_util;
+pub mod array;
 pub mod transform;
 pub mod error;
 mod sphere;

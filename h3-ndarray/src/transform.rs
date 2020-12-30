@@ -1,4 +1,4 @@
-use geo_types::Coordinate;
+use geo_types::{Coordinate, Rect};
 use std::ops::Mul;
 use crate::error::Error;
 
@@ -106,6 +106,17 @@ impl Mul<&Coordinate<f64>> for &Transform {
             x: rhs.x as f64 * self.a + rhs.y as f64 * self.b + self.c,
             y: rhs.x as f64 * self.d + rhs.y as f64 * self.e + self.f,
         }
+    }
+}
+
+impl Mul<&Rect<f64>> for &Transform {
+    type Output = Rect<f64>;
+
+    fn mul(self, rhs: &Rect<f64>) -> Self::Output {
+        Rect::new(
+            self * &rhs.min(),
+            self * &rhs.max(),
+        )
     }
 }
 
