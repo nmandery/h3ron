@@ -118,6 +118,17 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
             }).flatten().collect()
     }
 
+    fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, H3IndexStack>, compact: bool) {
+        chunk_map.iter_mut()
+            .for_each(|(_value, index_stack)| {
+                if compact {
+                    index_stack.compact();
+                } else {
+                    index_stack.dedup();
+                }
+            });
+    }
+
     pub fn to_h3(&self, h3_resolution: u8, compact: bool) -> Result<HashMap<&'a T, H3IndexStack>, Error> {
         let inverse_transform = self.transform.invert()?;
 
@@ -161,12 +172,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                 }
 
                 // do an early compacting to free a bit of memory
-                if compact {
-                    chunk_h3_map.iter_mut()
-                        .for_each(|(_value, index_stack)| {
-                            index_stack.compact();
-                        });
-                }
+                self.finalize_chunk_map(&mut chunk_h3_map, compact);
 
                 chunk_h3_map
             })
@@ -182,15 +188,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
             }
         }
 
-        h3_map.iter_mut()
-            .for_each(|(_, index_stack)| {
-                if compact {
-                    index_stack.compact()
-                } else {
-                    index_stack.dedup()
-                };
-            });
-
+        self.finalize_chunk_map(&mut h3_map, compact);
         Ok(h3_map)
     }
 }
