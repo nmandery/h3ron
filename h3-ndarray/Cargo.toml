@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 geo-types = "^0.6"
+rayon = "^1.5"
 
 [dependencies.ndarray]
 version = "^0.14"

@@ -2,7 +2,7 @@ use gdal::{Dataset, Driver};
 use h3_ndarray::{
     resolution::{
         nearest_h3_resolution,
-        NearestH3ResolutionSearchMode::SmallestAreaDifference,
+        NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea,
     },
     transform::Transform,
 };
@@ -21,7 +21,7 @@ fn main() {
         band.size(),
     ).unwrap();
 
-    let h3_resolution = nearest_h3_resolution(band_array.shape(), &transform, SmallestAreaDifference).unwrap();
+    let h3_resolution = nearest_h3_resolution(band_array.shape(), &transform, IndexAreaSmallerThanPixelArea).unwrap();
     println!("selected H3 resolution: {}", h3_resolution);
 
     let view = band_array.view();

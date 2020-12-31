@@ -11,6 +11,7 @@ use crate::transform::Transform;
 use h3::polyfill;
 use h3::index::Index;
 use std::hash::Hash;
+//use rayon::prelude::*;
 
 fn find_continuous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_value: &T) -> Vec<(usize, usize)> where T: Sized + PartialEq {
     let mut chunks = Vec::new();
@@ -38,7 +39,7 @@ fn find_continuous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_v
 /// clusters as one as its based on completely empty columns and rows, but it is probably
 /// sufficient for the purpose to reduce the number of hexagons
 /// to be generated when dealing with fragmented/sparse datasets.
-pub(crate) fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T) -> Vec<Rect<usize>> where T: Sized + PartialEq {
+fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T) -> Vec<Rect<usize>> where T: Sized + PartialEq {
     let mut boxes = Vec::new();
 
     for chunk_0raw_indexes in find_continuous_chunks_along_axis(a, 0, nodata_value) {
@@ -79,25 +80,22 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
         }
     }
 
-    pub fn to_h3(&self, h3_resolution: u8, compact: bool) -> Result<HashMap<&'a T, H3IndexStack>, Error> {
-        let inverse_transform = self.transform.invert()?;
-        let chunk_size = 250;
-
-        let mut chunk_h3_maps = self.arr.axis_chunks_iter(Axis(0), chunk_size)
-            //.into_par_iter() // requires T to be Sync
+    fn rects_with_data(&self, rect_size: usize) -> Vec<Rect<f64>> {
+        self.arr.axis_chunks_iter(Axis(0), rect_size)
+            .into_par_iter() // requires T to be Sync
             .enumerate()
             .map(|(axis0_chunk_i, axis0_chunk)| {
-                let mut chunk_h3_map = HashMap::<&T, H3IndexStack>::new();
+                let mut rects = Vec::new();
                 for chunk0_rect in find_boxes_containing_data(&axis0_chunk, self.nodata_value) {
-                    let offset_0 = (axis0_chunk_i * chunk_size) + chunk0_rect.min().x;
+                    let offset_0 = (axis0_chunk_i * rect_size) + chunk0_rect.min().x;
                     let chunk_rect_view = axis0_chunk.slice(s![chunk0_rect.min().x..chunk0_rect.max().x, chunk0_rect.min().y..chunk0_rect.max().y ]);
-                    chunk_rect_view.axis_chunks_iter(Axis(1), chunk_size)
+                    chunk_rect_view.axis_chunks_iter(Axis(1), rect_size)
                         .enumerate()
                         .for_each(|(c_i, c)| {
-                            let offset_1 = (c_i * chunk_size) + chunk0_rect.min().y;
+                            let offset_1 = (c_i * rect_size) + chunk0_rect.min().y;
 
                             // the window in array coordinates
-                            let array_window = Rect::new(
+                            let window = Rect::new(
                                 Coordinate {
                                     x: offset_0 as f64,
                                     y: offset_1 as f64,
@@ -108,37 +106,47 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                                     y: (offset_1 + c.shape()[1] + 1) as f64,
                                 },
                             );
-                            //dbg!(array_window);
+                            rects.push(window)
+                        })
+                }
+                rects
+            }).flatten().collect()
+    }
 
-                            // the window in geographical coordinates
-                            let window_box = self.transform * &array_window;
-                            //dbg!(window_box);
+    pub fn to_h3(&self, h3_resolution: u8, compact: bool) -> Result<HashMap<&'a T, H3IndexStack>, Error> {
+        let inverse_transform = self.transform.invert()?;
 
-                            let h3indexes = polyfill(&window_box.to_polygon(), h3_resolution);
-                            //println!("num h3indexes: {}", h3indexes.len());
-                            for h3index in h3indexes {
-                                let index = Index::from(h3index);
-                                // find the array element for the coordinate of the h3 index
-                                let arr_coord = {
-                                    let transformed = &inverse_transform * &index.coordinate();
-                                    /*
-                                    Coordinate {
-                                        x: transformed.x.floor() as usize,
-                                        y: transformed.y.floor() as usize,
-                                    }
+        let mut chunk_h3_maps = self.rects_with_data(250)
+            .into_par_iter()
+            .map(|array_window| {
 
-                                     */
-                                    [transformed.x.floor() as usize, transformed.y.floor() as usize]
-                                };
-                                if let Some(value) = self.arr.get(arr_coord) {
-                                    if value != self.nodata_value {
-                                        chunk_h3_map.entry(value)
-                                            .or_insert_with(|| H3IndexStack::new())
-                                            .add_indexes(&[index.h3index()], false);
-                                    }
-                                }
-                            }
-                        });
+                // the window in geographical coordinates
+                let window_box = self.transform * &array_window;
+                //dbg!(window_box);
+
+                let mut chunk_h3_map = HashMap::<&T, H3IndexStack>::new();
+                let h3indexes = polyfill(&window_box.to_polygon(), h3_resolution);
+                //println!("num h3indexes: {}", h3indexes.len());
+                for h3index in h3indexes {
+                    // find the array element for the coordinate of the h3 index
+                    let arr_coord = {
+                        let transformed = &inverse_transform * &Index::from(h3index).coordinate();
+                        /*
+                        Coordinate {
+                            x: transformed.x.floor() as usize,
+                            y: transformed.y.floor() as usize,
+                        }
+
+                         */
+                        [transformed.x.floor() as usize, transformed.y.floor() as usize]
+                    };
+                    if let Some(value) = self.arr.get(arr_coord) {
+                        if value != self.nodata_value {
+                            chunk_h3_map.entry(value)
+                                .or_insert_with(|| H3IndexStack::new())
+                                .add_indexes(&[h3index], false);
+                        }
+                    }
                 }
 
                 // do an early compacting to free a bit of memory
