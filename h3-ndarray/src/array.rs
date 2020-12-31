@@ -1,16 +1,21 @@
+use std::collections::HashMap;
+use std::hash::Hash;
+
+use geo_types::{Coordinate, Rect};
 use ndarray::{
     ArrayView2,
     Axis,
     parallel::prelude::*,
 };
-use geo_types::{Rect, Coordinate};
-use std::collections::HashMap;
+
+use h3::index::Index;
+use h3::polyfill;
 use h3::stack::H3IndexStack;
+use log::debug;
+
 use crate::error::Error;
 use crate::transform::Transform;
-use h3::polyfill;
-use h3::index::Index;
-use std::hash::Hash;
+
 //use rayon::prelude::*;
 
 fn find_continuous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_value: &T) -> Vec<(usize, usize)> where T: Sized + PartialEq {
@@ -116,9 +121,15 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
     pub fn to_h3(&self, h3_resolution: u8, compact: bool) -> Result<HashMap<&'a T, H3IndexStack>, Error> {
         let inverse_transform = self.transform.invert()?;
 
-        let mut chunk_h3_maps = self.rects_with_data(250)
+        let rects = self.rects_with_data(250);
+        let n_rects = rects.len();
+        debug!("to_h3: found {} rects containing non-nodata values", n_rects);
+
+        let mut chunk_h3_maps = rects
             .into_par_iter()
-            .map(|array_window| {
+            .enumerate()
+            .map(|(array_window_i, array_window)| {
+                debug!("to_h3: rect {}/{} with size {} x {}", array_window_i, n_rects, array_window.width(), array_window.height());
 
                 // the window in geographical coordinates
                 let window_box = self.transform * &array_window;

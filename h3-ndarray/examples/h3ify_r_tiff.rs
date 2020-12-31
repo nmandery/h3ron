@@ -1,4 +1,14 @@
-use gdal::{Dataset, Driver};
+use gdal::{
+    Dataset,
+    Driver,
+    vector::{
+        FieldDefn,
+        OGRFieldType,
+        Defn,
+        Feature,
+        ToGdal
+    }
+};
 use h3_ndarray::{
     resolution::{
         nearest_h3_resolution,
@@ -7,10 +17,11 @@ use h3_ndarray::{
     transform::Transform,
 };
 use h3_ndarray::array::H3Converter;
-use gdal::vector::{FieldDefn, OGRFieldType, Defn, Feature, ToGdal};
 use h3::index::Index;
 
 fn main() {
+    env_logger::init(); // run with the environment variable RUST_LOG set to "debug" for log output
+
     let filename = format!("{}/../data/r.tiff", env!("CARGO_MANIFEST_DIR"));
     let dataset = Dataset::open((&filename).as_ref()).unwrap();
     let transform = Transform::from_gdal(&dataset.geo_transform().unwrap());

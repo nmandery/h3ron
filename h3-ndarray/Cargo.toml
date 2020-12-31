@@ -7,6 +7,7 @@ edition = "2018"
 [dependencies]
 geo-types = "^0.6"
 rayon = "^1.5"
+log = "^0.4"
 
 [dependencies.ndarray]
 version = "^0.14"
@@ -23,6 +24,7 @@ default_features = false
 
 [dev-dependencies]
 approx = "^0.4"
+env_logger = "^0.8"
 
 [dev-dependencies.gdal]
 version = "^0.7"
