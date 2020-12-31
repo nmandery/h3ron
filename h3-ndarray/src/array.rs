@@ -154,7 +154,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                     if let Some(value) = self.arr.get(arr_coord) {
                         if value != self.nodata_value {
                             chunk_h3_map.entry(value)
-                                .or_insert_with(|| H3IndexStack::new())
+                                .or_insert_with(H3IndexStack::new)
                                 .add_indexes(&[h3index], false);
                         }
                     }
@@ -177,7 +177,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
         for mut chunk_h3_map in chunk_h3_maps.drain(..) {
             for (value, mut index_stack) in chunk_h3_map.drain() {
                 h3_map.entry(value)
-                    .or_insert_with(|| H3IndexStack::new())
+                    .or_insert_with(H3IndexStack::new)
                     .append(&mut index_stack, false);
             }
         }
