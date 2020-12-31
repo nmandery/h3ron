@@ -17,10 +17,6 @@ features = [
 
 [dependencies.h3]
 path = "../h3"
-features = [
-    "with-geo-types-0_6"
-]
-default_features = false
 
 [dev-dependencies]
 approx = "^0.4"

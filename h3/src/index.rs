@@ -4,10 +4,7 @@ use std::mem::MaybeUninit;
 use std::os::raw::c_int;
 use std::str::FromStr;
 
-#[cfg(feature = "with-geo-types-0_4")]
-use geo_types_04::{Coordinate, LineString, Point, Polygon};
-#[cfg(feature = "with-geo-types-0_6")]
-use geo_types_06::{Coordinate, LineString, Point, Polygon};
+use geo_types::{Coordinate, LineString, Point, Polygon};
 
 use h3_sys::{GeoCoord, H3Index};
 

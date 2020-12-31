@@ -55,7 +55,7 @@ fn main() {
     let defn = Defn::from_layer(&out_lyr);
 
     results.iter().for_each(|(_value, index_stack)| {
-        index_stack.indexes_by_resolution.iter().for_each(|(_res, h3indexes)| {
+        index_stack.indexes_by_resolution.iter().for_each(|h3indexes| {
             for h3index in h3indexes {
                 let index = Index::from(*h3index);
                 let mut ft = Feature::new(&defn).unwrap();

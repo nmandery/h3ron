@@ -5,10 +5,7 @@ use std::collections::HashMap;
 use std::iter::Iterator;
 use std::os::raw::c_int;
 
-#[cfg(feature = "with-geo-types-0_4")]
-use geo_types_04::Polygon;
-#[cfg(feature = "with-geo-types-0_6")]
-use geo_types_06::Polygon;
+use geo_types::Polygon;
 
 use h3_sys::{GeoCoord, Geofence, GeoPolygon, H3Index};
 

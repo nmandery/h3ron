@@ -1,7 +1,4 @@
-#[cfg(feature = "with-geo-types-0_4")]
-use geo_types_04::{Coordinate, LineString, Point};
-#[cfg(feature = "with-geo-types-0_6")]
-use geo_types_06::{Coordinate, LineString, Point};
+use geo_types::{Coordinate, LineString, Point};
 
 use h3_sys::{degsToRads, GeoCoord};
 
