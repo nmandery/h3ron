@@ -43,8 +43,8 @@ fn main() {
     });
 
     // write to vector file
-    let out_drv = Driver::get("GeoJSON").unwrap();
-    let mut out_dataset = out_drv.create_vector_only("h3ify_r_tiff_results.json").unwrap();
+    let out_drv = Driver::get("GPKG").unwrap();
+    let mut out_dataset = out_drv.create_vector_only("h3ify_r_tiff_results.gpkg").unwrap();
     let out_lyr = out_dataset.create_layer_blank().unwrap();
 
     let h3index_field_defn = FieldDefn::new("h3index", OGRFieldType::OFTString).unwrap();
