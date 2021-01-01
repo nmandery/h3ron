@@ -44,13 +44,15 @@ fn main() {
 
     // write to vector file
     let out_drv = Driver::get("GeoJSON").unwrap();
-    let mut out_dataset = out_drv.create_vector_only("results.json").unwrap();
+    let mut out_dataset = out_drv.create_vector_only("h3ify_r_tiff_results.json").unwrap();
     let out_lyr = out_dataset.create_layer_blank().unwrap();
 
     let h3index_field_defn = FieldDefn::new("h3index", OGRFieldType::OFTString).unwrap();
     h3index_field_defn.set_width(20);
     h3index_field_defn.add_to_layer(&out_lyr).unwrap();
 
+    let h3res_field_defn = FieldDefn::new("h3res", OGRFieldType::OFTInteger).unwrap();
+    h3res_field_defn.add_to_layer(&out_lyr).unwrap();
 
     let defn = Defn::from_layer(&out_lyr);
 
@@ -61,6 +63,7 @@ fn main() {
                 let mut ft = Feature::new(&defn).unwrap();
                 ft.set_geometry(index.polygon().to_gdal().unwrap()).unwrap();
                 ft.set_field_string("h3index", &index.to_string()).unwrap();
+                ft.set_field_integer("h3res", index.resolution() as i32).unwrap();
                 ft.create(&out_lyr).unwrap();
             }
         })
