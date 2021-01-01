@@ -11,19 +11,22 @@ log = "^0.4"
 
 [dependencies.ndarray]
 version = "^0.14"
-features = [
-    "rayon"
-]
+features = [ "rayon" ]
 
 [dependencies.h3]
 path = "../h3"
 
+
 [dev-dependencies]
 approx = "^0.4"
 env_logger = "^0.8"
+criterion = "^0.3"
 
 [dev-dependencies.gdal]
 version = "^0.7"
-features = [
-    "array"
-]
+features = [ "array" ]
+
+
+[[bench]]
+name = "convert_dataset_r"
+harness = false
