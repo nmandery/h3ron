@@ -23,6 +23,30 @@ use crate::{
 // already imported by ndarray::parallel::prelude
 //use rayon::prelude::*;
 
+/// the order of the axis in the two-dimensional array
+pub enum AxisOrder {
+    XY,
+
+    /// the order used by github.com/georust/gdal (ndarray feature gate)
+    YX
+}
+
+impl AxisOrder {
+    pub fn x_axis(&self) -> usize {
+        match self {
+            Self::XY => 0,
+            Self::YX => 1,
+        }
+    }
+
+    pub fn y_axis(&self) -> usize {
+        match self {
+            Self::XY => 1,
+            Self::YX => 0,
+        }
+    }
+}
+
 fn find_continuous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_value: &T) -> Vec<(usize, usize)> where T: Sized + PartialEq {
     let mut chunks = Vec::new();
     let mut current_chunk_start: Option<usize> = None;
@@ -49,24 +73,37 @@ fn find_continuous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_v
 /// clusters as one as its based on completely empty columns and rows, but it is probably
 /// sufficient for the purpose to reduce the number of hexagons
 /// to be generated when dealing with fragmented/sparse datasets.
-fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T) -> Vec<Rect<usize>> where T: Sized + PartialEq {
+fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T, axis_order: &AxisOrder) -> Vec<Rect<usize>> where T: Sized + PartialEq {
     let mut boxes = Vec::new();
 
-    for chunk_0raw_indexes in find_continuous_chunks_along_axis(a, 0, nodata_value) {
-        let sv = a.slice(s![chunk_0raw_indexes.0..=chunk_0raw_indexes.1, ..]);
-        for chunks_1raw_indexes in find_continuous_chunks_along_axis(&sv, 1, nodata_value) {
-            let sv2 = sv.slice(s![0..=(chunk_0raw_indexes.1-chunk_0raw_indexes.0), chunks_1raw_indexes.0..=chunks_1raw_indexes.1]);
+    for chunk_x_raw_indexes in find_continuous_chunks_along_axis(a, axis_order.x_axis(), nodata_value) {
+        let sv = {
+            let x_raw_range = chunk_x_raw_indexes.0..=chunk_x_raw_indexes.1;
+            match axis_order {
+                AxisOrder::XY => a.slice(s![x_raw_range, ..]),
+                AxisOrder::YX => a.slice(s![.., x_raw_range]),
+            }
+        };
+        for chunks_y_raw_indexes in find_continuous_chunks_along_axis(&sv, axis_order.y_axis(), nodata_value) {
+            let sv2 = {
+                let x_raw_range = 0..=(chunk_x_raw_indexes.1-chunk_x_raw_indexes.0);
+                let y_raw_range = chunks_y_raw_indexes.0..=chunks_y_raw_indexes.1;
+                match axis_order {
+                    AxisOrder::XY => sv.slice(s![x_raw_range, y_raw_range]),
+                    AxisOrder::YX => sv.slice(s![y_raw_range, x_raw_range]),
+                }
+            };
 
             // one more iteration along axis 0 to get the specific range for that axis 1 range
-            for chunks_0_indexes in find_continuous_chunks_along_axis(&sv2, 0, nodata_value) {
+            for chunks_x_indexes in find_continuous_chunks_along_axis(&sv2, axis_order.x_axis(), nodata_value) {
                 boxes.push(Rect::new(
                     Coordinate {
-                        x: chunks_0_indexes.0 + chunk_0raw_indexes.0,
-                        y: chunks_1raw_indexes.0,
+                        x: chunks_x_indexes.0 + chunk_x_raw_indexes.0,
+                        y: chunks_y_raw_indexes.0,
                     },
                     Coordinate {
-                        x: chunks_0_indexes.1 + chunk_0raw_indexes.0,
-                        y: chunks_1raw_indexes.1,
+                        x: chunks_x_indexes.1 + chunk_x_raw_indexes.0,
+                        y: chunks_y_raw_indexes.1,
                     },
                 ))
             }
@@ -79,41 +116,50 @@ pub struct H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
     arr: &'a ArrayView2<'a, T>,
     nodata_value: &'a T,
     transform: &'a Transform,
+    axis_order: AxisOrder,
 }
 
 impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
-    pub fn new(arr: &'a ArrayView2<'a, T>, nodata_value: &'a T, transform: &'a Transform) -> Self {
+    pub fn new(arr: &'a ArrayView2<'a, T>, nodata_value: &'a T, transform: &'a Transform, axis_order: AxisOrder) -> Self {
         Self {
             arr,
             nodata_value,
             transform,
+            axis_order,
         }
     }
 
     fn rects_with_data(&self, rect_size: usize) -> Vec<Rect<f64>> {
-        self.arr.axis_chunks_iter(Axis(0), rect_size)
+        self.arr.axis_chunks_iter(Axis(self.axis_order.x_axis()), rect_size)
             .into_par_iter() // requires T to be Sync
             .enumerate()
-            .map(|(axis0_chunk_i, axis0_chunk)| {
+            .map(|(axis_x_chunk_i, axis_x_chunk)| {
                 let mut rects = Vec::new();
-                for chunk0_rect in find_boxes_containing_data(&axis0_chunk, self.nodata_value) {
-                    let offset_0 = (axis0_chunk_i * rect_size) + chunk0_rect.min().x;
-                    let chunk_rect_view = axis0_chunk.slice(s![chunk0_rect.min().x..chunk0_rect.max().x, chunk0_rect.min().y..chunk0_rect.max().y ]);
-                    chunk_rect_view.axis_chunks_iter(Axis(1), rect_size)
+                for chunk_x_rect in find_boxes_containing_data(&axis_x_chunk, self.nodata_value, &self.axis_order) {
+                    let offset_x = (axis_x_chunk_i * rect_size) + chunk_x_rect.min().x;
+                    let chunk_rect_view = {
+                        let x_range = chunk_x_rect.min().x..chunk_x_rect.max().x;
+                        let y_range = chunk_x_rect.min().y..chunk_x_rect.max().y;
+                        match self.axis_order {
+                            AxisOrder::XY => axis_x_chunk.slice(s![x_range, y_range]),
+                            AxisOrder::YX => axis_x_chunk.slice(s![y_range, x_range]),
+                        }
+                    };
+                    chunk_rect_view.axis_chunks_iter(Axis(self.axis_order.y_axis()), rect_size)
                         .enumerate()
                         .for_each(|(c_i, c)| {
-                            let offset_1 = (c_i * rect_size) + chunk0_rect.min().y;
+                            let offset_y = (c_i * rect_size) + chunk_x_rect.min().y;
 
                             // the window in array coordinates
                             let window = Rect::new(
                                 Coordinate {
-                                    x: offset_0 as f64,
-                                    y: offset_1 as f64,
+                                    x: offset_x as f64,
+                                    y: offset_y as f64,
                                 },
                                 // add one to the max coordinate to include the whole last pixel
                                 Coordinate {
-                                    x: (offset_0 + c.shape()[0] + 1) as f64,
-                                    y: (offset_1 + c.shape()[1] + 1) as f64,
+                                    x: (offset_x + c.shape()[self.axis_order.x_axis()] + 1) as f64,
+                                    y: (offset_y + c.shape()[self.axis_order.y_axis()] + 1) as f64,
                                 },
                             );
                             rects.push(window)
@@ -165,7 +211,10 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                         }
 
                          */
-                        [transformed.x.floor() as usize, transformed.y.floor() as usize]
+                        match self.axis_order {
+                            AxisOrder::XY => [transformed.x.floor() as usize, transformed.y.floor() as usize],
+                            AxisOrder::YX => [transformed.y.floor() as usize, transformed.x.floor() as usize],
+                        }
                     };
                     if let Some(value) = self.arr.get(arr_coord) {
                         if value != self.nodata_value {
@@ -201,6 +250,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
 #[cfg(test)]
 mod tests {
     use crate::array::find_boxes_containing_data;
+    use crate::AxisOrder;
 
     #[test]
     fn test_find_boxes_containing_data() {
@@ -220,7 +270,7 @@ mod tests {
         let n_elements = arr_copy.shape()[0] * arr_copy.shape()[1];
         let mut n_elements_in_boxes = 0;
 
-        for rect in find_boxes_containing_data(&arr.view(), &0) {
+        for rect in find_boxes_containing_data(&arr.view(), &0, &AxisOrder::XY) {
             n_elements_in_boxes += (rect.max().x - rect.min().x + 1) * (rect.max().y - rect.min().y + 1);
 
             //dbg!(rect);

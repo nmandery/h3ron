@@ -11,13 +11,10 @@ use gdal::{
 };
 
 use h3::index::Index;
-use h3_ndarray::{
-    resolution::{
-        nearest_h3_resolution,
-        NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea,
-    },
-    Transform,
-};
+use h3_ndarray::{resolution::{
+    nearest_h3_resolution,
+    NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea,
+}, Transform, AxisOrder};
 use h3_ndarray::H3Converter;
 
 fn main() {
@@ -37,7 +34,7 @@ fn main() {
     println!("selected H3 resolution: {}", h3_resolution);
 
     let view = band_array.view();
-    let conv = H3Converter::new(&view, &0_u8, &transform);
+    let conv = H3Converter::new(&view, &0_u8, &transform, AxisOrder::YX);
     let results = conv.to_h3(h3_resolution, true).unwrap();
     results.iter().for_each(|(value, index_stack)| {
         println!("{} -> {}", value, index_stack.len());

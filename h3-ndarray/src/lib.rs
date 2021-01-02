@@ -10,6 +10,9 @@ pub mod error;
 mod sphere;
 pub mod resolution;
 
-pub use crate::array::H3Converter;
+pub use crate::array::{
+    H3Converter,
+    AxisOrder
+};
 pub use crate::transform::Transform;
 pub use crate::error::Error;
