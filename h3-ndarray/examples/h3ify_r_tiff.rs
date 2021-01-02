@@ -6,15 +6,15 @@ use gdal::{
         Feature,
         FieldDefn,
         OGRFieldType,
-        ToGdal
-    }
+        ToGdal,
+    },
 };
 
 use h3::index::Index;
-use h3_ndarray::{resolution::{
+use h3_ndarray::{AxisOrder, resolution::{
     nearest_h3_resolution,
     NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea,
-}, Transform, AxisOrder};
+}, Transform};
 use h3_ndarray::H3Converter;
 
 fn main() {
@@ -55,15 +55,13 @@ fn main() {
     let defn = Defn::from_layer(&out_lyr);
 
     results.iter().for_each(|(_value, index_stack)| {
-        index_stack.indexes_by_resolution.iter().for_each(|h3indexes| {
-            for h3index in h3indexes {
-                let index = Index::from(*h3index);
-                let mut ft = Feature::new(&defn).unwrap();
-                ft.set_geometry(index.polygon().to_gdal().unwrap()).unwrap();
-                ft.set_field_string("h3index", &index.to_string()).unwrap();
-                ft.set_field_integer("h3res", index.resolution() as i32).unwrap();
-                ft.create(&out_lyr).unwrap();
-            }
-        })
+        for h3index in index_stack.iter_compacted_indexes() {
+            let index = Index::from(h3index);
+            let mut ft = Feature::new(&defn).unwrap();
+            ft.set_geometry(index.polygon().to_gdal().unwrap()).unwrap();
+            ft.set_field_string("h3index", &index.to_string()).unwrap();
+            ft.set_field_integer("h3res", index.resolution() as i32).unwrap();
+            ft.create(&out_lyr).unwrap();
+        }
     });
 }

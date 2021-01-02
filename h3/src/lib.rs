@@ -15,7 +15,7 @@ use crate::index::Index;
 #[macro_use]
 mod util;
 mod geo;
-pub mod stack;
+pub mod collections;
 pub mod experimental;
 pub mod error;
 pub mod index;

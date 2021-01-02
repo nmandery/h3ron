@@ -1,4 +1,6 @@
 use std::collections::HashSet;
+use std::iter::FromIterator;
+use std::slice::Iter;
 
 use h3_sys::H3Index;
 
@@ -7,13 +9,13 @@ use crate::index::Index;
 
 /// structure to keep compacted h3 indexes to allow more or less efficient
 /// adding of further indexes
-pub struct H3IndexStack {
-    pub indexes_by_resolution: [Vec<H3Index>; 16],
+pub struct H3CompactedVec {
+    indexes_by_resolution: [Vec<H3Index>; 16],
 }
 
-impl<'a> H3IndexStack {
-    pub fn new() -> H3IndexStack {
-        H3IndexStack {
+impl<'a> H3CompactedVec {
+    pub fn new() -> H3CompactedVec {
+        H3CompactedVec {
             indexes_by_resolution: Default::default()
         }
     }
@@ -80,23 +82,28 @@ impl<'a> H3IndexStack {
         false
     }
 
-    /// indexes must be of the same resolution
+    /// add a single h3 index
     ///
     /// will trigger a re-compacting when `compact` is set
-    pub fn add_indexes(&mut self, h3_indexes: &[H3Index], compact: bool) {
-        if h3_indexes.is_empty() {
-            return;
-        }
-        let resolution = Index::from(*h3_indexes.first().unwrap()).resolution() as usize;
-        h3_indexes.iter().for_each(|h| self.indexes_by_resolution[resolution].push(*h));
+    pub fn add_index(&mut self, h3_index: H3Index, compact: bool) {
+        let resolution = Index::from(h3_index).resolution();
+        self.add_index_to_resolution(h3_index, resolution, compact);
+    }
+
+    /// add a single h3 index
+    ///
+    /// the `resolution` parameter must match the resolution of the index. This method
+    ///  only exists to skip the resolution check of `add_index`.
+    pub fn add_index_to_resolution(&mut self, h3_index: H3Index, resolution: u8, compact:bool) {
+        self.indexes_by_resolution[resolution as usize].push(h3_index);
         if compact {
-            self.compact_from_resolution_up(resolution, &[]);
+            self.compact_from_resolution_up(resolution as usize, &[]);
         }
     }
 
     ///
     ///
-    pub fn add_indexes_mixed_resolutions(&mut self, h3_indexes: &[H3Index], compact: bool) {
+    pub fn add_indexes(&mut self, h3_indexes: &[H3Index], compact: bool) {
         let mut resolutions_touched = HashSet::new();
         for h3_index in h3_indexes {
             let res = Index::from(*h3_index).resolution() as usize;
@@ -112,12 +119,62 @@ impl<'a> H3IndexStack {
         }
     }
 
+    pub fn add_indexes_from_iter<T: IntoIterator<Item=H3Index>>(&mut self, iter: T, compact: bool) {
+        let mut cv = Self::new();
+        for h3index in iter {
+            self.add_index(h3index, false);
+        }
+        if compact {
+            cv.compact();
+        }
+    }
+
+    /// iterate over the compacted (or not, depending on if `compact` was called) contents
+    pub fn iter_compacted_indexes(&self) -> H3CompactedVecCompactedIterator {
+        H3CompactedVecCompactedIterator {
+            compacted_vec: &self,
+            current_resolution: 0,
+            current_pos: 0,
+        }
+    }
+
+    /// iterate over the compacted indexes at the given resolution
+    ///
+    /// parent indexes at lower resolutions will not be uncompacted
+    pub fn iter_compacted_indexes_at_resolution(&self, resolution: u8) -> Iter<'_, H3Index> {
+        self.indexes_by_resolution[resolution as usize].iter()
+    }
+
+    /// iterate over the uncompacted indexes.
+    ///
+    /// indexes at lower resolutions will be decompacted, indexes at higher resolutions will be
+    /// ignored.
+    pub fn iter_uncompacted_indexes(&self, resolution: u8) -> H3CompactedVecUncompactedIterator<'_> {
+        H3CompactedVecUncompactedIterator {
+            compacted_vec: self,
+            current_resolution: 0,
+            current_pos: 0,
+            current_uncompacted: vec![],
+            iteration_resolution: resolution as usize,
+        }
+    }
+
     pub fn dedup(&mut self) {
         self.indexes_by_resolution.iter_mut().for_each(|indexes| {
             indexes.sort_unstable();
             indexes.dedup();
         });
         self.purge_children();
+    }
+
+    /// the finest resolution contained
+    pub fn finest_resolution_contained(&self) -> Option<u8> {
+        for resolution in (0..=15).rev() {
+            if !self.indexes_by_resolution[resolution].is_empty() {
+                return Some(resolution as u8);
+            }
+        }
+        None
     }
 
     /// compact all resolution from the given to 0
@@ -176,22 +233,100 @@ impl<'a> H3IndexStack {
     }
 }
 
-impl Default for H3IndexStack {
+impl Default for H3CompactedVec {
     fn default() -> Self {
-        H3IndexStack::new()
+        H3CompactedVec::new()
+    }
+}
+
+impl FromIterator<H3Index> for H3CompactedVec {
+    fn from_iter<T: IntoIterator<Item=H3Index>>(iter: T) -> Self {
+        let mut cv = Self::new();
+        cv.add_indexes_from_iter(iter, true);
+        cv
+    }
+}
+
+impl FromIterator<Index> for H3CompactedVec {
+    fn from_iter<T: IntoIterator<Item=Index>>(iter: T) -> Self {
+        let mut cv = Self::new();
+        for index in iter {
+            cv.add_index(index.h3index(), false);
+        }
+        cv.compact();
+        cv
+    }
+}
+
+pub struct H3CompactedVecCompactedIterator<'a> {
+    compacted_vec: &'a H3CompactedVec,
+    current_resolution: usize,
+    current_pos: usize,
+}
+
+impl<'a> Iterator for H3CompactedVecCompactedIterator<'a> {
+    type Item = H3Index;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.current_resolution <= 15 {
+            if let Some(value) = self.compacted_vec.indexes_by_resolution[self.current_resolution].get(self.current_pos) {
+                self.current_pos += 1;
+                return Some(*value);
+            } else {
+                self.current_pos = 0;
+                self.current_resolution += 1;
+            }
+        }
+        None
+    }
+}
+
+pub struct H3CompactedVecUncompactedIterator<'a> {
+    compacted_vec: &'a H3CompactedVec,
+    current_resolution: usize,
+    current_pos: usize,
+    current_uncompacted: Vec<H3Index>,
+    iteration_resolution: usize,
+}
+
+impl<'a> Iterator for H3CompactedVecUncompactedIterator<'a> {
+    type Item = H3Index;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.current_resolution <= self.iteration_resolution {
+            if self.current_resolution == self.iteration_resolution {
+                let value = self.compacted_vec.indexes_by_resolution[self.current_resolution].get(self.current_pos);
+                self.current_pos += 1;
+                return value.cloned();
+            } else if let Some(next) = self.current_uncompacted.pop() {
+                return Some(next);
+            } else if let Some(next_parent) = self.compacted_vec.indexes_by_resolution[self.current_resolution].get(self.current_pos) {
+                self.current_uncompacted = Index::from(*next_parent)
+                    .get_children(self.iteration_resolution as u8)
+                    .iter()
+                    .map(|i| i.h3index())
+                    .collect();
+                self.current_pos += 1;
+                continue;
+            } else {
+                self.current_resolution += 1;
+                self.current_pos = 0;
+            }
+        }
+        None
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::stack::H3IndexStack;
+    use crate::collections::H3CompactedVec;
 
     #[test]
     fn test_compactedindexstack_is_empty() {
-        let mut stack = H3IndexStack::new();
+        let mut stack = H3CompactedVec::new();
         assert!(stack.is_empty());
         assert_eq!(stack.len(), 0);
-        stack.add_indexes(vec![0x89283080ddbffff_u64].as_ref(), false);
+        stack.add_index(0x89283080ddbffff_u64, false);
         assert!(!stack.is_empty());
         assert_eq!(stack.len(), 1);
     }

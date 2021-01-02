@@ -12,7 +12,7 @@ use ndarray::{
 use h3::{
     index::Index,
     polyfill,
-    stack::H3IndexStack,
+    collections::H3CompactedVec,
 };
 
 use crate::{
@@ -173,18 +173,18 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
             }).flatten().collect()
     }
 
-    fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, H3IndexStack>, compact: bool) {
+    fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, H3CompactedVec>, compact: bool) {
         chunk_map.iter_mut()
-            .for_each(|(_value, index_stack)| {
+            .for_each(|(_value, compacted_vec)| {
                 if compact {
-                    index_stack.compact();
+                    compacted_vec.compact();
                 } else {
-                    index_stack.dedup();
+                    compacted_vec.dedup();
                 }
             });
     }
 
-    pub fn to_h3(&self, h3_resolution: u8, compact: bool) -> Result<HashMap<&'a T, H3IndexStack>, Error> {
+    pub fn to_h3(&self, h3_resolution: u8, compact: bool) -> Result<HashMap<&'a T, H3CompactedVec>, Error> {
         let inverse_transform = self.transform.invert()?;
 
         let rects = self.rects_with_data(250);
@@ -200,7 +200,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                 // the window in geographical coordinates
                 let window_box = self.transform * &array_window;
 
-                let mut chunk_h3_map = HashMap::<&T, H3IndexStack>::new();
+                let mut chunk_h3_map = HashMap::<&T, H3CompactedVec>::new();
                 let h3indexes = polyfill(&window_box.to_polygon(), h3_resolution);
                 for h3index in h3indexes {
                     // find the array element for the coordinate of the h3 index
@@ -215,8 +215,8 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                     if let Some(value) = self.arr.get(arr_coord) {
                         if value != self.nodata_value {
                             chunk_h3_map.entry(value)
-                                .or_insert_with(H3IndexStack::new)
-                                .add_indexes(&[h3index], false);
+                                .or_insert_with(H3CompactedVec::new)
+                                .add_index_to_resolution(h3index, h3_resolution, false);
                         }
                     }
                 }
@@ -231,10 +231,10 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
         // combine the results from all chunks
         let mut h3_map = HashMap::new();
         for mut chunk_h3_map in chunk_h3_maps.drain(..) {
-            for (value, mut index_stack) in chunk_h3_map.drain() {
+            for (value, mut compacted_vec) in chunk_h3_map.drain() {
                 h3_map.entry(value)
-                    .or_insert_with(H3IndexStack::new)
-                    .append(&mut index_stack, false);
+                    .or_insert_with(H3CompactedVec::new)
+                    .append(&mut compacted_vec, false);
             }
         }
 
