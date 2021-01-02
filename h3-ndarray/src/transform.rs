@@ -1,5 +1,7 @@
-use geo_types::{Coordinate, Rect};
 use std::ops::Mul;
+
+use geo_types::{Coordinate, Rect};
+
 use crate::error::Error;
 
 /// affine geotransfrom
@@ -160,8 +162,9 @@ mod tests {
       NoData Value=0
      */
 
-    use crate::transform::Transform;
     use geo_types::Coordinate;
+
+    use crate::transform::Transform;
 
     fn r_tiff_test_helper(gt: &Transform) {
         // upper left pixel

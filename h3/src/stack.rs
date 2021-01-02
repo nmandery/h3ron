@@ -166,7 +166,7 @@ impl<'a> H3IndexStack {
                 let mut orig_h3indexes = std::mem::take(&mut self.indexes_by_resolution[r]);
                 orig_h3indexes.drain(..).for_each(|h3index| {
                     let index = Index::from(h3index);
-                    if ! (lowest_res..r).any(|parent_res| known_indexes.contains(&index.get_parent(parent_res as u8).h3index())) {
+                    if !(lowest_res..r).any(|parent_res| known_indexes.contains(&index.get_parent(parent_res as u8).h3index())) {
                         known_indexes.insert(h3index);
                         self.indexes_by_resolution[r].push(h3index);
                     }

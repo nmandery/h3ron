@@ -1,4 +1,4 @@
-use geo_types::{LineString, Coordinate, Rect};
+use geo_types::{Coordinate, LineString, Rect};
 
 const EARTH_RADIUS_EQUATOR: f64 = 6_378_137_f64;
 

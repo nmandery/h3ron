@@ -1,16 +1,18 @@
+use geo_types::{
+    Coordinate,
+    Rect,
+};
+
+use h3::index::Index;
+
 use crate::{
-    transform::Transform,
     error::Error,
     sphere::{
-        area_rect,
         area_linearring,
+        area_rect,
     },
+    transform::Transform,
 };
-use geo_types::{
-    Rect,
-    Coordinate,
-};
-use h3::index::Index;
 
 pub enum NearestH3ResolutionSearchMode {
     /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
@@ -80,8 +82,8 @@ pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, search_mode
 
 #[cfg(test)]
 mod tests {
-    use crate::transform::Transform;
     use crate::resolution::{nearest_h3_resolution, NearestH3ResolutionSearchMode};
+    use crate::transform::Transform;
 
     #[test]
     fn test_nearest_h3_resolution() {

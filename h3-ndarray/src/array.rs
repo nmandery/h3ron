@@ -2,20 +2,25 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use geo_types::{Coordinate, Rect};
+use log::debug;
 use ndarray::{
     ArrayView2,
     Axis,
     parallel::prelude::*,
 };
 
-use h3::index::Index;
-use h3::polyfill;
-use h3::stack::H3IndexStack;
-use log::debug;
+use h3::{
+    index::Index,
+    polyfill,
+    stack::H3IndexStack,
+};
 
-use crate::error::Error;
-use crate::transform::Transform;
+use crate::{
+    error::Error,
+    transform::Transform,
+};
 
+// already imported by ndarray::parallel::prelude
 //use rayon::prelude::*;
 
 fn find_continuous_chunks_along_axis<T>(a: &ArrayView2<T>, axis: usize, nodata_value: &T) -> Vec<(usize, usize)> where T: Sized + PartialEq {
@@ -198,7 +203,7 @@ mod tests {
     use crate::array::find_boxes_containing_data;
 
     #[test]
-    fn test_find_boxes_containig_data() {
+    fn test_find_boxes_containing_data() {
         let arr = array![
             [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             [0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],

@@ -10,8 +10,8 @@ use h3_sys::{GeoCoord, H3Index};
 
 use crate::error::Error;
 use crate::geo::{coordinate_to_geocoord, point_to_geocoord};
-use crate::util::h3indexes_to_indexes;
 use crate::max_k_ring_size;
+use crate::util::h3indexes_to_indexes;
 
 #[derive(PartialOrd, PartialEq, Clone, Debug)]
 pub struct Index(H3Index);
@@ -218,11 +218,12 @@ pub fn group_indexes_by_resolution(mut indexes: Vec<Index>) -> HashMap<u8, Vec<I
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::str::FromStr;
 
-    use crate::index::Index;
-    use std::collections::HashMap;
     use h3_sys::H3Index;
+
+    use crate::index::Index;
 
     #[test]
     fn test_h3_to_string() {
@@ -294,12 +295,11 @@ mod tests {
         let k_max = 10;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
 
-        let mut indexes_resolutions: HashMap<H3Index, Vec<u32>>= HashMap::new();
+        let mut indexes_resolutions: HashMap<H3Index, Vec<u32>> = HashMap::new();
         for (dist, idx) in indexes.iter() {
             indexes_resolutions.entry(idx.h3index())
                 .and_modify(|v| v.push(*dist))
                 .or_insert_with(|| vec![*dist]);
-
         }
 
         println!("{:?}", indexes_resolutions);
