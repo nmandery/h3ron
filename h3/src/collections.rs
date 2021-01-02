@@ -217,7 +217,9 @@ impl<'a> H3CompactedVec {
         }
 
         if let Some(lowest_res) = lowest_resolution {
-            let mut known_indexes = self.indexes_by_resolution[lowest_res].iter().cloned().collect::<HashSet<_>>();
+            let mut known_indexes = self.indexes_by_resolution[lowest_res].iter()
+                .cloned()
+                .collect::<HashSet<_>>();
 
             for r in (lowest_res + 1)..=15 {
                 let mut orig_h3indexes = std::mem::take(&mut self.indexes_by_resolution[r]);
@@ -252,6 +254,17 @@ impl FromIterator<Index> for H3CompactedVec {
         let mut cv = Self::new();
         for index in iter {
             cv.add_index(index.h3index(), false);
+        }
+        cv.compact();
+        cv
+    }
+}
+
+impl From<Vec<H3Index>> for H3CompactedVec {
+    fn from(mut in_vec: Vec<H3Index>) -> Self {
+        let mut cv = Self::new();
+        for h3index in in_vec.drain(..) {
+            cv.add_index(h3index, false);
         }
         cv.compact();
         cv
