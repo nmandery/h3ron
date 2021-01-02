@@ -16,9 +16,9 @@ use h3_ndarray::{
         nearest_h3_resolution,
         NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea,
     },
-    transform::Transform,
+    Transform,
 };
-use h3_ndarray::array::H3Converter;
+use h3_ndarray::H3Converter;
 
 fn main() {
     env_logger::init(); // run with the environment variable RUST_LOG set to "debug" for log output
