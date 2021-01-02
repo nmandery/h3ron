@@ -25,9 +25,13 @@ use crate::{
 
 /// the order of the axis in the two-dimensional array
 pub enum AxisOrder {
+
+    /// X,Y ordering
     XY,
 
-    /// the order used by github.com/georust/gdal (ndarray feature gate)
+    /// Y,X ordering
+    ///
+    /// this is the order used by github.com/georust/gdal (ndarray feature gate)
     YX
 }
 
@@ -147,8 +151,8 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                     };
                     chunk_rect_view.axis_chunks_iter(Axis(self.axis_order.y_axis()), rect_size)
                         .enumerate()
-                        .for_each(|(c_i, c)| {
-                            let offset_y = (c_i * rect_size) + chunk_x_rect.min().y;
+                        .for_each(|(axis_y_chunk_i, axis_y_chunk)| {
+                            let offset_y = (axis_y_chunk_i * rect_size) + chunk_x_rect.min().y;
 
                             // the window in array coordinates
                             let window = Rect::new(
@@ -156,10 +160,10 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                                     x: offset_x as f64,
                                     y: offset_y as f64,
                                 },
-                                // add one to the max coordinate to include the whole last pixel
+                                // add 1 to the max coordinate to include the whole last pixel
                                 Coordinate {
-                                    x: (offset_x + c.shape()[self.axis_order.x_axis()] + 1) as f64,
-                                    y: (offset_y + c.shape()[self.axis_order.y_axis()] + 1) as f64,
+                                    x: (offset_x + axis_y_chunk.shape()[self.axis_order.x_axis()] + 1) as f64,
+                                    y: (offset_y + axis_y_chunk.shape()[self.axis_order.y_axis()] + 1) as f64,
                                 },
                             );
                             rects.push(window)
@@ -195,22 +199,14 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
 
                 // the window in geographical coordinates
                 let window_box = self.transform * &array_window;
-                //dbg!(window_box);
 
                 let mut chunk_h3_map = HashMap::<&T, H3IndexStack>::new();
                 let h3indexes = polyfill(&window_box.to_polygon(), h3_resolution);
-                //println!("num h3indexes: {}", h3indexes.len());
                 for h3index in h3indexes {
                     // find the array element for the coordinate of the h3 index
                     let arr_coord = {
                         let transformed = &inverse_transform * &Index::from(h3index).coordinate();
-                        /*
-                        Coordinate {
-                            x: transformed.x.floor() as usize,
-                            y: transformed.y.floor() as usize,
-                        }
 
-                         */
                         match self.axis_order {
                             AxisOrder::XY => [transformed.x.floor() as usize, transformed.y.floor() as usize],
                             AxisOrder::YX => [transformed.y.floor() as usize, transformed.x.floor() as usize],
@@ -270,18 +266,15 @@ mod tests {
         let n_elements = arr_copy.shape()[0] * arr_copy.shape()[1];
         let mut n_elements_in_boxes = 0;
 
-        for rect in find_boxes_containing_data(&arr.view(), &0, &AxisOrder::XY) {
+        for rect in find_boxes_containing_data(&arr.view(), &0, &AxisOrder::YX) {
             n_elements_in_boxes += (rect.max().x - rect.min().x + 1) * (rect.max().y - rect.min().y + 1);
 
-            //dbg!(rect);
             for x in rect.min().x..=rect.max().x {
                 for y in rect.min().y..=rect.max().y {
-                    arr_copy[(x, y)] = 0;
+                    arr_copy[(y, x)] = 0;
                 }
             }
         }
-        //dbg!(n_elements);
-        //dbg!(n_elements_in_boxes);
 
         // there should be far less indexes to visit now
         assert!(n_elements_in_boxes < (n_elements / 2));
