@@ -1,20 +1,23 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::ops::RangeInclusive;
 use std::slice::Iter;
 
 use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::H3Index;
 
-use crate::compact;
+use crate::{compact, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 use crate::index::Index;
+
+const H3_RESOLUTION_RANGE_USIZE: RangeInclusive<usize> = (H3_MIN_RESOLUTION as usize)..=(H3_MAX_RESOLUTION as usize);
 
 /// structure to keep compacted h3ron indexes to allow more or less efficient
 /// adding of further indexes
 #[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct H3CompactedVec {
     /// indexes by their resolution. The index of the array is the resolution for the referenced vec
-    indexes_by_resolution: [Vec<H3Index>; 16],
+    indexes_by_resolution: [Vec<H3Index>; H3_MAX_RESOLUTION as usize + 1],
 }
 
 impl<'a> H3CompactedVec {
@@ -31,7 +34,7 @@ impl<'a> H3CompactedVec {
     /// will trigger a re-compacting when compact is true
     pub fn append(&mut self, other: &mut Self, compact: bool) {
         let mut resolutions_touched = Vec::new();
-        for resolution in 0..=15 {
+        for resolution in H3_RESOLUTION_RANGE_USIZE {
             if !other.indexes_by_resolution[resolution].is_empty() {
                 resolutions_touched.push(resolution);
                 let mut h3indexes = std::mem::take(&mut other.indexes_by_resolution[resolution]);
@@ -46,7 +49,7 @@ impl<'a> H3CompactedVec {
     }
 
     pub fn compact(&mut self) {
-        self.compact_from_resolution_up(15, &(0..=15).collect::<Vec<_>>())
+        self.compact_from_resolution_up(H3_MAX_RESOLUTION as usize, &H3_RESOLUTION_RANGE_USIZE.collect::<Vec<_>>())
     }
 
     /// append the contents of a vector
@@ -77,7 +80,7 @@ impl<'a> H3CompactedVec {
             return false;
         }
         let mut index = Index::from(h3index);
-        for r in index.resolution()..=0 {
+        for r in index.resolution()..=H3_MIN_RESOLUTION {
             index = index.get_parent(r);
             if self.indexes_by_resolution[r as usize].contains(&index.h3index()) {
                 return true;
@@ -137,7 +140,7 @@ impl<'a> H3CompactedVec {
     pub fn iter_compacted_indexes(&self) -> H3CompactedVecCompactedIterator {
         H3CompactedVecCompactedIterator {
             compacted_vec: &self,
-            current_resolution: 0,
+            current_resolution: H3_MIN_RESOLUTION as usize,
             current_pos: 0,
         }
     }
@@ -156,7 +159,7 @@ impl<'a> H3CompactedVec {
     pub fn iter_uncompacted_indexes(&self, resolution: u8) -> H3CompactedVecUncompactedIterator<'_> {
         H3CompactedVecUncompactedIterator {
             compacted_vec: self,
-            current_resolution: 0,
+            current_resolution: H3_MIN_RESOLUTION as usize,
             current_pos: 0,
             current_uncompacted: vec![],
             iteration_resolution: resolution as usize,
@@ -173,7 +176,7 @@ impl<'a> H3CompactedVec {
 
     /// the finest resolution contained
     pub fn finest_resolution_contained(&self) -> Option<u8> {
-        for resolution in (0..=15).rev() {
+        for resolution in H3_RESOLUTION_RANGE_USIZE.rev() {
             if !self.indexes_by_resolution[resolution].is_empty() {
                 return Some(resolution as u8);
             }
@@ -191,7 +194,7 @@ impl<'a> H3CompactedVec {
         let mut resolutions_touched = include_resolutions.iter().cloned().collect::<HashSet<_>>();
         resolutions_touched.insert(resolution);
 
-        for res in (0..=resolution).rev() {
+        for res in ((H3_MIN_RESOLUTION as usize)..=resolution).rev() {
             if !resolutions_touched.contains(&res) {
                 // no new indexes have been added to this resolution
                 continue;
@@ -225,7 +228,7 @@ impl<'a> H3CompactedVec {
                 .cloned()
                 .collect::<HashSet<_>>();
 
-            for r in (lowest_res + 1)..=15 {
+            for r in (lowest_res + 1)..=(H3_MAX_RESOLUTION as usize) {
                 let mut orig_h3indexes = std::mem::take(&mut self.indexes_by_resolution[r]);
                 orig_h3indexes.drain(..).for_each(|h3index| {
                     let index = Index::from(h3index);
@@ -285,7 +288,7 @@ impl<'a> Iterator for H3CompactedVecCompactedIterator<'a> {
     type Item = H3Index;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.current_resolution <= 15 {
+        while self.current_resolution <= (H3_MAX_RESOLUTION as usize) {
             if let Some(value) = self.compacted_vec.indexes_by_resolution[self.current_resolution].get(self.current_pos) {
                 self.current_pos += 1;
                 return Some(*value);

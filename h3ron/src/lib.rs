@@ -17,6 +17,9 @@ pub mod experimental;
 pub mod error;
 pub mod index;
 
+pub const H3_MIN_RESOLUTION: u8 = 0_u8;
+pub const H3_MAX_RESOLUTION: u8 = 15_u8;
+
 pub enum AreaUnits {
     M2,
     Km2,
