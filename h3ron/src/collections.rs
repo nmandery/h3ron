@@ -2,6 +2,8 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::slice::Iter;
 
+use serde::{Deserialize, Serialize};
+
 use h3ron_h3_sys::H3Index;
 
 use crate::compact;
@@ -9,7 +11,9 @@ use crate::index::Index;
 
 /// structure to keep compacted h3ron indexes to allow more or less efficient
 /// adding of further indexes
+#[derive(PartialEq, Serialize, Deserialize, Debug)]
 pub struct H3CompactedVec {
+    /// indexes by their resolution. The index of the array is the resolution for the referenced vec
     indexes_by_resolution: [Vec<H3Index>; 16],
 }
 
@@ -94,7 +98,7 @@ impl<'a> H3CompactedVec {
     ///
     /// the `resolution` parameter must match the resolution of the index. This method
     ///  only exists to skip the resolution check of `add_index`.
-    pub fn add_index_to_resolution(&mut self, h3_index: H3Index, resolution: u8, compact:bool) {
+    pub fn add_index_to_resolution(&mut self, h3_index: H3Index, resolution: u8, compact: bool) {
         self.indexes_by_resolution[resolution as usize].push(h3_index);
         if compact {
             self.compact_from_resolution_up(resolution as usize, &[]);
@@ -332,15 +336,27 @@ impl<'a> Iterator for H3CompactedVecUncompactedIterator<'a> {
 
 #[cfg(test)]
 mod tests {
+    use bincode::{deserialize, serialize};
+
     use crate::collections::H3CompactedVec;
 
     #[test]
-    fn test_compactedindexstack_is_empty() {
-        let mut stack = H3CompactedVec::new();
-        assert!(stack.is_empty());
-        assert_eq!(stack.len(), 0);
-        stack.add_index(0x89283080ddbffff_u64, false);
-        assert!(!stack.is_empty());
-        assert_eq!(stack.len(), 1);
+    fn compactedvec_is_empty() {
+        let mut cv = H3CompactedVec::new();
+        assert!(cv.is_empty());
+        assert_eq!(cv.len(), 0);
+        cv.add_index(0x89283080ddbffff_u64, false);
+        assert!(!cv.is_empty());
+        assert_eq!(cv.len(), 1);
+    }
+
+    #[test]
+    fn compactedvec_serde_roundtrip() {
+        let mut cv = H3CompactedVec::new();
+        cv.add_index(0x89283080ddbffff_u64, false);
+        let serialized_data = serialize(&cv).unwrap();
+
+        let cv_2: H3CompactedVec = deserialize(&serialized_data).unwrap();
+        assert_eq!(cv, cv_2);
     }
 }

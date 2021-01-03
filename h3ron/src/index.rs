@@ -5,6 +5,7 @@ use std::os::raw::c_int;
 use std::str::FromStr;
 
 use geo_types::{Coordinate, LineString, Point, Polygon};
+use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::{GeoCoord, H3Index};
 
@@ -13,7 +14,7 @@ use crate::geo::{coordinate_to_geocoord, point_to_geocoord};
 use crate::max_k_ring_size;
 use crate::util::h3indexes_to_indexes;
 
-#[derive(PartialOrd, PartialEq, Clone, Debug)]
+#[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize)]
 pub struct Index(H3Index);
 
 impl From<H3Index> for Index {
@@ -221,6 +222,8 @@ mod tests {
     use std::collections::HashMap;
     use std::str::FromStr;
 
+    use bincode::{deserialize, serialize};
+
     use h3ron_h3_sys::H3Index;
 
     use crate::index::Index;
@@ -309,5 +312,24 @@ mod tests {
             assert!(*k >= k_min);
             assert!(*k <= k_max);
         }
+    }
+
+    #[test]
+    fn serde_index_roundtrip() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let serialized_data = serialize(&idx).unwrap();
+        let idx_2: Index = deserialize(&serialized_data).unwrap();
+        assert_eq!(idx, idx_2);
+        assert_eq!(idx.h3index(), idx_2.h3index());
+    }
+
+    /// this test is not really a hard requirement, but it is nice to know
+    /// Index is handled just like an u64
+    #[test]
+    fn serde_index_from_h3index() {
+        let idx: H3Index = 0x89283080ddbffff_u64;
+        let serialized_data = serialize(&idx).unwrap();
+        let idx_2: Index = deserialize(&serialized_data).unwrap();
+        assert_eq!(idx, idx_2.h3index());
     }
 }

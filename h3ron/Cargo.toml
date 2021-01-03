@@ -9,3 +9,10 @@ h3ron-h3-sys = { path = "../h3ron-h3-sys" }
 
 [dependencies.geo-types]
 version = "^0.6"
+
+[dependencies.serde]
+version = "^1.0"
+features = [ "derive" ]
+
+[dev-dependencies]
+bincode = "^1.3"
