@@ -19,6 +19,7 @@ use crate::{
     error::Error,
     transform::Transform,
 };
+use crate::resolution::{nearest_h3_resolution, NearestH3ResolutionSearchMode};
 
 // already imported by ndarray::parallel::prelude
 //use rayon::prelude::*;
@@ -131,6 +132,11 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
             transform,
             axis_order,
         }
+    }
+
+    /// find the h3 resolution closed to the size of a pixel in an array
+    pub fn nearest_h3_resolution(&self, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
+        nearest_h3_resolution(self.arr.shape(), self.transform, &self.axis_order, search_mode)
     }
 
     fn rects_with_data(&self, rect_size: usize) -> Vec<Rect<f64>> {

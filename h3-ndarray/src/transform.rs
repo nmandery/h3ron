@@ -100,6 +100,7 @@ impl Transform {
     }
 }
 
+/// apply the transformation to a coordinate
 impl Mul<&Coordinate<f64>> for &Transform {
     type Output = Coordinate<f64>;
 
@@ -111,6 +112,7 @@ impl Mul<&Coordinate<f64>> for &Transform {
     }
 }
 
+/// apply the transformation to a rect
 impl Mul<&Rect<f64>> for &Transform {
     type Output = Rect<f64>;
 

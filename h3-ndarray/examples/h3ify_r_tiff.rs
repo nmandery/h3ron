@@ -11,11 +11,12 @@ use gdal::{
 };
 
 use h3::index::Index;
-use h3_ndarray::{AxisOrder, resolution::{
-    nearest_h3_resolution,
+use h3_ndarray::{
+    AxisOrder,
     NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea,
-}, Transform};
-use h3_ndarray::H3Converter;
+    Transform,
+    H3Converter,
+};
 
 fn main() {
     env_logger::init(); // run with the environment variable RUST_LOG set to "debug" for log output
@@ -30,11 +31,13 @@ fn main() {
         band.size(),
     ).unwrap();
 
-    let h3_resolution = nearest_h3_resolution(band_array.shape(), &transform, IndexAreaSmallerThanPixelArea).unwrap();
-    println!("selected H3 resolution: {}", h3_resolution);
 
     let view = band_array.view();
     let conv = H3Converter::new(&view, &0_u8, &transform, AxisOrder::YX);
+
+    let h3_resolution = conv.nearest_h3_resolution(IndexAreaSmallerThanPixelArea).unwrap();
+    println!("selected H3 resolution: {}", h3_resolution);
+
     let results = conv.to_h3(h3_resolution, true).unwrap();
     results.iter().for_each(|(value, index_stack)| {
         println!("{} -> {}", value, index_stack.len());

@@ -5,14 +5,10 @@ use geo_types::{
 
 use h3::index::Index;
 
-use crate::{
-    error::Error,
-    sphere::{
-        area_linearring,
-        area_rect,
-    },
-    transform::Transform,
-};
+use crate::{error::Error, sphere::{
+    area_linearring,
+    area_rect,
+}, transform::Transform, AxisOrder};
 
 pub enum NearestH3ResolutionSearchMode {
     /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
@@ -25,7 +21,7 @@ pub enum NearestH3ResolutionSearchMode {
 
 /// find the h3 resolution closed to the size of a pixel in an array
 /// of the given shape with the given transform
-pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
+pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order: &AxisOrder, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
     if shape.len() != 2 {
         return Err(Error::UnsupportedArrayShape);
     }
@@ -35,11 +31,11 @@ pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, search_mode
     let bbox_array = Rect::new(
         transform * &Coordinate::from((0.0_f64, 0.0_f64)),
         transform * &Coordinate::from((
-            (shape[0] - 1) as f64,
-            (shape[1] - 1) as f64
+            (shape[axis_order.x_axis()] - 1) as f64,
+            (shape[axis_order.y_axis()] - 1) as f64
         )),
     );
-    let area_pixel = area_rect(&bbox_array) / (shape[0] * shape[1]) as f64;
+    let area_pixel = area_rect(&bbox_array) / (shape[axis_order.x_axis()] * shape[axis_order.y_axis()]) as f64;
     let center_of_array = bbox_array.center();
 
     let mut nearest_h3_res = 0;
@@ -84,6 +80,7 @@ pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, search_mode
 mod tests {
     use crate::resolution::{nearest_h3_resolution, NearestH3ResolutionSearchMode};
     use crate::transform::Transform;
+    use crate::AxisOrder;
 
     #[test]
     fn test_nearest_h3_resolution() {
@@ -91,10 +88,10 @@ mod tests {
         let gt = Transform::from_rasterio(&[
             0.0011965049999999992, 0.0, 8.11377, 0.0, -0.001215135, 49.40792
         ]);
-        let h3_res1 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, NearestH3ResolutionSearchMode::SmallestAreaDifference).unwrap();
+        let h3_res1 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, &AxisOrder::YX, NearestH3ResolutionSearchMode::SmallestAreaDifference).unwrap();
         assert_eq!(h3_res1, 10); // TODO: validate
 
-        let h3_res2 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea).unwrap();
+        let h3_res2 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, &AxisOrder::YX, NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea).unwrap();
         assert_eq!(h3_res2, 11); // TODO: validate
     }
 }
