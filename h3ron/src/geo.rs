@@ -1,6 +1,6 @@
 use geo_types::{Coordinate, LineString, Point};
 
-use h3_sys::{degsToRads, GeoCoord};
+use h3ron_h3_sys::{degsToRads, GeoCoord};
 
 pub(crate) unsafe fn coordinate_to_geocoord(c: &Coordinate<f64>) -> GeoCoord {
     GeoCoord {

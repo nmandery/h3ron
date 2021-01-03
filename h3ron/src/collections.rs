@@ -2,12 +2,12 @@ use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::slice::Iter;
 
-use h3_sys::H3Index;
+use h3ron_h3_sys::H3Index;
 
 use crate::compact;
 use crate::index::Index;
 
-/// structure to keep compacted h3 indexes to allow more or less efficient
+/// structure to keep compacted h3ron indexes to allow more or less efficient
 /// adding of further indexes
 pub struct H3CompactedVec {
     indexes_by_resolution: [Vec<H3Index>; 16],
@@ -82,7 +82,7 @@ impl<'a> H3CompactedVec {
         false
     }
 
-    /// add a single h3 index
+    /// add a single h3ron index
     ///
     /// will trigger a re-compacting when `compact` is set
     pub fn add_index(&mut self, h3_index: H3Index, compact: bool) {
@@ -90,7 +90,7 @@ impl<'a> H3CompactedVec {
         self.add_index_to_resolution(h3_index, resolution, compact);
     }
 
-    /// add a single h3 index
+    /// add a single h3ron index
     ///
     /// the `resolution` parameter must match the resolution of the index. This method
     ///  only exists to skip the resolution check of `add_index`.

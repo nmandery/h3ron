@@ -9,7 +9,7 @@ use cmake::Config;
 use regex::Regex;
 
 fn main() {
-    // build h3 as a static library
+    // build h3ron as a static library
     let dst_path = Config::new("libh3")
         .define("ENABLE_COVERAGE", "OFF")
         .define("BUILD_BENCHMARKS", "OFF")

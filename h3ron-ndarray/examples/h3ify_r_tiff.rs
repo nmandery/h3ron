@@ -10,8 +10,8 @@ use gdal::{
     },
 };
 
-use h3::index::Index;
-use h3_ndarray::{
+use h3ron::index::Index;
+use h3ron_ndarray::{
     AxisOrder,
     NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea,
     Transform,

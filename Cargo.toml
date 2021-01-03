@@ -1,9 +1,9 @@
 [workspace]
 
 members = [
-    "h3-sys",
-    "h3",
-    "h3-ndarray",
+    "h3ron-h3-sys",
+    "h3ron",
+    "h3ron-ndarray",
 ]
 [profile.release]
 debug = true # for flamegraph

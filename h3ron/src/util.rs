@@ -1,4 +1,4 @@
-use h3_sys::H3Index;
+use h3ron_h3_sys::H3Index;
 
 use crate::index::Index;
 

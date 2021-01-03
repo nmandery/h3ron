@@ -9,7 +9,7 @@ use ndarray::{
     parallel::prelude::*,
 };
 
-use h3::{
+use h3ron::{
     index::Index,
     polyfill,
     collections::H3CompactedVec,
@@ -134,7 +134,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
         }
     }
 
-    /// find the h3 resolution closed to the size of a pixel in an array
+    /// find the h3ron resolution closed to the size of a pixel in an array
     pub fn nearest_h3_resolution(&self, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
         nearest_h3_resolution(self.arr.shape(), self.transform, &self.axis_order, search_mode)
     }
@@ -209,7 +209,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                 let mut chunk_h3_map = HashMap::<&T, H3CompactedVec>::new();
                 let h3indexes = polyfill(&window_box.to_polygon(), h3_resolution);
                 for h3index in h3indexes {
-                    // find the array element for the coordinate of the h3 index
+                    // find the array element for the coordinate of the h3ron index
                     let arr_coord = {
                         let transformed = &inverse_transform * &Index::from(h3index).coordinate();
 

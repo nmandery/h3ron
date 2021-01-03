@@ -16,7 +16,7 @@
 
     example:
 
-    raster2h3 -i h3-raster/data/guf.xml -r 11 -b 1:255 to-ogr -o guf.shp
+    raster2h3 -i h3ron-raster/data/guf.xml -r 11 -b 1:255 to-ogr -o guf.shp
      -->
     <Service name="WMS">
         <Version>1</Version>

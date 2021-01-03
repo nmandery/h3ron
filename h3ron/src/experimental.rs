@@ -1,6 +1,6 @@
 use std::result::Result;
 
-use h3_sys::H3Index;
+use h3ron_h3_sys::H3Index;
 
 use crate::error::Error;
 use crate::index::Index;
@@ -19,8 +19,8 @@ impl Default for CoordIJ {
 
 pub fn h3_to_local_ij(origin_index: &Index, index: &Index) -> Result<CoordIJ, Error> {
     unsafe {
-        let mut cij = h3_sys::CoordIJ { i: 0, j: 0 };
-        if h3_sys::experimentalH3ToLocalIj(origin_index.h3index(), index.h3index(), &mut cij) == 0 {
+        let mut cij = h3ron_h3_sys::CoordIJ { i: 0, j: 0 };
+        if h3ron_h3_sys::experimentalH3ToLocalIj(origin_index.h3index(), index.h3index(), &mut cij) == 0 {
             Ok(CoordIJ {
                 i: cij.i,
                 j: cij.j,
@@ -31,12 +31,12 @@ pub fn h3_to_local_ij(origin_index: &Index, index: &Index) -> Result<CoordIJ, Er
 
 pub fn local_ij_to_h3(origin_index: &Index, coordij: &CoordIJ) -> Result<Index, Error> {
     unsafe {
-        let cij = h3_sys::CoordIJ {
+        let cij = h3ron_h3_sys::CoordIJ {
             i: coordij.i,
             j: coordij.j,
         };
         let mut h3_index_out: H3Index = 0;
-        if h3_sys::experimentalLocalIjToH3(origin_index.h3index(), &cij, &mut h3_index_out) == 0 {
+        if h3ron_h3_sys::experimentalLocalIjToH3(origin_index.h3index(), &cij, &mut h3_index_out) == 0 {
             Ok(Index::from(h3_index_out))
         } else { Err(Error::NoLocalIJCoordinates) }
     }

@@ -3,7 +3,7 @@ use geo_types::{
     Rect,
 };
 
-use h3::index::Index;
+use h3ron::index::Index;
 
 use crate::{error::Error, sphere::{
     area_linearring,
@@ -11,15 +11,15 @@ use crate::{error::Error, sphere::{
 }, transform::Transform, AxisOrder};
 
 pub enum NearestH3ResolutionSearchMode {
-    /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
+    /// chose the h3ron resolution where the difference in the area of a pixel and the h3index is
     /// as small as possible.
     SmallestAreaDifference,
 
-    /// chose the h3 rsoulution where the area of the h3index is smaller than the area of a pixel.
+    /// chose the h3ron rsoulution where the area of the h3index is smaller than the area of a pixel.
     IndexAreaSmallerThanPixelArea,
 }
 
-/// find the h3 resolution closed to the size of a pixel in an array
+/// find the h3ron resolution closed to the size of a pixel in an array
 /// of the given shape with the given transform
 pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order: &AxisOrder, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
     if shape.len() != 2 {
@@ -42,7 +42,7 @@ pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order:
     let mut area_difference = None;
     for h3_res in 0..=16 {
         // calculate the area of the center index to avoid using the approximate values
-        // of the h3 hexArea functions
+        // of the h3ron hexArea functions
         let area_h3_index = area_linearring(Index::from_coordinate(&center_of_array, h3_res)
             .polygon()
             .exterior());

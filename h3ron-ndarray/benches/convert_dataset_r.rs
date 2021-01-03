@@ -2,9 +2,9 @@ use criterion::{black_box, Criterion, criterion_group, criterion_main};
 use gdal::Dataset;
 use ndarray::{Array2, ArrayView, Ix2};
 
-use h3_ndarray::array::H3Converter;
-use h3_ndarray::transform::Transform;
-use h3_ndarray::AxisOrder;
+use h3ron_ndarray::array::H3Converter;
+use h3ron_ndarray::transform::Transform;
+use h3ron_ndarray::AxisOrder;
 
 fn load_r_dataset() -> (Array2<u8>, Transform) {
     let filename = format!("{}/../data/r.tiff", env!("CARGO_MANIFEST_DIR"));
