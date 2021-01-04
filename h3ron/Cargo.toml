@@ -1,8 +1,11 @@
 [package]
 name = "h3ron"
-version = "0.3.3"
+description = "high level rust API including collections for selected parts of H3"
+version = "0.4.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2018"
+license = "MIT"
+keywords = ["geo", "spatial", "h3"]
 
 [dependencies]
 h3ron-h3-sys = { path = "../h3ron-h3-sys" }

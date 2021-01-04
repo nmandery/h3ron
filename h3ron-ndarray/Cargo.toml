@@ -1,8 +1,11 @@
 [package]
 name = "h3ron-ndarray"
-version = "0.1.0"
+version = "0.4.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
+description = "Integration with the ndarray crate to generate H3 data from raster data (using gdal, ...)"
 edition = "2018"
+license = "MIT"
+keywords = ["geo", "spatial", "h3", "ndarray"]
 
 [dependencies]
 geo-types = "^0.6"
@@ -11,7 +14,7 @@ log = "^0.4"
 
 [dependencies.ndarray]
 version = "^0.14"
-features = [ "rayon" ]
+features = ["rayon"]
 
 [dependencies.h3ron]
 path = "../h3ron"
@@ -24,7 +27,7 @@ criterion = "^0.3"
 
 [dev-dependencies.gdal]
 version = "^0.7"
-features = [ "array" ]
+features = ["array"]
 
 
 [[bench]]
