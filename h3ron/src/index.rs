@@ -14,7 +14,7 @@ use crate::geo::{coordinate_to_geocoord, point_to_geocoord};
 use crate::max_k_ring_size;
 use crate::util::h3indexes_to_indexes;
 
-#[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord)]
 pub struct Index(H3Index);
 
 impl From<H3Index> for Index {
