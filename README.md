@@ -6,7 +6,8 @@ This repository consists of multiple crates:
 
 * [h3ron-h3-sys](./h3ron-h3-sys): bindgen-generated bindings for statically linked libh3.
 * [h3ron](./h3ron): high level rust API including collections for selected parts of H3.
-* [h3ron-ndarray](./h3ron-ndarray): Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to generate H3 data from raster data (using [gdal](https://github.com/georust/gdal), ...)
+* [h3ron-ndarray](h3ron-ndarray): Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to generate H3 data from raster data (using [gdal](https://github.com/georust/gdal), ...)
+* [h3ronpy](./h3ronpy): python bindings for h3ron, build using [pyo3](https://github.com/PyO3/PyO3).
 
 ## Why this name?
 

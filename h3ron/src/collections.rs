@@ -1,7 +1,6 @@
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::ops::RangeInclusive;
-use std::slice::Iter;
 
 use serde::{Deserialize, Serialize};
 
@@ -65,6 +64,14 @@ impl<'a> H3CompactedVec {
     pub fn len(&self) -> usize {
         self.indexes_by_resolution.iter()
             .fold(0, |acc, h3indexes| acc + h3indexes.len())
+    }
+
+    /// length of the vectors for all resolutions. The index of the vec is the resolution
+    pub fn len_resolutions(&self) -> Vec<usize> {
+        self.indexes_by_resolution
+            .iter()
+            .map(|v| v.len())
+            .collect()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -145,11 +152,11 @@ impl<'a> H3CompactedVec {
         }
     }
 
-    /// iterate over the compacted indexes at the given resolution
+    /// get the compacted indexes of the given resolution
     ///
     /// parent indexes at lower resolutions will not be uncompacted
-    pub fn iter_compacted_indexes_at_resolution(&self, resolution: u8) -> Iter<'_, H3Index> {
-        self.indexes_by_resolution[resolution as usize].iter()
+    pub fn get_compacted_indexes_at_resolution(&self, resolution: u8) -> &[H3Index] {
+        &self.indexes_by_resolution[resolution as usize]
     }
 
     /// iterate over the uncompacted indexes.

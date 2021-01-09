@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-ndarray"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Integration with the ndarray crate to generate H3 data from raster data (using gdal, ...)"
 edition = "2018"

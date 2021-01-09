@@ -10,7 +10,7 @@ pub mod error;
 mod sphere;
 pub mod resolution;
 
-pub use crate::resolution::NearestH3ResolutionSearchMode;
+pub use crate::resolution::ResolutionSearchMode;
 pub use crate::array::{
     H3Converter,
     AxisOrder

@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -10,30 +11,29 @@ use ndarray::{
 };
 
 use h3ron::{
+    collections::H3CompactedVec,
     index::Index,
     polyfill,
-    collections::H3CompactedVec,
 };
 
 use crate::{
     error::Error,
     transform::Transform,
 };
-use crate::resolution::{nearest_h3_resolution, NearestH3ResolutionSearchMode};
+use crate::resolution::{nearest_h3_resolution, ResolutionSearchMode};
 
 // already imported by ndarray::parallel::prelude
 //use rayon::prelude::*;
 
 /// the order of the axis in the two-dimensional array
 pub enum AxisOrder {
-
     /// X,Y ordering
     XY,
 
     /// Y,X ordering
     ///
     /// this is the order used by github.com/georust/gdal (ndarray feature gate)
-    YX
+    YX,
 }
 
 impl AxisOrder {
@@ -91,7 +91,7 @@ fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T, axis_order
         };
         for chunks_y_raw_indexes in find_continuous_chunks_along_axis(&sv, axis_order.y_axis(), nodata_value) {
             let sv2 = {
-                let x_raw_range = 0..=(chunk_x_raw_indexes.1-chunk_x_raw_indexes.0);
+                let x_raw_range = 0..=(chunk_x_raw_indexes.1 - chunk_x_raw_indexes.0);
                 let y_raw_range = chunks_y_raw_indexes.0..=chunks_y_raw_indexes.1;
                 match axis_order {
                     AxisOrder::XY => sv.slice(s![x_raw_range, y_raw_range]),
@@ -135,7 +135,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
     }
 
     /// find the h3ron resolution closed to the size of a pixel in an array
-    pub fn nearest_h3_resolution(&self, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
+    pub fn nearest_h3_resolution(&self, search_mode: ResolutionSearchMode) -> Result<u8, Error> {
         nearest_h3_resolution(self.arr.shape(), self.transform, &self.axis_order, search_mode)
     }
 
@@ -176,7 +176,9 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                         })
                 }
                 rects
-            }).flatten().collect()
+            })
+            .flatten()
+            .collect()
     }
 
     fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, H3CompactedVec>, compact: bool) {
@@ -193,7 +195,8 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
     pub fn to_h3(&self, h3_resolution: u8, compact: bool) -> Result<HashMap<&'a T, H3CompactedVec>, Error> {
         let inverse_transform = self.transform.invert()?;
 
-        let rects = self.rects_with_data(250);
+        let rect_size = min(max(self.arr.shape()[self.axis_order.x_axis()] / 10, 10), 100);
+        let rects = self.rects_with_data(rect_size);
         let n_rects = rects.len();
         debug!("to_h3: found {} rects containing non-nodata values", n_rects);
 

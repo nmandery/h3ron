@@ -11,18 +11,18 @@ use crate::{error::Error, sphere::{
 }, transform::Transform, AxisOrder};
 use h3ron::{H3_MIN_RESOLUTION, H3_MAX_RESOLUTION};
 
-pub enum NearestH3ResolutionSearchMode {
-    /// chose the h3ron resolution where the difference in the area of a pixel and the h3index is
+pub enum ResolutionSearchMode {
+    /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
     /// as small as possible.
-    SmallestAreaDifference,
+    MinDiff,
 
-    /// chose the h3ron rsoulution where the area of the h3index is smaller than the area of a pixel.
-    IndexAreaSmallerThanPixelArea,
+    /// chose the h3 resolution where the area of the h3index is smaller than the area of a pixel.
+    SmallerThanPixel,
 }
 
-/// find the h3ron resolution closed to the size of a pixel in an array
+/// find the h3 resolution closed to the size of a pixel in an array
 /// of the given shape with the given transform
-pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order: &AxisOrder, search_mode: NearestH3ResolutionSearchMode) -> Result<u8, Error> {
+pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order: &AxisOrder, search_mode: ResolutionSearchMode) -> Result<u8, Error> {
     if shape.len() != 2 {
         return Err(Error::UnsupportedArrayShape);
     }
@@ -49,12 +49,12 @@ pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order:
             .exterior());
 
         match search_mode {
-            NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea => if area_h3_index <= area_pixel {
+            ResolutionSearchMode::SmallerThanPixel => if area_h3_index <= area_pixel {
                 nearest_h3_res = h3_res;
                 break;
             }
 
-            NearestH3ResolutionSearchMode::SmallestAreaDifference => {
+            ResolutionSearchMode::MinDiff => {
                 let new_area_difference = if area_h3_index > area_pixel {
                     area_h3_index - area_pixel
                 } else {
@@ -79,7 +79,7 @@ pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order:
 
 #[cfg(test)]
 mod tests {
-    use crate::resolution::{nearest_h3_resolution, NearestH3ResolutionSearchMode};
+    use crate::resolution::{nearest_h3_resolution, ResolutionSearchMode};
     use crate::transform::Transform;
     use crate::AxisOrder;
 
@@ -89,10 +89,10 @@ mod tests {
         let gt = Transform::from_rasterio(&[
             0.0011965049999999992, 0.0, 8.11377, 0.0, -0.001215135, 49.40792
         ]);
-        let h3_res1 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, &AxisOrder::YX, NearestH3ResolutionSearchMode::SmallestAreaDifference).unwrap();
+        let h3_res1 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, &AxisOrder::YX, ResolutionSearchMode::MinDiff).unwrap();
         assert_eq!(h3_res1, 10); // TODO: validate
 
-        let h3_res2 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, &AxisOrder::YX, NearestH3ResolutionSearchMode::IndexAreaSmallerThanPixelArea).unwrap();
+        let h3_res2 = nearest_h3_resolution(&[2000_usize, 2000_usize], &gt, &AxisOrder::YX, ResolutionSearchMode::SmallerThanPixel).unwrap();
         assert_eq!(h3_res2, 11); // TODO: validate
     }
 }

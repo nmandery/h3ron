@@ -20,6 +20,7 @@ use crate::error::Error;
 /// other sources:
 /// * GDAL geotransform: https://gdal.org/tutorials/geotransforms_tut.html
 /// * rasterio 1.0+ vs. GDAL: https://rasterio.readthedocs.io/en/latest/topics/migrating-to-v1.html#affine-affine-vs-gdal-style-geotransforms
+#[derive(Clone, PartialEq, Debug)]
 pub struct Transform {
     a: f64,
     b: f64,
