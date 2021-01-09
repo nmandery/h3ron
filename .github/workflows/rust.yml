@@ -26,5 +26,6 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Run tests
-      run: cargo test --verbose
+      # run only selected packages while https://github.com/PyO3/pyo3/issues/340 is open
+      run: cargo test -p h3ron && cargo test -p h3ron-ndarray
     # todo: add benchmarks?
