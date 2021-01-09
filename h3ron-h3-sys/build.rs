@@ -15,6 +15,8 @@ fn main() {
         .define("BUILD_BENCHMARKS", "OFF")
         .define("BUILD_FILTERS", "OFF")
         .define("BUILD_GENERATORS", "OFF")
+        .define("BUILD_TESTING", "OFF")
+        .define("ENABLE_DOCS", "OFF")
         .build();
 
 

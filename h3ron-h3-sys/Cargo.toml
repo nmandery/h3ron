@@ -7,6 +7,19 @@ build = "build.rs"
 license = "MIT"
 edition = "2018"
 keywords = ["geo", "spatial", "h3"]
+readme = "../README.md"
+homepage = "https://github.com/nmandery/h3ron"
+repository = "https://github.com/nmandery/h3ron"
+exclude = [
+    "libh3/docs",
+    "libh3/dev-docs",
+    "libh3/website",
+    "libh3/src/apps",
+    "libh3/tests",
+    "libh3/examples",
+    "libh3/.git",
+    "libh3/.github",
+]
 
 [lib]
 
