@@ -20,7 +20,7 @@ fn load_r_dataset() -> (Array2<u8>, Transform) {
 }
 
 fn convert_r_dataset<'a>(view: &'a ArrayView<'a, u8, Ix2>, transform: &'a Transform, h3_resolution: u8) {
-    let conv = H3Converter::new(&view, &0_u8, &transform, AxisOrder::XY);
+    let conv = H3Converter::new(&view, &Some(0_u8), &transform, AxisOrder::XY);
     let _ = conv.to_h3(h3_resolution, true).unwrap();
 }
 

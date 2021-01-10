@@ -33,7 +33,7 @@ fn main() {
 
 
     let view = band_array.view();
-    let conv = H3Converter::new(&view, &0_u8, &transform, AxisOrder::YX);
+    let conv = H3Converter::new(&view, &Some(0_u8), &transform, AxisOrder::YX);
 
     let h3_resolution = conv.nearest_h3_resolution(SmallerThanPixel).unwrap();
     println!("selected H3 resolution: {}", h3_resolution);

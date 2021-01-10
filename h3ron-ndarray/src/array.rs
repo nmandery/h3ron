@@ -119,13 +119,13 @@ fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T, axis_order
 
 pub struct H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
     arr: &'a ArrayView2<'a, T>,
-    nodata_value: &'a T,
+    nodata_value: &'a Option<T>,
     transform: &'a Transform,
     axis_order: AxisOrder,
 }
 
 impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
-    pub fn new(arr: &'a ArrayView2<'a, T>, nodata_value: &'a T, transform: &'a Transform, axis_order: AxisOrder) -> Self {
+    pub fn new(arr: &'a ArrayView2<'a, T>, nodata_value: &'a Option<T>, transform: &'a Transform, axis_order: AxisOrder) -> Self {
         Self {
             arr,
             nodata_value,
@@ -140,45 +140,68 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
     }
 
     fn rects_with_data(&self, rect_size: usize) -> Vec<Rect<f64>> {
-        self.arr.axis_chunks_iter(Axis(self.axis_order.x_axis()), rect_size)
-            .into_par_iter() // requires T to be Sync
-            .enumerate()
-            .map(|(axis_x_chunk_i, axis_x_chunk)| {
-                let mut rects = Vec::new();
-                for chunk_x_rect in find_boxes_containing_data(&axis_x_chunk, self.nodata_value, &self.axis_order) {
-                    let offset_x = (axis_x_chunk_i * rect_size) + chunk_x_rect.min().x;
-                    let chunk_rect_view = {
-                        let x_range = chunk_x_rect.min().x..chunk_x_rect.max().x;
-                        let y_range = chunk_x_rect.min().y..chunk_x_rect.max().y;
-                        match self.axis_order {
-                            AxisOrder::XY => axis_x_chunk.slice(s![x_range, y_range]),
-                            AxisOrder::YX => axis_x_chunk.slice(s![y_range, x_range]),
-                        }
-                    };
-                    chunk_rect_view.axis_chunks_iter(Axis(self.axis_order.y_axis()), rect_size)
-                        .enumerate()
-                        .for_each(|(axis_y_chunk_i, axis_y_chunk)| {
-                            let offset_y = (axis_y_chunk_i * rect_size) + chunk_x_rect.min().y;
+        if let Some(nodata) = self.nodata_value {
+            self.arr.axis_chunks_iter(Axis(self.axis_order.x_axis()), rect_size)
+                .into_par_iter() // requires T to be Sync
+                .enumerate()
+                .map(|(axis_x_chunk_i, axis_x_chunk)| {
+                    let mut rects = Vec::new();
+                    for chunk_x_rect in find_boxes_containing_data(&axis_x_chunk, nodata, &self.axis_order) {
+                        let offset_x = (axis_x_chunk_i * rect_size) + chunk_x_rect.min().x;
+                        let chunk_rect_view = {
+                            let x_range = chunk_x_rect.min().x..chunk_x_rect.max().x;
+                            let y_range = chunk_x_rect.min().y..chunk_x_rect.max().y;
+                            match self.axis_order {
+                                AxisOrder::XY => axis_x_chunk.slice(s![x_range, y_range]),
+                                AxisOrder::YX => axis_x_chunk.slice(s![y_range, x_range]),
+                            }
+                        };
+                        chunk_rect_view.axis_chunks_iter(Axis(self.axis_order.y_axis()), rect_size)
+                            .enumerate()
+                            .for_each(|(axis_y_chunk_i, axis_y_chunk)| {
+                                let offset_y = (axis_y_chunk_i * rect_size) + chunk_x_rect.min().y;
 
-                            // the window in array coordinates
-                            let window = Rect::new(
-                                Coordinate {
-                                    x: offset_x as f64,
-                                    y: offset_y as f64,
-                                },
-                                // add 1 to the max coordinate to include the whole last pixel
-                                Coordinate {
-                                    x: (offset_x + axis_y_chunk.shape()[self.axis_order.x_axis()] + 1) as f64,
-                                    y: (offset_y + axis_y_chunk.shape()[self.axis_order.y_axis()] + 1) as f64,
-                                },
-                            );
-                            rects.push(window)
-                        })
-                }
-                rects
+                                // the window in array coordinates
+                                let window = Rect::new(
+                                    Coordinate {
+                                        x: offset_x as f64,
+                                        y: offset_y as f64,
+                                    },
+                                    // add 1 to the max coordinate to include the whole last pixel
+                                    Coordinate {
+                                        x: (offset_x + axis_y_chunk.shape()[self.axis_order.x_axis()] + 1) as f64,
+                                        y: (offset_y + axis_y_chunk.shape()[self.axis_order.y_axis()] + 1) as f64,
+                                    },
+                                );
+                                rects.push(window)
+                            })
+                    }
+                    rects
+                })
+                .flatten()
+                .collect()
+        } else {
+            // just create tiles covering the complete array
+            let x_size = self.arr.shape()[self.axis_order.x_axis()];
+            let y_size = self.arr.shape()[self.axis_order.y_axis()];
+            (0..((x_size as f64 / rect_size as f64).ceil() as usize)).map(|r_x| {
+                (0..((y_size as f64 / rect_size as f64).ceil() as usize)).map(|r_y| {
+                    Rect::new(
+                        Coordinate {
+                            x: (r_x * rect_size) as f64,
+                            y: (r_y * rect_size) as f64,
+                        },
+                        Coordinate {
+                            x: (min(x_size, (r_x + 1) * rect_size)) as f64,
+                            y: (min(y_size, (r_y + 1) * rect_size)) as f64,
+                        },
+                    )
+                })
+                    .collect::<Vec<_>>()
             })
-            .flatten()
-            .collect()
+                .flatten()
+                .collect()
+        }
     }
 
     fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, H3CompactedVec>, compact: bool) {
@@ -222,11 +245,14 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                         }
                     };
                     if let Some(value) = self.arr.get(arr_coord) {
-                        if value != self.nodata_value {
-                            chunk_h3_map.entry(value)
-                                .or_insert_with(H3CompactedVec::new)
-                                .add_index_to_resolution(h3index, h3_resolution, false);
+                        if let Some(nodata) = self.nodata_value {
+                            if nodata == value {
+                                continue;
+                            }
                         }
+                        chunk_h3_map.entry(value)
+                            .or_insert_with(H3CompactedVec::new)
+                            .add_index_to_resolution(h3index, h3_resolution, false);
                     }
                 }
 
