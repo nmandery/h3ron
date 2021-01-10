@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::ffi::CString;
 use std::mem::MaybeUninit;
 use std::os::raw::c_int;
@@ -12,8 +11,9 @@ use h3ron_h3_sys::{GeoCoord, H3Index};
 use crate::error::Error;
 use crate::geo::{coordinate_to_geocoord, point_to_geocoord};
 use crate::max_k_ring_size;
-use crate::util::h3indexes_to_indexes;
+use crate::util::drain_h3indexes_to_indexes;
 
+/// a single H3 index
 #[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord)]
 pub struct Index(H3Index);
 
@@ -24,7 +24,7 @@ impl From<H3Index> for Index {
 }
 
 /*
-impl TryFrom<H3Index> for Index {
+impl TryFrom<u64> for Index {
     type Error = Error;
 
     fn try_from(h3index: H3Index) -> Result<Self, Self::Error> {
@@ -36,6 +36,7 @@ impl TryFrom<H3Index> for Index {
         }
     }
 }
+
  */
 
 impl Index {
@@ -63,6 +64,10 @@ impl Index {
         other.is_parent_of(self)
     }
 
+    pub fn contains(&self, other: &Index) -> bool {
+        self.is_parent_of(other)
+    }
+
     pub fn get_parent(&self, parent_resolution: u8) -> Index {
         Index::from(unsafe { h3ron_h3_sys::h3ToParent(self.0, parent_resolution as c_int) })
     }
@@ -73,10 +78,10 @@ impl Index {
         unsafe {
             h3ron_h3_sys::h3ToChildren(self.0, child_resolution as c_int, h3_indexes_out.as_mut_ptr());
         }
-        remove_zero_indexes_from_vec!(h3_indexes_out);
-        h3indexes_to_indexes(h3_indexes_out)
+        drain_h3indexes_to_indexes(h3_indexes_out)
     }
 
+    /// the polygon spanning the area of the index
     pub fn polygon(&self) -> Polygon<f64> {
         let gb = unsafe {
             let mut mu = MaybeUninit::<h3ron_h3_sys::GeoBoundary>::uninit();
@@ -95,6 +100,7 @@ impl Index {
         Polygon::new(LineString::from(nodes), vec![])
     }
 
+    /// the centroid coordinate of the h3 index
     pub fn coordinate(&self) -> Coordinate<f64> {
         unsafe {
             let mut gc = GeoCoord {
@@ -135,7 +141,7 @@ impl Index {
             h3ron_h3_sys::kRing(self.0, k as c_int, h3_indexes_out.as_mut_ptr());
         }
         remove_zero_indexes_from_vec!(h3_indexes_out);
-        h3indexes_to_indexes(h3_indexes_out)
+        drain_h3indexes_to_indexes(h3_indexes_out)
     }
 
     pub fn hex_ring(&self, k: u32) -> Result<Vec<Index>, Error> {
@@ -148,8 +154,7 @@ impl Index {
             h3ron_h3_sys::hexRing(self.0, k as c_int, h3_indexes_out.as_mut_ptr()) as c_int
         };
         if res == 0 {
-            remove_zero_indexes_from_vec!(h3_indexes_out);
-            Ok(h3indexes_to_indexes(h3_indexes_out))
+            Ok(drain_h3indexes_to_indexes(h3_indexes_out))
         } else {
             Err(Error::PentagonalDistortion)
         }
@@ -204,18 +209,6 @@ impl FromStr for Index {
         Ok(Index::from(h3index))
     }
 }
-
-/// group indexes by their resolution
-pub fn group_indexes_by_resolution(mut indexes: Vec<Index>) -> HashMap<u8, Vec<Index>> {
-    let mut m = HashMap::new();
-    indexes.drain(..).for_each(|idx: Index| {
-        m.entry(idx.resolution())
-            .or_insert_with(Vec::new)
-            .push(idx);
-    });
-    m
-}
-
 
 #[cfg(test)]
 mod tests {

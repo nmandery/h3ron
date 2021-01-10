@@ -96,7 +96,7 @@ impl<'a> H3CompactedVec {
         false
     }
 
-    /// add a single h3ron index
+    /// add a single h3 index
     ///
     /// will trigger a re-compacting when `compact` is set
     pub fn add_index(&mut self, h3_index: H3Index, compact: bool) {
@@ -173,6 +173,7 @@ impl<'a> H3CompactedVec {
         }
     }
 
+    /// deduplicate the internal h3index vector
     pub fn dedup(&mut self) {
         self.indexes_by_resolution.iter_mut().for_each(|indexes| {
             indexes.sort_unstable();

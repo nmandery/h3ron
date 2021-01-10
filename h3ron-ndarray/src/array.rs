@@ -117,6 +117,7 @@ fn find_boxes_containing_data<T>(a: &ArrayView2<T>, nodata_value: &T, axis_order
     boxes
 }
 
+/// convert a 2-d ndarray to h3
 pub struct H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
     arr: &'a ArrayView2<'a, T>,
     nodata_value: &'a Option<T>,
@@ -134,7 +135,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
         }
     }
 
-    /// find the h3ron resolution closed to the size of a pixel in an array
+    /// find the h3 resolution closest to the size of a pixel in an array
     pub fn nearest_h3_resolution(&self, search_mode: ResolutionSearchMode) -> Result<u8, Error> {
         nearest_h3_resolution(self.arr.shape(), self.transform, &self.axis_order, search_mode)
     }

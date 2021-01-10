@@ -1,7 +1,7 @@
 [package]
 name = "h3ron-h3-sys"
 version = "3.7.1" # version matches the bundled libh3
-description = "bindgen-generated bindings for statically linked libh3"
+description = "bindgen-generated lowlevel bindings for statically linked libh3"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 build = "build.rs"
 license = "MIT"

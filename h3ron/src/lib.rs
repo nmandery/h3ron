@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::iter::Iterator;
 use std::os::raw::c_int;
 
@@ -7,7 +6,8 @@ use geo_types::Polygon;
 use h3ron_h3_sys::{GeoCoord, Geofence, GeoPolygon, H3Index};
 
 use crate::geo::linestring_to_geocoords;
-use crate::index::Index;
+pub use crate::index::Index;
+pub use crate::error::Error;
 
 #[macro_use]
 mod util;
@@ -103,23 +103,6 @@ pub fn compact(h3_indexes: &[H3Index]) -> Vec<H3Index> {
     remove_zero_indexes_from_vec!(h3_indexes_out);
     h3_indexes_out
 }
-
-/// compact h3indexes of mixed resolutions
-pub fn compact_mixed(h3_indexes: &[H3Index]) -> Vec<H3Index> {
-    let mut h3_indexes_by_res = HashMap::new();
-    for h3_index in h3_indexes {
-        h3_indexes_by_res.entry(Index::from(*h3_index).resolution())
-            .or_insert_with(Vec::new)
-            .push(*h3_index);
-    }
-    let mut out_h3indexes = vec![];
-    for (_, res_indexes) in h3_indexes_by_res.drain() {
-        let mut compacted = compact(&res_indexes);
-        out_h3indexes.append(&mut compacted);
-    }
-    out_h3indexes
-}
-
 
 pub fn max_k_ring_size(k: u32) -> usize {
     unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
