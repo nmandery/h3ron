@@ -1,13 +1,31 @@
 # h3ron
 
-[h3](https://h3geo.org) library for [rust](https://rustlang.org)
+[rust](https://rustlang.org) library for the [H3](https://h3geo.org) geospatial indexing system.
 
 This repository consists of multiple crates:
 
-* [h3ron-h3-sys](./h3ron-h3-sys): bindgen-generated bindings for statically linked libh3.
-* [h3ron](./h3ron): high level rust API including collections for selected parts of H3.
-* [h3ron-ndarray](h3ron-ndarray): Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to generate H3 data from raster data (using [gdal](https://github.com/georust/gdal), ...)
-* [h3ronpy](./h3ronpy): python bindings for h3ron, build using [pyo3](https://github.com/PyO3/PyO3).
+## [h3ron-h3-sys](./h3ron-h3-sys) [![Latest Version](https://img.shields.io/crates/v/h3ron-h3-sys.svg)](https://crates.io/crates/h3ron-h3-sys)
+
+bindgen-generated bindings for the statically linked libh3 C library.
+
+[Documentation](https://docs.rs/h3ron-h3-sys)
+
+
+## [h3ron](./h3ron) [![Latest Version](https://img.shields.io/crates/v/h3ron.svg)](https://crates.io/crates/h3ron)
+
+high level rust API including collections for selected parts of H3.
+
+[Documentation](https://docs.rs/h3ron)
+
+## [h3ron-ndarray](h3ron-ndarray) [![Latest Version](https://img.shields.io/crates/v/h3ron-ndarray.svg)](https://crates.io/crates/h3ron-ndarray)
+
+Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to generate H3 data from raster data (using [gdal](https://github.com/georust/gdal), ...)
+
+[Documentation](https://docs.rs/h3ron-ndarray)
+
+## [h3ronpy](./h3ronpy)
+
+Python bindings for h3ron, build using [pyo3](https://github.com/PyO3/PyO3).
 
 ## Why this name?
 
