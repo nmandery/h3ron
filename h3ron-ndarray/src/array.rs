@@ -10,11 +10,7 @@ use ndarray::{
     parallel::prelude::*,
 };
 
-use h3ron::{
-    collections::H3CompactedVec,
-    index::Index,
-    polyfill,
-};
+use h3ron::{collections::H3CompactedVec, Index, polyfill, ToCoordinate};
 
 use crate::{
     error::Error,
@@ -238,7 +234,7 @@ impl<'a, T> H3Converter<'a, T> where T: Sized + PartialEq + Sync + Eq + Hash {
                 for h3index in h3indexes {
                     // find the array element for the coordinate of the h3ron index
                     let arr_coord = {
-                        let transformed = &inverse_transform * &Index::from(h3index).coordinate();
+                        let transformed = &inverse_transform * &Index::from(h3index).to_coordinate();
 
                         match self.axis_order {
                             AxisOrder::XY => [transformed.x.floor() as usize, transformed.y.floor() as usize],

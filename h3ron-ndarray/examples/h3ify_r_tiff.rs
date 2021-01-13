@@ -10,7 +10,10 @@ use gdal::{
     },
 };
 
-use h3ron::index::Index;
+use h3ron::{
+    Index,
+    ToPolygon
+};
 use h3ron_ndarray::{
     AxisOrder,
     ResolutionSearchMode::SmallerThanPixel,
@@ -61,7 +64,7 @@ fn main() {
         for h3index in index_stack.iter_compacted_indexes() {
             let index = Index::from(h3index);
             let mut ft = Feature::new(&defn).unwrap();
-            ft.set_geometry(index.polygon().to_gdal().unwrap()).unwrap();
+            ft.set_geometry(index.to_polygon().to_gdal().unwrap()).unwrap();
             ft.set_field_string("h3index", &index.to_string()).unwrap();
             ft.set_field_integer("h3res", index.resolution() as i32).unwrap();
             ft.create(&out_lyr).unwrap();

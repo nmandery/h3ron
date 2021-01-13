@@ -5,23 +5,24 @@ use geo_types::Polygon;
 
 use h3ron_h3_sys::{GeoCoord, Geofence, GeoPolygon, H3Index};
 
-use crate::geo::linestring_to_geocoords;
 pub use crate::index::Index;
 pub use crate::error::Error;
 
 #[macro_use]
 mod util;
-mod geo;
-mod to_linked_polygons;
+mod to_geo;
 pub mod collections;
 pub mod experimental;
 pub mod error;
-pub mod index;
+mod index;
 
-pub use to_linked_polygons::{
+pub use to_geo::{
+    ToPolygon,
+    ToCoordinate,
     ToLinkedPolygons,
     to_linked_polygons
 };
+use crate::util::linestring_to_geocoords;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
@@ -31,12 +32,15 @@ pub enum AreaUnits {
     Km2,
 }
 
-pub fn hex_area_at_resolution(resolution: i32, units: AreaUnits) -> f64 {
-    match units {
-        AreaUnits::M2 => unsafe { h3ron_h3_sys::hexAreaM2(resolution) },
-        AreaUnits::Km2 => unsafe { h3ron_h3_sys::hexAreaKm2(resolution) },
+impl AreaUnits {
+    pub fn hex_area_at_resolution(&self, resolution: u8) -> f64 {
+        match self {
+            AreaUnits::M2 => unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) },
+            AreaUnits::Km2 => unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) },
+        }
     }
 }
+
 
 unsafe fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
     Geofence {

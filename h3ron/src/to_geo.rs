@@ -1,6 +1,6 @@
 use std::os::raw::c_int;
 
-use geo_types::{LineString, Polygon};
+use geo_types::{LineString, Polygon, Coordinate};
 
 use h3ron_h3_sys::{
     destroyLinkedPolygon,
@@ -12,6 +12,15 @@ use h3ron_h3_sys::{
 
 use crate::collections::H3CompactedVec;
 use crate::Index;
+
+
+pub trait ToPolygon {
+    fn to_polygon(&self) -> Polygon<f64>;
+}
+
+pub trait ToCoordinate {
+    fn to_coordinate(&self) -> Coordinate<f64>;
+}
 
 pub trait ToLinkedPolygons {
     fn to_linked_polygons(&self) -> Vec<Polygon<f64>>;

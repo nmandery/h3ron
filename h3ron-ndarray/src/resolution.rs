@@ -3,13 +3,17 @@ use geo_types::{
     Rect,
 };
 
-use h3ron::index::Index;
-
 use crate::{error::Error, sphere::{
     area_linearring,
     area_rect,
 }, transform::Transform, AxisOrder};
-use h3ron::{H3_MIN_RESOLUTION, H3_MAX_RESOLUTION};
+
+use h3ron::{
+    H3_MIN_RESOLUTION,
+    H3_MAX_RESOLUTION,
+    ToPolygon,
+    Index
+};
 
 pub enum ResolutionSearchMode {
     /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
@@ -45,7 +49,7 @@ pub fn nearest_h3_resolution(shape: &[usize], transform: &Transform, axis_order:
         // calculate the area of the center index to avoid using the approximate values
         // of the h3ron hexArea functions
         let area_h3_index = area_linearring(Index::from_coordinate(&center_of_array, h3_res)
-            .polygon()
+            .to_polygon()
             .exterior());
 
         match search_mode {
