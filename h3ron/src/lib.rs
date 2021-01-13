@@ -12,10 +12,16 @@ pub use crate::error::Error;
 #[macro_use]
 mod util;
 mod geo;
+mod to_linked_polygons;
 pub mod collections;
 pub mod experimental;
 pub mod error;
 pub mod index;
+
+pub use to_linked_polygons::{
+    ToLinkedPolygons,
+    to_linked_polygons
+};
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
