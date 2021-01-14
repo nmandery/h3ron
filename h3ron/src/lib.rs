@@ -13,6 +13,7 @@ mod util;
 mod to_geo;
 pub mod collections;
 pub mod experimental;
+pub mod algorithm;
 pub mod error;
 mod index;
 
