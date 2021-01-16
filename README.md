@@ -2,6 +2,8 @@
 
 [rust](https://rustlang.org) library for the [H3](https://h3geo.org) geospatial indexing system.
 
+For an overview of some features complementary to libh3 please see the [documentation notebook](h3ronpy/documentation.ipynb) of the python bindings.
+
 This repository consists of multiple crates:
 
 ## [h3ron-h3-sys](./h3ron-h3-sys) [![Latest Version](https://img.shields.io/crates/v/h3ron-h3-sys.svg)](https://crates.io/crates/h3ron-h3-sys)
