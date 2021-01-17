@@ -12,6 +12,7 @@ use h3ron_h3_sys::{
 
 use crate::collections::H3CompactedVec;
 use crate::Index;
+use crate::algorithm::smoothen_h3_linked_polygon;
 
 
 pub trait ToPolygon {
@@ -23,25 +24,25 @@ pub trait ToCoordinate {
 }
 
 pub trait ToLinkedPolygons {
-    fn to_linked_polygons(&self) -> Vec<Polygon<f64>>;
+    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>>;
 }
 
 impl ToLinkedPolygons for Vec<Index> {
-    fn to_linked_polygons(&self) -> Vec<Polygon<f64>> {
+    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
         let mut h3indexes: Vec<_> = self.iter().map(|i| i.h3index()).collect();
         h3indexes.sort_unstable();
         h3indexes.dedup();
-        to_linked_polygons(&h3indexes)
+        to_linked_polygons(&h3indexes, smoothen)
     }
 }
 
 impl ToLinkedPolygons for H3CompactedVec {
-    fn to_linked_polygons(&self) -> Vec<Polygon<f64>> {
+    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
         if let Some(res) = self.finest_resolution_contained() {
             let mut h3indexes: Vec<_> = self.iter_uncompacted_indexes(res).collect();
             h3indexes.sort_unstable();
             h3indexes.dedup();
-            to_linked_polygons(&h3indexes)
+            to_linked_polygons(&h3indexes, smoothen)
         } else {
             vec![]
         }
@@ -50,8 +51,11 @@ impl ToLinkedPolygons for H3CompactedVec {
 
 /// convert raw h3indexes to linked polygons
 ///
-/// for this case, the slice must already be deduplicated
-pub fn to_linked_polygons(h3indexes: &[H3Index]) -> Vec<Polygon<f64>> {
+/// With `smoothen` an optional smoothing can be applied to the polygons to remove
+/// H3 artifacts.
+///
+/// for this case, the slice must already be deduplicated, and all h3 indexes must be the same resolutions
+pub fn to_linked_polygons(h3indexes: &[H3Index], smoothen: bool) -> Vec<Polygon<f64>> {
     if h3indexes.is_empty() {
         return vec![];
     }
@@ -94,7 +98,12 @@ pub fn to_linked_polygons(h3indexes: &[H3Index]) -> Vec<Polygon<f64>> {
                 cur_linked_geo_loop = linked_loop.next.as_ref();
             }
             if let Some(ext) = exterior {
-                polygons.push(Polygon::new(ext, interiors));
+                let poly = Polygon::new(ext, interiors);
+                if smoothen {
+                    polygons.push(smoothen_h3_linked_polygon(&poly));
+                } else {
+                    polygons.push(poly);
+                }
             }
             cur_linked_geo_polygon = poly.next.as_ref();
         }
