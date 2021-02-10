@@ -4,28 +4,28 @@ use geo::algorithm::area::Area;
 use geo::algorithm::simplifyvw::SimplifyVW;
 use geo_types::{Coordinate, LineString, Polygon, Triangle};
 
-fn is_closed(ls: &LineString<f64>) -> bool {
-    if ls.0.len() < 2 {
+fn is_closed(ls: &[Coordinate<f64>]) -> bool {
+    if ls.len() < 2 {
         false
     } else {
-        ls.0.first() == ls.0.last()
+        ls.first() == ls.last()
     }
 }
 
 /// Smoothen a linestring to remove some of the artifacts
 /// of the h3indexes left after creating a h3 linkedpolygon.
-fn smoothen_h3_linestring(in_ls: &LineString<f64>) -> LineString<f64> {
-    let closed = is_closed(in_ls);
-    let mut out = Vec::with_capacity(in_ls.0.len() + if closed { 2 } else { 0 });
-    if in_ls.0.len() >= 3 {
+pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coordinate<f64>> {
+    let closed = is_closed(in_coords);
+    let mut out = Vec::with_capacity(in_coords.len() + if closed { 2 } else { 0 });
+    if in_coords.len() >= 3 {
         // The algorithm in this block is essentially an adaptation of
         // [Chaikins smoothing algorithm](http://www.idav.ucdavis.edu/education/CAGDNotes/Chaikins-Algorithm/Chaikins-Algorithm.html)
         // taking advantage of hexagon-polygons having all edges the
         // same length while avoiding the vertex duplication of chaikins algorithm.
 
-        if ! closed {
+        if !closed {
             // preserve the unmodified starting coordinate
-            out.push(in_ls.0.first().unwrap().clone());
+            out.push(in_coords.first().unwrap().clone());
         }
         let apply_window = |c1: &Coordinate<f64>, c2: &Coordinate<f64>| {
             Coordinate {
@@ -33,41 +33,45 @@ fn smoothen_h3_linestring(in_ls: &LineString<f64>) -> LineString<f64> {
                 y: 0.5 * c1.y + 0.5 * c2.y,
             }
         };
-        in_ls.0.windows(2).for_each(|window| {
+        in_coords.windows(2).for_each(|window| {
             out.push(apply_window(&window[0], &window[1]));
         });
 
         if closed {
             //apply to first and last coordinate of linestring to not loose the closing point
-            out.push(apply_window(&in_ls.0[in_ls.0.len() - 1], &in_ls.0[0]));
+            out.push(apply_window(&in_coords[in_coords.len() - 1], &in_coords[0]));
 
             // rotate a bit to improve the simplification result at the start/end of the ring
             let rotation_n = min(out.len(), 4);
             out.rotate_right(rotation_n);
         } else {
             // preserve the unmodified end coordinate
-            out.push(in_ls.0.last().unwrap().clone());
+            out.push(in_coords.last().unwrap().clone());
         }
     } else {
-        out = in_ls.0.clone();
+        out = in_coords.to_vec();
     }
 
-    let out_ls = LineString::from(out);
 
-    // now remove redundant vertices which are, more or less, on the same straight line. the
-    // are covered by three point must be less than the triangle of three points of a hexagon
-    let hexagon_corner_area = Triangle::from([in_ls.0[0], in_ls.0[1], in_ls.0[2]])
-        .unsigned_area();
-    out_ls.simplifyvw(&(hexagon_corner_area * 0.75))
+    if in_coords.len() >= 3 {
+        // now remove redundant vertices which are, more or less, on the same straight line. the
+        // are covered by three point must be less than the triangle of three points of a hexagon
+        let out_ls = LineString::from(out);
+        let hexagon_corner_area = Triangle::from([in_coords[0], in_coords[1], in_coords[2]])
+            .unsigned_area();
+        out_ls.simplifyvw(&(hexagon_corner_area * 0.75)).0
+    } else {
+        out
+    }
 }
 
 
 /// Smoothen a polygon to remove some of the artifacts of the h3indexes left after creating a h3 linkedpolygon.
 pub fn smoothen_h3_linked_polygon(in_poly: &Polygon<f64>) -> Polygon<f64> {
     Polygon::new(
-        smoothen_h3_linestring(in_poly.exterior()),
+        LineString::from(smoothen_h3_coordinates(&in_poly.exterior().0)),
         in_poly.interiors().iter()
-            .map(|ring| smoothen_h3_linestring(ring))
+            .map(|ring| LineString::from(smoothen_h3_coordinates(&ring.0)))
             .collect(),
     )
 }

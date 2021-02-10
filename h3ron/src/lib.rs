@@ -21,7 +21,8 @@ pub use to_geo::{
     ToPolygon,
     ToCoordinate,
     ToLinkedPolygons,
-    to_linked_polygons
+    to_linked_polygons,
+    ToAlignedLinkedPolygons,
 };
 use crate::util::linestring_to_geocoords;
 

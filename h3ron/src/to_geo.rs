@@ -1,6 +1,11 @@
+use std::collections::{HashMap, HashSet};
 use std::os::raw::c_int;
 
-use geo_types::{LineString, Polygon, Coordinate};
+use geo::algorithm::orient::{Direction, Orient};
+use geo::algorithm::euclidean_distance::EuclideanDistance;
+use geo_types::{Coordinate, LineString, Polygon, Point};
+use itertools::Itertools;
+use ordered_float::OrderedFloat;
 
 use h3ron_h3_sys::{
     destroyLinkedPolygon,
@@ -10,10 +15,9 @@ use h3ron_h3_sys::{
     radsToDegs,
 };
 
+use crate::algorithm::{smoothen_h3_coordinates, smoothen_h3_linked_polygon};
 use crate::collections::H3CompactedVec;
 use crate::Index;
-use crate::algorithm::smoothen_h3_linked_polygon;
-
 
 pub trait ToPolygon {
     fn to_polygon(&self) -> Polygon<f64>;
@@ -23,6 +27,7 @@ pub trait ToCoordinate {
     fn to_coordinate(&self) -> Coordinate<f64>;
 }
 
+/// join hexagon polygons to larger polygons where hexagons are touching each other
 pub trait ToLinkedPolygons {
     fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>>;
 }
@@ -46,6 +51,69 @@ impl ToLinkedPolygons for H3CompactedVec {
         } else {
             vec![]
         }
+    }
+}
+
+/// join hexagon polygons to larger polygons where hexagons are touching each other
+///
+/// The indexes will be grouped by the `align_to_h3_resolution`, so this will generate polygons
+/// not exceeding the area of that parent resolution.
+///
+/// Corners will be aligned to the corners of the parent resolution when they are less than an
+/// edge length away from them. This is to avoid gaps when `smoothen` is set to true.
+///
+/// This algorithm still needs some optimization to improve the runtime.
+pub trait ToAlignedLinkedPolygons {
+    fn to_aligned_linked_polygons(&self, align_to_h3_resolution: u8, smoothen: bool) -> Vec<Polygon<f64>>;
+}
+
+impl ToAlignedLinkedPolygons for Vec<Index> {
+    fn to_aligned_linked_polygons(&self, align_to_h3_resolution: u8, smoothen: bool) -> Vec<Polygon<f64>> {
+        let mut h3indexes_grouped = HashMap::new();
+        for i in self.iter() {
+            let parent = i.get_parent(align_to_h3_resolution);
+            h3indexes_grouped.entry(parent)
+                .or_insert_with(Vec::new)
+                .push(i.h3index())
+        }
+
+        let mut polygons = Vec::new();
+        for (parent_index, h3indexes) in h3indexes_grouped.drain() {
+            if smoothen {
+                //
+                // align to the corners of the parent index
+                //
+
+                let parent_poly_vertices: Vec<_> = parent_index.to_polygon()
+                    .exterior().0.iter()
+                    .map(|c| Point::from(*c))
+                    .collect();
+
+                // edge length of the child indexes
+                let edge_length = {
+                    let ring= Index::from(h3indexes[0]).to_polygon();
+                    let p1 = Point::from(ring.exterior().0[0]);
+                    let p2 = Point::from(ring.exterior().0[1]);
+                    p1.euclidean_distance(&p2)
+                };
+
+                for mut poly in to_linked_polygons(&h3indexes, true).drain(..) {
+                    let points_new: Vec<_> = poly.exterior().0.iter().map(|c| {
+                        let p = Point::from(*c);
+                        if let Some(pv) = parent_poly_vertices.iter().find(|pv| p.euclidean_distance(*pv) < edge_length) {
+                            pv.0
+                        } else {
+                            *c
+                        }
+                    })
+                        .collect();
+                    polygons.push(Polygon::new(LineString::from(points_new), poly.interiors().to_vec()));
+                }
+            } else {
+                polygons.append(&mut to_linked_polygons(&h3indexes, false));
+            }
+        }
+        polygons
     }
 }
 
@@ -114,11 +182,12 @@ pub fn to_linked_polygons(h3indexes: &[H3Index], smoothen: bool) -> Vec<Polygon<
 
 #[cfg(test)]
 mod tests {
+    use geo_types::Coordinate;
+
     use crate::{
         Index,
         ToLinkedPolygons,
     };
-    use geo_types::Coordinate;
 
     #[test]
     fn donut_linked_polygon() {
