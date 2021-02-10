@@ -191,7 +191,7 @@ mod tests {
         let ring = Index::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
             .hex_ring(1)
             .unwrap();
-        let polygons = ring.to_linked_polygons();
+        let polygons = ring.to_linked_polygons(false);
         assert_eq!(polygons.len(), 1);
         assert_eq!(polygons[0].exterior().0.len(), 19);
         assert_eq!(polygons[0].interiors().len(), 1);

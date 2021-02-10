@@ -91,7 +91,7 @@ mod tests {
         let ring = Index::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
             .hex_ring(4)
             .unwrap();
-        let polygons = ring.to_linked_polygons();
+        let polygons = ring.to_linked_polygons(false);
         assert_eq!(polygons.len(), 1);
 
         //let gj_in = geojson::Value::from(&polygons[0]);
