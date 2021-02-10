@@ -1,11 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::os::raw::c_int;
 
-use geo::algorithm::orient::{Direction, Orient};
 use geo::algorithm::euclidean_distance::EuclideanDistance;
 use geo_types::{Coordinate, LineString, Polygon, Point};
-use itertools::Itertools;
-use ordered_float::OrderedFloat;
 
 use h3ron_h3_sys::{
     destroyLinkedPolygon,
@@ -15,7 +12,7 @@ use h3ron_h3_sys::{
     radsToDegs,
 };
 
-use crate::algorithm::{smoothen_h3_coordinates, smoothen_h3_linked_polygon};
+use crate::algorithm::smoothen_h3_linked_polygon;
 use crate::collections::H3CompactedVec;
 use crate::Index;
 
@@ -97,7 +94,7 @@ impl ToAlignedLinkedPolygons for Vec<Index> {
                     p1.euclidean_distance(&p2)
                 };
 
-                for mut poly in to_linked_polygons(&h3indexes, true).drain(..) {
+                for poly in to_linked_polygons(&h3indexes, true).drain(..) {
                     let points_new: Vec<_> = poly.exterior().0.iter().map(|c| {
                         let p = Point::from(*c);
                         if let Some(pv) = parent_poly_vertices.iter().find(|pv| p.euclidean_distance(*pv) < edge_length) {
