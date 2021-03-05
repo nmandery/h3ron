@@ -17,6 +17,7 @@ fn main() {
         .define("BUILD_GENERATORS", "OFF")
         .define("BUILD_TESTING", "OFF")
         .define("ENABLE_DOCS", "OFF")
+        .define("ENABLE_FORMAT", "OFF")
         .build();
 
 
