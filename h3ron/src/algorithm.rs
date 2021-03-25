@@ -25,7 +25,7 @@ pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coor
 
         if !closed {
             // preserve the unmodified starting coordinate
-            out.push(in_coords.first().unwrap().clone());
+            out.push(*in_coords.first().unwrap());
         }
         let apply_window = |c1: &Coordinate<f64>, c2: &Coordinate<f64>| {
             Coordinate {
@@ -46,7 +46,7 @@ pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coor
             out.rotate_right(rotation_n);
         } else {
             // preserve the unmodified end coordinate
-            out.push(in_coords.last().unwrap().clone());
+            out.push(*in_coords.last().unwrap());
         }
     } else {
         out = in_coords.to_vec();

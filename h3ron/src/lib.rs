@@ -175,12 +175,10 @@ pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Ind
 
         let mut segment_indexes = line_between_indexes_not_checked(start_index.h3index(), end_index.h3index())?;
         if segment_indexes.is_empty() {
-            continue
+            continue;
         }
-        if !h3_indexes_out.is_empty() {
-            if h3_indexes_out[h3_indexes_out.len() - 1] == segment_indexes[0] {
-                h3_indexes_out.remove(h3_indexes_out.len() - 1);
-            }
+        if !h3_indexes_out.is_empty() && h3_indexes_out[h3_indexes_out.len() - 1] == segment_indexes[0] {
+            h3_indexes_out.remove(h3_indexes_out.len() - 1);
         }
         h3_indexes_out.append(&mut segment_indexes);
     };
@@ -193,7 +191,7 @@ mod tests {
     use geo::Coordinate;
     use geo_types::LineString;
 
-    use crate::{line_between_indexes, line};
+    use crate::{line, line_between_indexes};
 
     #[test]
     fn line_across_multiple_faces() {
