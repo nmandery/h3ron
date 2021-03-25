@@ -1,12 +1,20 @@
 use std::iter::Iterator;
 use std::os::raw::c_int;
 
-use geo_types::Polygon;
+use geo_types::{LineString, Polygon};
 
 use h3ron_h3_sys::{GeoCoord, Geofence, GeoPolygon, H3Index};
+pub use to_geo::{
+    to_linked_polygons,
+    ToAlignedLinkedPolygons,
+    ToCoordinate,
+    ToLinkedPolygons,
+    ToPolygon,
+};
 
-pub use crate::index::Index;
 pub use crate::error::Error;
+pub use crate::index::Index;
+use crate::util::linestring_to_geocoords;
 
 #[macro_use]
 mod util;
@@ -16,15 +24,6 @@ pub mod experimental;
 pub mod algorithm;
 pub mod error;
 mod index;
-
-pub use to_geo::{
-    ToPolygon,
-    ToCoordinate,
-    ToLinkedPolygons,
-    to_linked_polygons,
-    ToAlignedLinkedPolygons,
-};
-use crate::util::linestring_to_geocoords;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
@@ -118,4 +117,103 @@ pub fn compact(h3_indexes: &[H3Index]) -> Vec<H3Index> {
 
 pub fn max_k_ring_size(k: u32) -> usize {
     unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
+}
+
+fn ensure_same_resolution(index0: H3Index, index1: H3Index) -> Result<(), Error> {
+    if Index::from(index0).resolution() != Index::from(index1).resolution() {
+        Err(Error::MixedResolutions)
+    } else {
+        Ok(())
+    }
+}
+
+/// Number of indexes in a line connecting two indexes
+pub fn line_size(start: H3Index, end: H3Index) -> Result<usize, Error> {
+    ensure_same_resolution(start, end)?;
+    line_size_not_checked(start, end)
+}
+
+fn line_size_not_checked(start: H3Index, end: H3Index) -> Result<usize, Error> {
+    let size = unsafe {
+        h3ron_h3_sys::h3LineSize(start, end)
+    };
+    if size < 0 {
+        Err(Error::LineNotComputable)
+    } else {
+        Ok(size as usize)
+    }
+}
+
+fn line_between_indexes_not_checked(start: H3Index, end: H3Index) -> Result<Vec<H3Index>, Error> {
+    let num_indexes = line_size_not_checked(start, end)?;
+    let mut h3_indexes_out: Vec<H3Index> = vec![0; num_indexes];
+    let retval = unsafe {
+        h3ron_h3_sys::h3Line(start, end, h3_indexes_out.as_mut_ptr())
+    };
+    if retval != 0 {
+        return Err(Error::LineNotComputable);
+    }
+    remove_zero_indexes_from_vec!(h3_indexes_out);
+    Ok(h3_indexes_out)
+}
+
+/// Line of h3 indexes connecting two indexes
+pub fn line_between_indexes(start: H3Index, end: H3Index) -> Result<Vec<H3Index>, Error> {
+    ensure_same_resolution(start, end)?;
+    line_between_indexes_not_checked(start, end)
+}
+
+/// Generate h3 indexes along the given linestring
+///
+/// The returned indexes are ordered sequentially, there may
+/// be duplicates caused by multiple line seqments
+pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Index>, Error> {
+    let mut h3_indexes_out = vec![];
+    for coords in linestring.0.windows(2) {
+        let start_index = Index::from_coordinate(&coords[0], h3_resolution);
+        let end_index = Index::from_coordinate(&coords[1], h3_resolution);
+
+        let mut segment_indexes = line_between_indexes_not_checked(start_index.h3index(), end_index.h3index())?;
+        if segment_indexes.is_empty() {
+            continue
+        }
+        if !h3_indexes_out.is_empty() {
+            if h3_indexes_out[h3_indexes_out.len() - 1] == segment_indexes[0] {
+                h3_indexes_out.remove(h3_indexes_out.len() - 1);
+            }
+        }
+        h3_indexes_out.append(&mut segment_indexes);
+    };
+    Ok(h3_indexes_out)
+}
+
+
+#[cfg(test)]
+mod tests {
+    use geo::Coordinate;
+    use geo_types::LineString;
+
+    use crate::{line_between_indexes, line};
+
+    #[test]
+    fn line_across_multiple_faces() {
+        // ported from H3s testH3Line.c
+        let start = 0x85285aa7fffffff_u64;
+        let end = 0x851d9b1bfffffff_u64;
+
+        // Line not computable across multiple icosa faces
+        assert!(line_between_indexes(start, end).is_err());
+    }
+
+    #[test]
+    fn linestring() {
+        let ls = LineString::from(vec![
+            Coordinate::from((11.6015625, 37.16031654673677)),
+            Coordinate::from((3.8671874999999996, 39.639537564366684)),
+            Coordinate::from((-4.5703125, 35.17380831799959)),
+            Coordinate::from((-20.7421875, 34.88593094075317)),
+            Coordinate::from((-23.5546875, 48.922499263758255))
+        ]);
+        assert!(line(&ls, 5).unwrap().len() > 200)
+    }
 }

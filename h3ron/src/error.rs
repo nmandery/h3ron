@@ -6,6 +6,8 @@ pub enum Error {
     InvalidInput,
     InvalidH3Index,
     PentagonalDistortion,
+    LineNotComputable,
+    MixedResolutions,
 }
 
 impl fmt::Display for Error {
@@ -15,6 +17,8 @@ impl fmt::Display for Error {
             Self::InvalidH3Index => write!(f, "invalid h3ron index"),
             Self::NoLocalIJCoordinates => write!(f, "no local IJ coordinates found"),
             Self::PentagonalDistortion => write!(f, "pentagonal distortion"),
+            Self::LineNotComputable => write!(f, "line is not computable"),
+            Self::MixedResolutions => write!(f, "mixed h3 resolutions"),
         }
     }
 }
