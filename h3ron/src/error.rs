@@ -8,6 +8,7 @@ pub enum Error {
     PentagonalDistortion,
     LineNotComputable,
     MixedResolutions,
+    UnsupportedOperation,
 }
 
 impl fmt::Display for Error {
@@ -19,6 +20,7 @@ impl fmt::Display for Error {
             Self::PentagonalDistortion => write!(f, "pentagonal distortion"),
             Self::LineNotComputable => write!(f, "line is not computable"),
             Self::MixedResolutions => write!(f, "mixed h3 resolutions"),
+            Self::UnsupportedOperation => write!(f, "unsupported operation"),
         }
     }
 }

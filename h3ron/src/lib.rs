@@ -31,13 +31,15 @@ pub const H3_MAX_RESOLUTION: u8 = 15_u8;
 pub enum AreaUnits {
     M2,
     Km2,
+    Radians2,
 }
 
 impl AreaUnits {
-    pub fn hex_area_at_resolution(&self, resolution: u8) -> f64 {
+    pub fn hex_area_at_resolution(&self, resolution: u8) -> Result<f64, Error> {
         match self {
-            AreaUnits::M2 => unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) },
-            AreaUnits::Km2 => unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) },
+            AreaUnits::M2 => Ok(unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) }),
+            AreaUnits::Km2 => Ok(unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) }),
+            _ => Err(Error::UnsupportedOperation)
         }
     }
 }
@@ -206,11 +208,11 @@ mod tests {
     #[test]
     fn linestring() {
         let ls = LineString::from(vec![
-            Coordinate::from((11.6015625, 37.16031654673677)),
-            Coordinate::from((3.8671874999999996, 39.639537564366684)),
-            Coordinate::from((-4.5703125, 35.17380831799959)),
-            Coordinate::from((-20.7421875, 34.88593094075317)),
-            Coordinate::from((-23.5546875, 48.922499263758255))
+            Coordinate::from((11.60, 37.16)),
+            Coordinate::from((3.86, 39.63)),
+            Coordinate::from((-4.57, 35.17)),
+            Coordinate::from((-20.74, 34.88)),
+            Coordinate::from((-23.55, 48.92))
         ]);
         assert!(line(&ls, 5).unwrap().len() > 200)
     }

@@ -8,13 +8,13 @@ use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::{GeoCoord, H3Index};
 
+use crate::{AreaUnits, max_k_ring_size, ToCoordinate, ToPolygon};
 use crate::error::Error;
 use crate::util::{
     coordinate_to_geocoord,
-    point_to_geocoord,
     drain_h3indexes_to_indexes,
+    point_to_geocoord,
 };
-use crate::{max_k_ring_size, ToPolygon, ToCoordinate};
 
 /// a single H3 index
 #[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord)]
@@ -159,6 +159,25 @@ impl Index {
             .map(|(idx, h3index)| { (distances_out[idx] as u32, Index::from(h3index)) })
             .collect()
     }
+
+    /// exact area for a specific cell (hexagon or pentagon)
+    pub fn area(&self, area_units: AreaUnits) -> f64 {
+        match area_units {
+            AreaUnits::M2 => unsafe { h3ron_h3_sys::cellAreaM2(self.0) },
+            AreaUnits::Km2 => unsafe { h3ron_h3_sys::cellAreaKm2(self.0) },
+            AreaUnits::Radians2 => unsafe { h3ron_h3_sys::cellAreaRads2(self.0) },
+        }
+    }
+
+    /// determines if an H3 cell is a pentagon
+    pub fn is_pentagon(&self) -> bool {
+        unsafe { h3ron_h3_sys::h3IsPentagon(self.0) == 1 }
+    }
+
+    /// returns the base cell "number" (0 to 121) of the provided H3 cell
+    pub fn get_base_cell(&self) -> u8 {
+        unsafe { h3ron_h3_sys::h3GetBaseCell(self.0) as u8 }
+    }
 }
 
 impl ToString for Index {
@@ -179,7 +198,6 @@ impl FromStr for Index {
 }
 
 impl ToPolygon for Index {
-
     /// the polygon spanning the area of the index
     fn to_polygon(&self) -> Polygon<f64> {
         let gb = unsafe {
