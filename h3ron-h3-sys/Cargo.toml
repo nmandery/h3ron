@@ -24,6 +24,6 @@ exclude = [
 [lib]
 
 [build-dependencies]
-bindgen = "^0.55"
+bindgen = "^0.57"
 cmake = "^0.1"
-regex = "1.3"
+regex = "^1"
