@@ -363,4 +363,17 @@ mod tests {
         let idx_2: Index = deserialize(&serialized_data).unwrap();
         assert_eq!(idx, idx_2.h3index());
     }
+
+
+    #[test]
+    fn test_is_neighbor() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let ring = idx.hex_ring(1).unwrap();
+        let neighbor = ring.first().unwrap();
+        assert!(idx.is_neighbor_to(neighbor));
+        let wrong_neighbor = 0x8a2a1072b59ffff_u64.into();
+        assert!(!idx.is_neighbor_to(&wrong_neighbor));
+        // Self
+        assert!(!idx.is_neighbor_to(&idx));
+    }
 }
