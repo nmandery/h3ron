@@ -101,6 +101,14 @@ impl Index {
         Index::from(h3index)
     }
 
+    /// Checks if the current index and `other` are neighbors.
+    pub fn is_neighbor_to(&self, other: &Self) -> bool {
+        let res: i32 = unsafe {
+            h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0)
+        };
+        res == 1
+    }
+
     pub fn k_ring(&self, k: u32) -> Vec<Index> {
         let max_size = unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize };
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
@@ -350,5 +358,18 @@ mod tests {
         let serialized_data = serialize(&idx).unwrap();
         let idx_2: Index = deserialize(&serialized_data).unwrap();
         assert_eq!(idx, idx_2.h3index());
+    }
+
+
+    #[test]
+    fn test_is_neighbor() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        let ring = idx.hex_ring(1).unwrap();
+        let neighbor = ring.first().unwrap();
+        assert!(idx.is_neighbor_to(neighbor));
+        let wrong_neighbor = 0x8a2a1072b59ffff_u64.into();
+        assert!(!idx.is_neighbor_to(&wrong_neighbor));
+        // Self
+        assert!(!idx.is_neighbor_to(&idx));
     }
 }
