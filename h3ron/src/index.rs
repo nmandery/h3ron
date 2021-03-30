@@ -103,8 +103,13 @@ impl Index {
 
     /// Checks if the current index and `other` are neighbors.
     pub fn is_neighbor_to(&self, other: &Self) -> bool {
-        unsafe {
+        let res: i32 = unsafe {
             h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0)
+        };
+        if res == 1 {
+            true
+        } else {
+            false
         }
     }
 
