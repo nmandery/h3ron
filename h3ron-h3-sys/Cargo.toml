@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-h3-sys"
-version = "0.7.2"
+version = "0.8.0"
 description = "bindgen-generated lowlevel bindings for statically linked libh3"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 build = "build.rs"
