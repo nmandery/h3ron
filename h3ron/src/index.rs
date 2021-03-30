@@ -106,11 +106,7 @@ impl Index {
         let res: i32 = unsafe {
             h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0)
         };
-        if res == 1 {
-            true
-        } else {
-            false
-        }
+        res == 1
     }
 
     pub fn k_ring(&self, k: u32) -> Vec<Index> {
