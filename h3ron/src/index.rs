@@ -101,6 +101,13 @@ impl Index {
         Index::from(h3index)
     }
 
+    /// Checks if the current index and `other` are neighbors.
+    pub fn is_neighbor_to(&self, other: &Self) -> bool {
+        unsafe {
+            h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0)
+        }
+    }
+
     pub fn k_ring(&self, k: u32) -> Vec<Index> {
         let max_size = unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize };
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
