@@ -136,6 +136,17 @@ impl Index {
         }
     }
 
+    /// Retrieves indexes between `self` and `other` through K Rings.
+    ///
+    /// # Arguments
+    ///
+    /// * `k_min` - the minimum k ring distance
+    /// * `k_max` - the maximum k ring distance
+    ///
+    /// # Returns
+    ///
+    /// A `Vec` of `(u32, Index)` tuple is returned. The `u32` value is the K Ring distance
+    /// of the `Index` value.
     pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, Index)> {
         let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
@@ -157,6 +168,15 @@ impl Index {
             Ok(self.associate_index_distances(h3_indexes_out, distances_out, k_min))
         } else {
             Err(Error::PentagonalDistortion) // may also be PentagonEncountered
+        }
+    }
+
+    /// Retrieves the number of K Rings between `self` and `other`.
+    ///
+    /// For distance in miles or kilometers use haversine algorithms.
+    pub fn distance_to(&self, other: &Self) -> i32 {
+        unsafe {
+            h3ron_h3_sys::h3Distance(self.0, other.0)
         }
     }
 
