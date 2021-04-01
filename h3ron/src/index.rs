@@ -136,7 +136,7 @@ impl Index {
         }
     }
 
-    /// Retrieves indexes between `self` and `other` through K Rings.
+    /// Retrieves indexes around `self` through K Rings.
     ///
     /// # Arguments
     ///
