@@ -136,6 +136,17 @@ impl Index {
         }
     }
 
+    /// Retrieves indexes around `self` through K Rings.
+    ///
+    /// # Arguments
+    ///
+    /// * `k_min` - the minimum k ring distance
+    /// * `k_max` - the maximum k ring distance
+    ///
+    /// # Returns
+    ///
+    /// A `Vec` of `(u32, Index)` tuple is returned. The `u32` value is the K Ring distance
+    /// of the `Index` value.
     pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, Index)> {
         let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
@@ -157,6 +168,15 @@ impl Index {
             Ok(self.associate_index_distances(h3_indexes_out, distances_out, k_min))
         } else {
             Err(Error::PentagonalDistortion) // may also be PentagonEncountered
+        }
+    }
+
+    /// Retrieves the number of K Rings between `self` and `other`.
+    ///
+    /// For distance in miles or kilometers use haversine algorithms.
+    pub fn distance_to(&self, other: &Self) -> i32 {
+        unsafe {
+            h3ron_h3_sys::h3Distance(self.0, other.0)
         }
     }
 
@@ -360,7 +380,6 @@ mod tests {
         assert_eq!(idx, idx_2.h3index());
     }
 
-
     #[test]
     fn test_is_neighbor() {
         let idx: Index = 0x89283080ddbffff_u64.into();
@@ -371,5 +390,17 @@ mod tests {
         assert!(!idx.is_neighbor_to(&wrong_neighbor));
         // Self
         assert!(!idx.is_neighbor_to(&idx));
+    }
+
+    #[test]
+    fn test_distance_to() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        assert_eq!(idx.distance_to(&idx), 0);
+        let ring = idx.hex_ring(1).unwrap();
+        let neighbor = ring.first().unwrap();
+        assert_eq!(idx.distance_to(&neighbor), 1);
+        let ring = idx.hex_ring(3).unwrap();
+        let neighbor = ring.first().unwrap();
+        assert_eq!(idx.distance_to(&neighbor), 3);
     }
 }
