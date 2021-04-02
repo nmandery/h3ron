@@ -380,7 +380,6 @@ mod tests {
         assert_eq!(idx, idx_2.h3index());
     }
 
-
     #[test]
     fn test_is_neighbor() {
         let idx: Index = 0x89283080ddbffff_u64.into();
@@ -391,5 +390,17 @@ mod tests {
         assert!(!idx.is_neighbor_to(&wrong_neighbor));
         // Self
         assert!(!idx.is_neighbor_to(&idx));
+    }
+
+    #[test]
+    fn test_distance_to() {
+        let idx: Index = 0x89283080ddbffff_u64.into();
+        assert_eq!(idx.distance_to(&idx), 0);
+        let ring = idx.hex_ring(1).unwrap();
+        let neighbor = ring.first().unwrap();
+        assert_eq!(idx.distance_to(&neighbor), 1);
+        let ring = idx.hex_ring(3).unwrap();
+        let neighbor = ring.first().unwrap();
+        assert_eq!(idx.distance_to(&neighbor), 3);
     }
 }
