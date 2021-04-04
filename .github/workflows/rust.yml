@@ -22,7 +22,8 @@ jobs:
     - name: Pull submodules
       run: git submodule init && git submodule update
     - name: Install system dependencies
-      run: sudo apt-get install cmake libgdal-dev
+      # https://github.com/actions/virtual-environments/issues/2924
+      run: sudo apt-get update && sudo apt-get install cmake libgdal-dev
     - name: Build
       run: cargo build --verbose
     - name: Run tests
