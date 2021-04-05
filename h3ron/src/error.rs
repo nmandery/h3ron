@@ -1,7 +1,7 @@
-use std::fmt;
 use crate::{Index, H3_MAX_RESOLUTION};
-use std::convert::TryFrom;
 use h3ron_h3_sys::H3Index;
+use std::convert::TryFrom;
+use std::fmt;
 
 #[derive(Debug)]
 pub enum Error {
@@ -49,4 +49,3 @@ pub fn check_valid_h3_resolution(h3_res: u8) -> Result<(), Error> {
         Ok(())
     }
 }
-

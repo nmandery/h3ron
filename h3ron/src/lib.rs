@@ -3,30 +3,26 @@ use std::os::raw::c_int;
 
 use geo_types::{LineString, Polygon};
 
-use h3ron_h3_sys::{GeoCoord, Geofence, GeoPolygon, H3Index};
+use h3ron_h3_sys::{GeoCoord, GeoPolygon, Geofence, H3Index};
 pub use to_geo::{
-    to_linked_polygons,
-    ToAlignedLinkedPolygons,
-    ToCoordinate,
-    ToLinkedPolygons,
-    ToPolygon,
+    to_linked_polygons, ToAlignedLinkedPolygons, ToCoordinate, ToLinkedPolygons, ToPolygon,
 };
 
+use crate::error::check_same_resolution;
 pub use crate::error::Error;
 pub use crate::index::Index;
 pub use crate::index::ToIndex;
 pub use crate::to_h3::ToH3Indexes;
 use crate::util::linestring_to_geocoords;
-use crate::error::check_same_resolution;
 
 #[macro_use]
 mod util;
-mod to_geo;
-pub mod collections;
-pub mod experimental;
 pub mod algorithm;
+pub mod collections;
 pub mod error;
+pub mod experimental;
 mod index;
+mod to_geo;
 mod to_h3;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
@@ -35,7 +31,6 @@ pub const H3_MAX_RESOLUTION: u8 = 15_u8;
 /// marker trait for indexes, including conversion to a H3Index
 pub trait HasH3Index {
     fn h3index(&self) -> H3Index;
-
 }
 
 impl HasH3Index for H3Index {
@@ -65,11 +60,10 @@ impl AreaUnits {
         match self {
             AreaUnits::M2 => Ok(unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) }),
             AreaUnits::Km2 => Ok(unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) }),
-            _ => Err(Error::UnsupportedOperation)
+            _ => Err(Error::UnsupportedOperation),
         }
     }
 }
-
 
 unsafe fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
     Geofence {
@@ -78,18 +72,16 @@ unsafe fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
     }
 }
 
-
 pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
     unsafe {
         let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(&poly.exterior());
-        let mut interiors: Vec<Vec<GeoCoord>> = poly.interiors().iter()
+        let mut interiors: Vec<Vec<GeoCoord>> = poly
+            .interiors()
+            .iter()
             .map(|ls| linestring_to_geocoords(ls))
             .collect();
 
-        let mut holes: Vec<Geofence> = interiors
-            .iter_mut()
-            .map(|ring| to_geofence(ring))
-            .collect();
+        let mut holes: Vec<Geofence> = interiors.iter_mut().map(|ring| to_geofence(ring)).collect();
 
         let gp = GeoPolygon {
             geofence: to_geofence(&mut exterior),
@@ -104,14 +96,13 @@ pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
 pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
     let mut h3_indexes = unsafe {
         let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(&poly.exterior());
-        let mut interiors: Vec<Vec<GeoCoord>> = poly.interiors().iter()
+        let mut interiors: Vec<Vec<GeoCoord>> = poly
+            .interiors()
+            .iter()
             .map(|ls| linestring_to_geocoords(ls))
             .collect();
 
-        let mut holes: Vec<Geofence> = interiors
-            .iter_mut()
-            .map(|ring| to_geofence(ring))
-            .collect();
+        let mut holes: Vec<Geofence> = interiors.iter_mut().map(|ring| to_geofence(ring)).collect();
 
         let gp = GeoPolygon {
             geofence: to_geofence(&mut exterior),
@@ -131,13 +122,16 @@ pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
     h3_indexes
 }
 
-
 ///
 /// the input vec must be deduplicated
 pub fn compact(h3_indexes: &[H3Index]) -> Vec<H3Index> {
     let mut h3_indexes_out: Vec<H3Index> = vec![0; h3_indexes.len()];
     unsafe {
-        h3ron_h3_sys::compact(h3_indexes.as_ptr(), h3_indexes_out.as_mut_ptr(), h3_indexes.len() as c_int);
+        h3ron_h3_sys::compact(
+            h3_indexes.as_ptr(),
+            h3_indexes_out.as_mut_ptr(),
+            h3_indexes.len() as c_int,
+        );
     }
     remove_zero_indexes_from_vec!(h3_indexes_out);
     h3_indexes_out
@@ -147,7 +141,6 @@ pub fn max_k_ring_size(k: u32) -> usize {
     unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
 }
 
-
 /// Number of indexes in a line connecting two indexes
 pub fn line_size(start: H3Index, end: H3Index) -> Result<usize, Error> {
     check_same_resolution(start, end)?;
@@ -155,9 +148,7 @@ pub fn line_size(start: H3Index, end: H3Index) -> Result<usize, Error> {
 }
 
 fn line_size_not_checked(start: H3Index, end: H3Index) -> Result<usize, Error> {
-    let size = unsafe {
-        h3ron_h3_sys::h3LineSize(start, end)
-    };
+    let size = unsafe { h3ron_h3_sys::h3LineSize(start, end) };
     if size < 0 {
         Err(Error::LineNotComputable)
     } else {
@@ -168,9 +159,7 @@ fn line_size_not_checked(start: H3Index, end: H3Index) -> Result<usize, Error> {
 fn line_between_indexes_not_checked(start: H3Index, end: H3Index) -> Result<Vec<H3Index>, Error> {
     let num_indexes = line_size_not_checked(start, end)?;
     let mut h3_indexes_out: Vec<H3Index> = vec![0; num_indexes];
-    let retval = unsafe {
-        h3ron_h3_sys::h3Line(start, end, h3_indexes_out.as_mut_ptr())
-    };
+    let retval = unsafe { h3ron_h3_sys::h3Line(start, end, h3_indexes_out.as_mut_ptr()) };
     if retval != 0 {
         return Err(Error::LineNotComputable);
     }
@@ -194,18 +183,20 @@ pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Ind
         let start_index = Index::from_coordinate(&coords[0], h3_resolution);
         let end_index = Index::from_coordinate(&coords[1], h3_resolution);
 
-        let mut segment_indexes = line_between_indexes_not_checked(start_index.h3index(), end_index.h3index())?;
+        let mut segment_indexes =
+            line_between_indexes_not_checked(start_index.h3index(), end_index.h3index())?;
         if segment_indexes.is_empty() {
             continue;
         }
-        if !h3_indexes_out.is_empty() && h3_indexes_out[h3_indexes_out.len() - 1] == segment_indexes[0] {
+        if !h3_indexes_out.is_empty()
+            && h3_indexes_out[h3_indexes_out.len() - 1] == segment_indexes[0]
+        {
             h3_indexes_out.remove(h3_indexes_out.len() - 1);
         }
         h3_indexes_out.append(&mut segment_indexes);
-    };
+    }
     Ok(h3_indexes_out)
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -231,7 +222,7 @@ mod tests {
             Coordinate::from((3.86, 39.63)),
             Coordinate::from((-4.57, 35.17)),
             Coordinate::from((-20.74, 34.88)),
-            Coordinate::from((-23.55, 48.92))
+            Coordinate::from((-23.55, 48.92)),
         ]);
         assert!(line(&ls, 5).unwrap().len() > 200)
     }

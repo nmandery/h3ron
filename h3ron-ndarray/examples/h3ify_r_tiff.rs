@@ -1,25 +1,10 @@
 use gdal::{
-    Dataset,
-    Driver,
-    vector::{
-        Defn,
-        Feature,
-        FieldDefn,
-        OGRFieldType,
-        ToGdal,
-    },
+    vector::{Defn, Feature, FieldDefn, OGRFieldType, ToGdal},
+    Dataset, Driver,
 };
 
-use h3ron::{
-    Index,
-    ToPolygon
-};
-use h3ron_ndarray::{
-    AxisOrder,
-    ResolutionSearchMode::SmallerThanPixel,
-    Transform,
-    H3Converter,
-};
+use h3ron::{Index, ToPolygon};
+use h3ron_ndarray::{AxisOrder, H3Converter, ResolutionSearchMode::SmallerThanPixel, Transform};
 use std::convert::TryFrom;
 
 fn main() {
@@ -29,12 +14,9 @@ fn main() {
     let dataset = Dataset::open((&filename).as_ref()).unwrap();
     let transform = Transform::from_gdal(&dataset.geo_transform().unwrap());
     let band = dataset.rasterband(1).unwrap();
-    let band_array = band.read_as_array::<u8>(
-        (0, 0),
-        band.size(),
-        band.size(),
-    ).unwrap();
-
+    let band_array = band
+        .read_as_array::<u8>((0, 0), band.size(), band.size())
+        .unwrap();
 
     let view = band_array.view();
     let conv = H3Converter::new(&view, &Some(0_u8), &transform, AxisOrder::YX);
@@ -49,7 +31,9 @@ fn main() {
 
     // write to vector file
     let out_drv = Driver::get("GPKG").unwrap();
-    let mut out_dataset = out_drv.create_vector_only("h3ify_r_tiff_results.gpkg").unwrap();
+    let mut out_dataset = out_drv
+        .create_vector_only("h3ify_r_tiff_results.gpkg")
+        .unwrap();
     let out_lyr = out_dataset.create_layer_blank().unwrap();
 
     let h3index_field_defn = FieldDefn::new("h3index", OGRFieldType::OFTString).unwrap();
@@ -65,9 +49,11 @@ fn main() {
         for h3index in index_stack.iter_compacted_indexes() {
             let index = Index::try_from(h3index).unwrap();
             let mut ft = Feature::new(&defn).unwrap();
-            ft.set_geometry(index.to_polygon().to_gdal().unwrap()).unwrap();
+            ft.set_geometry(index.to_polygon().to_gdal().unwrap())
+                .unwrap();
             ft.set_field_string("h3index", &index.to_string()).unwrap();
-            ft.set_field_integer("h3res", index.resolution() as i32).unwrap();
+            ft.set_field_integer("h3res", index.resolution() as i32)
+                .unwrap();
             ft.create(&out_lyr).unwrap();
         }
     });

@@ -6,10 +6,11 @@ use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::H3Index;
 
-use crate::{compact, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION, HasH3Index};
 use crate::index::Index;
+use crate::{compact, HasH3Index, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 
-const H3_RESOLUTION_RANGE_USIZE: RangeInclusive<usize> = (H3_MIN_RESOLUTION as usize)..=(H3_MAX_RESOLUTION as usize);
+const H3_RESOLUTION_RANGE_USIZE: RangeInclusive<usize> =
+    (H3_MIN_RESOLUTION as usize)..=(H3_MAX_RESOLUTION as usize);
 
 /// structure to keep compacted h3ron indexes to allow more or less efficient
 /// adding of further indexes
@@ -22,7 +23,7 @@ pub struct H3CompactedVec {
 impl<'a> H3CompactedVec {
     pub fn new() -> H3CompactedVec {
         H3CompactedVec {
-            indexes_by_resolution: Default::default()
+            indexes_by_resolution: Default::default(),
         }
     }
 
@@ -48,13 +49,21 @@ impl<'a> H3CompactedVec {
     }
 
     pub fn compact(&mut self) {
-        self.compact_from_resolution_up(H3_MAX_RESOLUTION as usize, &H3_RESOLUTION_RANGE_USIZE.collect::<Vec<_>>())
+        self.compact_from_resolution_up(
+            H3_MAX_RESOLUTION as usize,
+            &H3_RESOLUTION_RANGE_USIZE.collect::<Vec<_>>(),
+        )
     }
 
     /// append the contents of a vector
     ///
     /// Indexes get moved, see Vec::append
-    pub fn append_to_resolution(&mut self, resolution: u8, h3indexes: &mut Vec<H3Index>, compact: bool) {
+    pub fn append_to_resolution(
+        &mut self,
+        resolution: u8,
+        h3indexes: &mut Vec<H3Index>,
+        compact: bool,
+    ) {
         self.indexes_by_resolution[resolution as usize].append(h3indexes);
         if compact {
             self.compact_from_resolution_up(resolution as usize, &[]);
@@ -62,20 +71,20 @@ impl<'a> H3CompactedVec {
     }
 
     pub fn len(&self) -> usize {
-        self.indexes_by_resolution.iter()
+        self.indexes_by_resolution
+            .iter()
             .fold(0, |acc, h3indexes| acc + h3indexes.len())
     }
 
     /// length of the vectors for all resolutions. The index of the vec is the resolution
     pub fn len_resolutions(&self) -> Vec<usize> {
-        self.indexes_by_resolution
-            .iter()
-            .map(|v| v.len())
-            .collect()
+        self.indexes_by_resolution.iter().map(|v| v.len()).collect()
     }
 
     pub fn is_empty(&self) -> bool {
-        !self.indexes_by_resolution.iter()
+        !self
+            .indexes_by_resolution
+            .iter()
             .any(|h3indexes| !h3indexes.is_empty())
     }
 
@@ -128,12 +137,19 @@ impl<'a> H3CompactedVec {
         if compact {
             let recompact_res = resolutions_touched.iter().max();
             if let Some(rr) = recompact_res {
-                self.compact_from_resolution_up(*rr, &resolutions_touched.drain().collect::<Vec<usize>>());
+                self.compact_from_resolution_up(
+                    *rr,
+                    &resolutions_touched.drain().collect::<Vec<usize>>(),
+                );
             }
         }
     }
 
-    pub fn add_indexes_from_iter<T: IntoIterator<Item=H3Index>>(&mut self, iter: T, compact: bool) {
+    pub fn add_indexes_from_iter<T: IntoIterator<Item = H3Index>>(
+        &mut self,
+        iter: T,
+        compact: bool,
+    ) {
         let mut cv = Self::new();
         for h3index in iter {
             self.add_index(h3index, false);
@@ -163,7 +179,10 @@ impl<'a> H3CompactedVec {
     ///
     /// indexes at lower resolutions will be decompacted, indexes at higher resolutions will be
     /// ignored.
-    pub fn iter_uncompacted_indexes(&self, resolution: u8) -> H3CompactedVecUncompactedIterator<'_> {
+    pub fn iter_uncompacted_indexes(
+        &self,
+        resolution: u8,
+    ) -> H3CompactedVecUncompactedIterator<'_> {
         H3CompactedVecUncompactedIterator {
             compacted_vec: self,
             current_resolution: H3_MIN_RESOLUTION as usize,
@@ -232,7 +251,8 @@ impl<'a> H3CompactedVec {
         }
 
         if let Some(lowest_res) = lowest_resolution {
-            let mut known_indexes = self.indexes_by_resolution[lowest_res].iter()
+            let mut known_indexes = self.indexes_by_resolution[lowest_res]
+                .iter()
                 .cloned()
                 .collect::<HashSet<_>>();
 
@@ -240,7 +260,9 @@ impl<'a> H3CompactedVec {
                 let mut orig_h3indexes = std::mem::take(&mut self.indexes_by_resolution[r]);
                 orig_h3indexes.drain(..).for_each(|h3index| {
                     let index = Index::new(h3index);
-                    if !(lowest_res..r).any(|parent_res| known_indexes.contains(&index.get_parent(parent_res as u8).h3index())) {
+                    if !(lowest_res..r).any(|parent_res| {
+                        known_indexes.contains(&index.get_parent(parent_res as u8).h3index())
+                    }) {
                         known_indexes.insert(h3index);
                         self.indexes_by_resolution[r].push(h3index);
                     }
@@ -257,7 +279,7 @@ impl Default for H3CompactedVec {
 }
 
 impl FromIterator<H3Index> for H3CompactedVec {
-    fn from_iter<T: IntoIterator<Item=H3Index>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = H3Index>>(iter: T) -> Self {
         let mut cv = Self::new();
         cv.add_indexes_from_iter(iter, true);
         cv
@@ -265,7 +287,7 @@ impl FromIterator<H3Index> for H3CompactedVec {
 }
 
 impl FromIterator<Index> for H3CompactedVec {
-    fn from_iter<T: IntoIterator<Item=Index>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Index>>(iter: T) -> Self {
         let mut cv = Self::new();
         for index in iter {
             cv.add_index(index.h3index(), false);
@@ -297,7 +319,9 @@ impl<'a> Iterator for H3CompactedVecCompactedIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.current_resolution <= (H3_MAX_RESOLUTION as usize) {
-            if let Some(value) = self.compacted_vec.indexes_by_resolution[self.current_resolution].get(self.current_pos) {
+            if let Some(value) = self.compacted_vec.indexes_by_resolution[self.current_resolution]
+                .get(self.current_pos)
+            {
                 self.current_pos += 1;
                 return Some(*value);
             } else {
@@ -323,12 +347,16 @@ impl<'a> Iterator for H3CompactedVecUncompactedIterator<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         while self.current_resolution <= self.iteration_resolution {
             if self.current_resolution == self.iteration_resolution {
-                let value = self.compacted_vec.indexes_by_resolution[self.current_resolution].get(self.current_pos);
+                let value = self.compacted_vec.indexes_by_resolution[self.current_resolution]
+                    .get(self.current_pos);
                 self.current_pos += 1;
                 return value.cloned();
             } else if let Some(next) = self.current_uncompacted.pop() {
                 return Some(next);
-            } else if let Some(next_parent) = self.compacted_vec.indexes_by_resolution[self.current_resolution].get(self.current_pos) {
+            } else if let Some(next_parent) = self.compacted_vec.indexes_by_resolution
+                [self.current_resolution]
+                .get(self.current_pos)
+            {
                 self.current_uncompacted = Index::new(*next_parent)
                     .get_children(self.iteration_resolution as u8)
                     .iter()

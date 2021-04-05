@@ -12,15 +12,12 @@ extern crate approx;
 extern crate ndarray;
 
 pub mod array;
-pub mod transform;
 pub mod error;
-mod sphere;
 pub mod resolution;
+mod sphere;
+pub mod transform;
 
-pub use crate::resolution::ResolutionSearchMode;
-pub use crate::array::{
-    H3Converter,
-    AxisOrder
-};
-pub use crate::transform::Transform;
+pub use crate::array::{AxisOrder, H3Converter};
 pub use crate::error::Error;
+pub use crate::resolution::ResolutionSearchMode;
+pub use crate::transform::Transform;

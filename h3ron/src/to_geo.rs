@@ -2,19 +2,13 @@ use std::collections::HashMap;
 use std::os::raw::c_int;
 
 use geo::algorithm::euclidean_distance::EuclideanDistance;
-use geo_types::{Coordinate, LineString, Polygon, Point};
+use geo_types::{Coordinate, LineString, Point, Polygon};
 
-use h3ron_h3_sys::{
-    destroyLinkedPolygon,
-    H3Index,
-    h3SetToLinkedGeo,
-    LinkedGeoPolygon,
-    radsToDegs,
-};
+use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, radsToDegs, H3Index, LinkedGeoPolygon};
 
 use crate::algorithm::smoothen_h3_linked_polygon;
 use crate::collections::H3CompactedVec;
-use crate::{Index, HasH3Index};
+use crate::{HasH3Index, Index};
 
 pub trait ToPolygon {
     fn to_polygon(&self) -> Polygon<f64>;
@@ -61,15 +55,24 @@ impl ToLinkedPolygons for H3CompactedVec {
 ///
 /// This algorithm still needs some optimization to improve the runtime.
 pub trait ToAlignedLinkedPolygons {
-    fn to_aligned_linked_polygons(&self, align_to_h3_resolution: u8, smoothen: bool) -> Vec<Polygon<f64>>;
+    fn to_aligned_linked_polygons(
+        &self,
+        align_to_h3_resolution: u8,
+        smoothen: bool,
+    ) -> Vec<Polygon<f64>>;
 }
 
 impl ToAlignedLinkedPolygons for Vec<Index> {
-    fn to_aligned_linked_polygons(&self, align_to_h3_resolution: u8, smoothen: bool) -> Vec<Polygon<f64>> {
+    fn to_aligned_linked_polygons(
+        &self,
+        align_to_h3_resolution: u8,
+        smoothen: bool,
+    ) -> Vec<Polygon<f64>> {
         let mut h3indexes_grouped = HashMap::new();
         for i in self.iter() {
             let parent = i.get_parent(align_to_h3_resolution);
-            h3indexes_grouped.entry(parent)
+            h3indexes_grouped
+                .entry(parent)
                 .or_insert_with(Vec::new)
                 .push(i.h3index())
         }
@@ -81,30 +84,43 @@ impl ToAlignedLinkedPolygons for Vec<Index> {
                 // align to the corners of the parent index
                 //
 
-                let parent_poly_vertices: Vec<_> = parent_index.to_polygon()
-                    .exterior().0.iter()
+                let parent_poly_vertices: Vec<_> = parent_index
+                    .to_polygon()
+                    .exterior()
+                    .0
+                    .iter()
                     .map(|c| Point::from(*c))
                     .collect();
 
                 // edge length of the child indexes
                 let edge_length = {
-                    let ring= Index::new(h3indexes[0]).to_polygon();
+                    let ring = Index::new(h3indexes[0]).to_polygon();
                     let p1 = Point::from(ring.exterior().0[0]);
                     let p2 = Point::from(ring.exterior().0[1]);
                     p1.euclidean_distance(&p2)
                 };
 
                 for poly in to_linked_polygons(&h3indexes, true).drain(..) {
-                    let points_new: Vec<_> = poly.exterior().0.iter().map(|c| {
-                        let p = Point::from(*c);
-                        if let Some(pv) = parent_poly_vertices.iter().find(|pv| p.euclidean_distance(*pv) < edge_length) {
-                            pv.0
-                        } else {
-                            *c
-                        }
-                    })
+                    let points_new: Vec<_> = poly
+                        .exterior()
+                        .0
+                        .iter()
+                        .map(|c| {
+                            let p = Point::from(*c);
+                            if let Some(pv) = parent_poly_vertices
+                                .iter()
+                                .find(|pv| p.euclidean_distance(*pv) < edge_length)
+                            {
+                                pv.0
+                            } else {
+                                *c
+                            }
+                        })
                         .collect();
-                    polygons.push(Polygon::new(LineString::from(points_new), poly.interiors().to_vec()));
+                    polygons.push(Polygon::new(
+                        LineString::from(points_new),
+                        poly.interiors().to_vec(),
+                    ));
                 }
             } else {
                 polygons.append(&mut to_linked_polygons(&h3indexes, false));
@@ -181,10 +197,7 @@ pub fn to_linked_polygons(h3indexes: &[H3Index], smoothen: bool) -> Vec<Polygon<
 mod tests {
     use geo_types::Coordinate;
 
-    use crate::{
-        Index,
-        ToLinkedPolygons,
-    };
+    use crate::{Index, ToLinkedPolygons};
 
     #[test]
     fn donut_linked_polygon() {

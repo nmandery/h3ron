@@ -27,11 +27,9 @@ pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coor
             // preserve the unmodified starting coordinate
             out.push(*in_coords.first().unwrap());
         }
-        let apply_window = |c1: &Coordinate<f64>, c2: &Coordinate<f64>| {
-            Coordinate {
-                x: 0.5 * c1.x + 0.5 * c2.x,
-                y: 0.5 * c1.y + 0.5 * c2.y,
-            }
+        let apply_window = |c1: &Coordinate<f64>, c2: &Coordinate<f64>| Coordinate {
+            x: 0.5 * c1.x + 0.5 * c2.x,
+            y: 0.5 * c1.y + 0.5 * c2.y,
         };
         in_coords.windows(2).for_each(|window| {
             out.push(apply_window(&window[0], &window[1]));
@@ -52,25 +50,25 @@ pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coor
         out = in_coords.to_vec();
     }
 
-
     if in_coords.len() >= 3 {
         // now remove redundant vertices which are, more or less, on the same straight line. the
         // are covered by three point must be less than the triangle of three points of a hexagon
         let out_ls = LineString::from(out);
-        let hexagon_corner_area = Triangle::from([in_coords[0], in_coords[1], in_coords[2]])
-            .unsigned_area();
+        let hexagon_corner_area =
+            Triangle::from([in_coords[0], in_coords[1], in_coords[2]]).unsigned_area();
         out_ls.simplifyvw(&(hexagon_corner_area * 0.75)).0
     } else {
         out
     }
 }
 
-
 /// Smoothen a polygon to remove some of the artifacts of the h3indexes left after creating a h3 linkedpolygon.
 pub fn smoothen_h3_linked_polygon(in_poly: &Polygon<f64>) -> Polygon<f64> {
     Polygon::new(
         LineString::from(smoothen_h3_coordinates(&in_poly.exterior().0)),
-        in_poly.interiors().iter()
+        in_poly
+            .interiors()
+            .iter()
             .map(|ring| LineString::from(smoothen_h3_coordinates(&ring.0)))
             .collect(),
     )
@@ -80,11 +78,8 @@ pub fn smoothen_h3_linked_polygon(in_poly: &Polygon<f64>) -> Polygon<f64> {
 mod tests {
     use geo_types::Coordinate;
 
-    use crate::{
-        Index,
-        ToLinkedPolygons,
-    };
     use crate::algorithm::smoothen_h3_linked_polygon;
+    use crate::{Index, ToLinkedPolygons};
 
     #[test]
     fn smooth_donut_linked_polygon() {

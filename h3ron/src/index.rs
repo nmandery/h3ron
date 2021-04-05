@@ -9,13 +9,9 @@ use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::{GeoCoord, H3Index};
 
-use crate::{AreaUnits, FromH3Index, HasH3Index, max_k_ring_size, ToCoordinate, ToPolygon};
 use crate::error::Error;
-use crate::util::{
-    coordinate_to_geocoord,
-    drain_h3indexes_to_indexes,
-    point_to_geocoord,
-};
+use crate::util::{coordinate_to_geocoord, drain_h3indexes_to_indexes, point_to_geocoord};
+use crate::{max_k_ring_size, AreaUnits, FromH3Index, HasH3Index, ToCoordinate, ToPolygon};
 
 /// a single H3 index
 #[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
@@ -73,7 +69,6 @@ impl FromH3Index for Index {
     }
 }
 
-
 impl Index {
     /// create an index from the given u64.
     ///
@@ -108,10 +103,15 @@ impl Index {
     }
 
     pub fn get_children(&self, child_resolution: u8) -> Vec<Index> {
-        let max_size = unsafe { h3ron_h3_sys::maxH3ToChildrenSize(self.0, child_resolution as c_int) };
+        let max_size =
+            unsafe { h3ron_h3_sys::maxH3ToChildrenSize(self.0, child_resolution as c_int) };
         let mut h3_indexes_out: Vec<h3ron_h3_sys::H3Index> = vec![0; max_size as usize];
         unsafe {
-            h3ron_h3_sys::h3ToChildren(self.0, child_resolution as c_int, h3_indexes_out.as_mut_ptr());
+            h3ron_h3_sys::h3ToChildren(
+                self.0,
+                child_resolution as c_int,
+                h3_indexes_out.as_mut_ptr(),
+            );
         }
         drain_h3indexes_to_indexes(h3_indexes_out)
     }
@@ -124,7 +124,6 @@ impl Index {
         Index::new(h3index)
     }
 
-
     pub fn from_coordinate(c: &Coordinate<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = coordinate_to_geocoord(c);
@@ -135,9 +134,7 @@ impl Index {
 
     /// Checks if the current index and `other` are neighbors.
     pub fn is_neighbor_to(&self, other: &Self) -> bool {
-        let res: i32 = unsafe {
-            h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0)
-        };
+        let res: i32 = unsafe { h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0) };
         res == 1
     }
 
@@ -184,7 +181,12 @@ impl Index {
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
         unsafe {
-            h3ron_h3_sys::kRingDistances(self.0, k_max as c_int, h3_indexes_out.as_mut_ptr(), distances_out.as_mut_ptr())
+            h3ron_h3_sys::kRingDistances(
+                self.0,
+                k_max as c_int,
+                h3_indexes_out.as_mut_ptr(),
+                distances_out.as_mut_ptr(),
+            )
         };
         self.associate_index_distances(h3_indexes_out, distances_out, k_min)
     }
@@ -194,7 +196,12 @@ impl Index {
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
         let res = unsafe {
-            h3ron_h3_sys::hexRangeDistances(self.0, k_max as c_int, h3_indexes_out.as_mut_ptr(), distances_out.as_mut_ptr()) as c_int
+            h3ron_h3_sys::hexRangeDistances(
+                self.0,
+                k_max as c_int,
+                h3_indexes_out.as_mut_ptr(),
+                distances_out.as_mut_ptr(),
+            ) as c_int
         };
         if res == 0 {
             Ok(self.associate_index_distances(h3_indexes_out, distances_out, k_min))
@@ -207,16 +214,20 @@ impl Index {
     ///
     /// For distance in miles or kilometers use haversine algorithms.
     pub fn distance_to(&self, other: &Self) -> i32 {
-        unsafe {
-            h3ron_h3_sys::h3Distance(self.0, other.0)
-        }
+        unsafe { h3ron_h3_sys::h3Distance(self.0, other.0) }
     }
 
-    fn associate_index_distances(&self, mut h3_indexes_out: Vec<H3Index>, distances_out: Vec<c_int>, k_min: u32) -> Vec<(u32, Index)> {
-        h3_indexes_out.drain(..)
+    fn associate_index_distances(
+        &self,
+        mut h3_indexes_out: Vec<H3Index>,
+        distances_out: Vec<c_int>,
+        k_min: u32,
+    ) -> Vec<(u32, Index)> {
+        h3_indexes_out
+            .drain(..)
             .enumerate()
-            .filter(|(idx, h3index)| { *h3index != 0 && distances_out[*idx] >= k_min as i32 })
-            .map(|(idx, h3index)| { (distances_out[idx] as u32, Index::new(h3index)) })
+            .filter(|(idx, h3index)| *h3index != 0 && distances_out[*idx] >= k_min as i32)
+            .map(|(idx, h3index)| (distances_out[idx] as u32, Index::new(h3index)))
             .collect()
     }
 
@@ -250,9 +261,9 @@ impl FromStr for Index {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let h3index: H3Index = CString::new(s).map(|cs| unsafe {
-            h3ron_h3_sys::stringToH3(cs.as_ptr())
-        }).map_err(|_| Error::InvalidInput)?;
+        let h3index: H3Index = CString::new(s)
+            .map(|cs| unsafe { h3ron_h3_sys::stringToH3(cs.as_ptr()) })
+            .map_err(|_| Error::InvalidInput)?;
         Index::try_from(h3index)
     }
 }
@@ -282,10 +293,7 @@ impl ToCoordinate for Index {
     /// the centroid coordinate of the h3 index
     fn to_coordinate(&self) -> Coordinate<f64> {
         unsafe {
-            let mut gc = GeoCoord {
-                lat: 0.0,
-                lon: 0.0,
-            };
+            let mut gc = GeoCoord { lat: 0.0, lon: 0.0 };
             h3ron_h3_sys::h3ToGeo(self.0, &mut gc);
 
             Coordinate {
@@ -306,25 +314,30 @@ mod tests {
 
     use h3ron_h3_sys::H3Index;
 
-    use crate::HasH3Index;
     use crate::index::Index;
+    use crate::HasH3Index;
 
     #[test]
     fn test_h3_to_string() {
         let h3index = 0x89283080ddbffff_u64;
-        assert_eq!(Index::try_from(h3index).unwrap().to_string(), "89283080ddbffff".to_string());
+        assert_eq!(
+            Index::try_from(h3index).unwrap().to_string(),
+            "89283080ddbffff".to_string()
+        );
     }
 
     #[test]
     fn test_string_to_h3() {
-        let index = Index::from_str("89283080ddbffff")
-            .expect("parsing failed");
+        let index = Index::from_str("89283080ddbffff").expect("parsing failed");
         assert_eq!(Index::try_from(0x89283080ddbffff_u64).unwrap(), index);
     }
 
     #[test]
     fn test_is_valid() {
-        assert_eq!(Index::try_from(0x89283080ddbffff_u64).unwrap().is_valid(), true);
+        assert_eq!(
+            Index::try_from(0x89283080ddbffff_u64).unwrap().is_valid(),
+            true
+        );
         assert_eq!(Index::new(0_u64).is_valid(), false);
         assert!(Index::try_from(0_u64).is_err());
     }
@@ -382,7 +395,8 @@ mod tests {
 
         let mut indexes_resolutions: HashMap<H3Index, Vec<u32>> = HashMap::new();
         for (dist, idx) in indexes.iter() {
-            indexes_resolutions.entry(idx.h3index())
+            indexes_resolutions
+                .entry(idx.h3index())
                 .and_modify(|v| v.push(*dist))
                 .or_insert_with(|| vec![*dist]);
         }

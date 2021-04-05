@@ -33,14 +33,7 @@ pub struct Transform {
 impl Transform {
     #![allow(clippy::many_single_char_names)]
     pub fn new(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> Self {
-        Self {
-            a,
-            b,
-            c,
-            d,
-            e,
-            f,
-        }
+        Self { a, b, c, d, e, f }
     }
 
     /// create from an f64 slice in the ordering used by rasterio
@@ -118,10 +111,7 @@ impl Mul<&Rect<f64>> for &Transform {
     type Output = Rect<f64>;
 
     fn mul(self, rhs: &Rect<f64>) -> Self::Output {
-        Rect::new(
-            self * &rhs.min(),
-            self * &rhs.max(),
-        )
+        Rect::new(self * &rhs.min(), self * &rhs.max())
     }
 }
 
@@ -171,10 +161,7 @@ mod tests {
 
     fn r_tiff_test_helper(gt: &Transform) {
         // upper left pixel
-        let px_ul = Coordinate {
-            x: 0.,
-            y: 0.,
-        };
+        let px_ul = Coordinate { x: 0., y: 0. };
 
         let coord_ul = gt * &px_ul;
         assert_relative_eq!(coord_ul.x, 8.11377);
@@ -197,7 +184,12 @@ mod tests {
         (8.11377, 0.0011965049999999992, 0.0, 49.40792, 0.0, -0.001215135)
          */
         let gt = Transform::from_gdal(&[
-            8.11377, 0.0011965049999999992, 0.0, 49.40792, 0.0, -0.001215135
+            8.11377,
+            0.0011965049999999992,
+            0.0,
+            49.40792,
+            0.0,
+            -0.001215135,
         ]);
         r_tiff_test_helper(&gt);
     }
@@ -214,7 +206,12 @@ mod tests {
                0.0, -0.001215135, 49.40792)
          */
         let gt = Transform::from_rasterio(&[
-            0.0011965049999999992, 0.0, 8.11377, 0.0, -0.001215135, 49.40792
+            0.0011965049999999992,
+            0.0,
+            8.11377,
+            0.0,
+            -0.001215135,
+            49.40792,
         ]);
         r_tiff_test_helper(&gt);
     }

@@ -1,4 +1,4 @@
-use criterion::{black_box, Criterion, criterion_group, criterion_main};
+use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use gdal::Dataset;
 use ndarray::{Array2, ArrayView, Ix2};
 
@@ -11,15 +11,17 @@ fn load_r_dataset() -> (Array2<u8>, Transform) {
     let dataset = Dataset::open((&filename).as_ref()).unwrap();
     let transform = Transform::from_gdal(&dataset.geo_transform().unwrap());
     let band = dataset.rasterband(1).unwrap();
-    let band_array = band.read_as_array::<u8>(
-        (0, 0),
-        band.size(),
-        band.size(),
-    ).unwrap();
+    let band_array = band
+        .read_as_array::<u8>((0, 0), band.size(), band.size())
+        .unwrap();
     (band_array, transform)
 }
 
-fn convert_r_dataset<'a>(view: &'a ArrayView<'a, u8, Ix2>, transform: &'a Transform, h3_resolution: u8) {
+fn convert_r_dataset<'a>(
+    view: &'a ArrayView<'a, u8, Ix2>,
+    transform: &'a Transform,
+    h3_resolution: u8,
+) {
     let conv = H3Converter::new(&view, &Some(0_u8), &transform, AxisOrder::XY);
     let _ = conv.to_h3(h3_resolution, true).unwrap();
 }
@@ -31,10 +33,9 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.sample_size(10);
     //group.measurement_time(Duration::new(60 * 5, 0));
     for h3_res in [11].iter() {
-        group.bench_function(
-            format!("convert_r_dataset_h3_res_{}", h3_res),
-            |b| b.iter(|| convert_r_dataset(&band_view, &transform, black_box(*h3_res))),
-        );
+        group.bench_function(format!("convert_r_dataset_h3_res_{}", h3_res), |b| {
+            b.iter(|| convert_r_dataset(&band_view, &transform, black_box(*h3_res)))
+        });
     }
     group.finish();
 }
