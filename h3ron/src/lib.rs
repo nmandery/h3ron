@@ -15,6 +15,7 @@ pub use to_geo::{
 pub use crate::error::Error;
 pub use crate::index::Index;
 pub use crate::index::ToIndex;
+pub use crate::to_h3::ToH3Indexes;
 use crate::util::linestring_to_geocoords;
 use crate::error::check_same_resolution;
 
@@ -26,6 +27,7 @@ pub mod experimental;
 pub mod algorithm;
 pub mod error;
 mod index;
+mod to_h3;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
