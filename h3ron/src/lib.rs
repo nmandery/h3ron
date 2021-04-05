@@ -14,7 +14,9 @@ pub use to_geo::{
 
 pub use crate::error::Error;
 pub use crate::index::Index;
+pub use crate::index::ToIndex;
 use crate::util::linestring_to_geocoords;
+use crate::error::check_same_resolution;
 
 #[macro_use]
 mod util;
@@ -27,6 +29,28 @@ mod index;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
+
+/// marker trait for indexes, including conversion to a H3Index
+pub trait HasH3Index {
+    fn h3index(&self) -> H3Index;
+
+}
+
+impl HasH3Index for H3Index {
+    fn h3index(&self) -> H3Index {
+        *self
+    }
+}
+
+pub trait FromH3Index {
+    fn from_h3index(h3index: H3Index) -> Self;
+}
+
+impl FromH3Index for H3Index {
+    fn from_h3index(h3index: H3Index) -> Self {
+        h3index
+    }
+}
 
 pub enum AreaUnits {
     M2,
@@ -121,17 +145,10 @@ pub fn max_k_ring_size(k: u32) -> usize {
     unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
 }
 
-fn ensure_same_resolution(index0: H3Index, index1: H3Index) -> Result<(), Error> {
-    if Index::from(index0).resolution() != Index::from(index1).resolution() {
-        Err(Error::MixedResolutions)
-    } else {
-        Ok(())
-    }
-}
 
 /// Number of indexes in a line connecting two indexes
 pub fn line_size(start: H3Index, end: H3Index) -> Result<usize, Error> {
-    ensure_same_resolution(start, end)?;
+    check_same_resolution(start, end)?;
     line_size_not_checked(start, end)
 }
 
@@ -161,7 +178,7 @@ fn line_between_indexes_not_checked(start: H3Index, end: H3Index) -> Result<Vec<
 
 /// Line of h3 indexes connecting two indexes
 pub fn line_between_indexes(start: H3Index, end: H3Index) -> Result<Vec<H3Index>, Error> {
-    ensure_same_resolution(start, end)?;
+    check_same_resolution(start, end)?;
     line_between_indexes_not_checked(start, end)
 }
 

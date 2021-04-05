@@ -19,7 +19,7 @@ macro_rules! remove_zero_indexes_from_vec {
 pub(crate) fn drain_h3indexes_to_indexes(mut v: Vec<H3Index>) -> Vec<Index> {
     v.drain(..)
         .filter(|h3i| *h3i != 0)
-        .map(Index::from)
+        .map(Index::new)
         .collect()
 }
 

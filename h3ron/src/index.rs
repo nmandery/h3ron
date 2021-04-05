@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::ffi::CString;
 use std::mem::MaybeUninit;
 use std::os::raw::c_int;
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::{GeoCoord, H3Index};
 
-use crate::{AreaUnits, max_k_ring_size, ToCoordinate, ToPolygon};
+use crate::{AreaUnits, FromH3Index, HasH3Index, max_k_ring_size, ToCoordinate, ToPolygon};
 use crate::error::Error;
 use crate::util::{
     coordinate_to_geocoord,
@@ -17,21 +18,41 @@ use crate::util::{
 };
 
 /// a single H3 index
-#[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord)]
+#[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
 pub struct Index(H3Index);
 
+/*
 impl From<H3Index> for Index {
     fn from(h3index: H3Index) -> Self {
         Index(h3index)
     }
 }
 
-/*
+ */
+
+/// marker trait for indexes
+pub trait ToIndex {
+    fn to_index(&self) -> Index;
+}
+
+impl ToIndex for H3Index {
+    fn to_index(&self) -> Index {
+        Index::new(*self)
+    }
+}
+
+impl ToIndex for Index {
+    fn to_index(&self) -> Index {
+        *self
+    }
+}
+
+/// convert to index including validation
 impl TryFrom<u64> for Index {
     type Error = Error;
 
     fn try_from(h3index: H3Index) -> Result<Self, Self::Error> {
-        let index = Index::from(h3index);
+        let index = Index::new(h3index);
         if !index.is_valid() {
             Err(Error::InvalidH3Index)
         } else {
@@ -40,15 +61,26 @@ impl TryFrom<u64> for Index {
     }
 }
 
- */
+impl HasH3Index for Index {
+    fn h3index(&self) -> H3Index {
+        self.0
+    }
+}
+
+impl FromH3Index for Index {
+    fn from_h3index(h3index: H3Index) -> Self {
+        Index::new(h3index)
+    }
+}
+
 
 impl Index {
+    /// create an index from the given u64.
+    ///
+    /// No validation is performed - use the `TryInto` trait in
+    /// case that is desired.
     pub fn new(h3index: H3Index) -> Self {
         Self(h3index)
-    }
-
-    pub fn h3index(&self) -> H3Index {
-        self.0
     }
 
     pub fn resolution(&self) -> u8 {
@@ -72,7 +104,7 @@ impl Index {
     }
 
     pub fn get_parent(&self, parent_resolution: u8) -> Index {
-        Index::from(unsafe { h3ron_h3_sys::h3ToParent(self.0, parent_resolution as c_int) })
+        Index::new(unsafe { h3ron_h3_sys::h3ToParent(self.0, parent_resolution as c_int) })
     }
 
     pub fn get_children(&self, child_resolution: u8) -> Vec<Index> {
@@ -89,7 +121,7 @@ impl Index {
             let gc = point_to_geocoord(pt);
             h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
         };
-        Index::from(h3index)
+        Index::new(h3index)
     }
 
 
@@ -98,7 +130,7 @@ impl Index {
             let gc = coordinate_to_geocoord(c);
             h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
         };
-        Index::from(h3index)
+        Index::new(h3index)
     }
 
     /// Checks if the current index and `other` are neighbors.
@@ -184,7 +216,7 @@ impl Index {
         h3_indexes_out.drain(..)
             .enumerate()
             .filter(|(idx, h3index)| { *h3index != 0 && distances_out[*idx] >= k_min as i32 })
-            .map(|(idx, h3index)| { (distances_out[idx] as u32, Index::from(h3index)) })
+            .map(|(idx, h3index)| { (distances_out[idx] as u32, Index::new(h3index)) })
             .collect()
     }
 
@@ -221,7 +253,7 @@ impl FromStr for Index {
         let h3index: H3Index = CString::new(s).map(|cs| unsafe {
             h3ron_h3_sys::stringToH3(cs.as_ptr())
         }).map_err(|_| Error::InvalidInput)?;
-        Ok(Index::from(h3index))
+        Index::try_from(h3index)
     }
 }
 
@@ -267,36 +299,39 @@ impl ToCoordinate for Index {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+    use std::convert::{TryFrom, TryInto};
     use std::str::FromStr;
 
     use bincode::{deserialize, serialize};
 
     use h3ron_h3_sys::H3Index;
 
+    use crate::HasH3Index;
     use crate::index::Index;
 
     #[test]
     fn test_h3_to_string() {
         let h3index = 0x89283080ddbffff_u64;
-        assert_eq!(Index::from(h3index).to_string(), "89283080ddbffff".to_string());
+        assert_eq!(Index::try_from(h3index).unwrap().to_string(), "89283080ddbffff".to_string());
     }
 
     #[test]
     fn test_string_to_h3() {
-        let h3index = Index::from_str("89283080ddbffff")
+        let index = Index::from_str("89283080ddbffff")
             .expect("parsing failed");
-        assert_eq!(Index::from(0x89283080ddbffff_u64), h3index);
+        assert_eq!(Index::try_from(0x89283080ddbffff_u64).unwrap(), index);
     }
 
     #[test]
     fn test_is_valid() {
-        assert_eq!(Index::from(0x89283080ddbffff_u64).is_valid(), true);
-        assert_eq!(Index::from(0_u64).is_valid(), false);
+        assert_eq!(Index::try_from(0x89283080ddbffff_u64).unwrap().is_valid(), true);
+        assert_eq!(Index::new(0_u64).is_valid(), false);
+        assert!(Index::try_from(0_u64).is_err());
     }
 
     #[test]
     fn test_hex_ring_1() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx = Index::try_from(0x89283080ddbffff_u64).unwrap();
         let ring = idx.hex_ring(1).unwrap();
         assert_eq!(ring.len(), 6);
         assert!(ring.iter().all(|index| index.is_valid()));
@@ -304,7 +339,7 @@ mod tests {
 
     #[test]
     fn test_hex_ring_0() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx = Index::new(0x89283080ddbffff_u64);
         let ring = idx.hex_ring(0).unwrap();
         assert_eq!(ring.len(), 1);
         assert!(ring.iter().all(|index| index.is_valid()));
@@ -312,7 +347,7 @@ mod tests {
 
     #[test]
     fn test_k_ring_distances() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx = Index::new(0x89283080ddbffff_u64);
         let k_min = 2;
         let k_max = 2;
         let indexes = idx.k_ring_distances(k_min, k_max);
@@ -326,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_hex_range_distances() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx = Index::new(0x89283080ddbffff_u64);
         let k_min = 2;
         let k_max = 2;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
@@ -340,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_hex_range_distances_2() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx = Index::new(0x89283080ddbffff_u64);
         let k_min = 0;
         let k_max = 10;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
@@ -363,7 +398,7 @@ mod tests {
 
     #[test]
     fn serde_index_roundtrip() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx = Index::new(0x89283080ddbffff_u64);
         let serialized_data = serialize(&idx).unwrap();
         let idx_2: Index = deserialize(&serialized_data).unwrap();
         assert_eq!(idx, idx_2);
@@ -382,11 +417,11 @@ mod tests {
 
     #[test]
     fn test_is_neighbor() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx: Index = 0x89283080ddbffff_u64.try_into().unwrap();
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
         assert!(idx.is_neighbor_to(neighbor));
-        let wrong_neighbor = 0x8a2a1072b59ffff_u64.into();
+        let wrong_neighbor = 0x8a2a1072b59ffff_u64.try_into().unwrap();
         assert!(!idx.is_neighbor_to(&wrong_neighbor));
         // Self
         assert!(!idx.is_neighbor_to(&idx));
@@ -394,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_distance_to() {
-        let idx: Index = 0x89283080ddbffff_u64.into();
+        let idx: Index = 0x89283080ddbffff_u64.try_into().unwrap();
         assert_eq!(idx.distance_to(&idx), 0);
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();

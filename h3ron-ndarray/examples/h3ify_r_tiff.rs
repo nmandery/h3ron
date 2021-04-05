@@ -20,6 +20,7 @@ use h3ron_ndarray::{
     Transform,
     H3Converter,
 };
+use std::convert::TryFrom;
 
 fn main() {
     env_logger::init(); // run with the environment variable RUST_LOG set to "debug" for log output
@@ -62,7 +63,7 @@ fn main() {
 
     results.iter().for_each(|(_value, index_stack)| {
         for h3index in index_stack.iter_compacted_indexes() {
-            let index = Index::from(h3index);
+            let index = Index::try_from(h3index).unwrap();
             let mut ft = Feature::new(&defn).unwrap();
             ft.set_geometry(index.to_polygon().to_gdal().unwrap()).unwrap();
             ft.set_field_string("h3index", &index.to_string()).unwrap();

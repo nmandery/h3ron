@@ -4,6 +4,7 @@ use h3ron_h3_sys::H3Index;
 
 use crate::error::Error;
 use crate::index::Index;
+use crate::HasH3Index;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CoordIJ {
@@ -37,7 +38,7 @@ pub fn local_ij_to_h3(origin_index: &Index, coordij: &CoordIJ) -> Result<Index, 
         };
         let mut h3_index_out: H3Index = 0;
         if h3ron_h3_sys::experimentalLocalIjToH3(origin_index.h3index(), &cij, &mut h3_index_out) == 0 {
-            Ok(Index::from(h3_index_out))
+            Ok(Index::new(h3_index_out))
         } else { Err(Error::NoLocalIJCoordinates) }
     }
 }
@@ -46,10 +47,11 @@ pub fn local_ij_to_h3(origin_index: &Index, coordij: &CoordIJ) -> Result<Index, 
 mod tests {
     use crate::experimental::{h3_to_local_ij, local_ij_to_h3};
     use crate::index::Index;
+    use std::convert::TryFrom;
 
     #[test]
     fn test_local_ij() {
-        let index = Index::from(0x89283080ddbffff_u64);
+        let index = Index::try_from(0x89283080ddbffff_u64).unwrap();
         let ring = index.k_ring(1);
         assert_ne!(ring.len(), 0);
         let other = ring.iter().find(|i| **i != index).unwrap().clone();

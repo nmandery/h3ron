@@ -14,7 +14,7 @@ use h3ron_h3_sys::{
 
 use crate::algorithm::smoothen_h3_linked_polygon;
 use crate::collections::H3CompactedVec;
-use crate::Index;
+use crate::{Index, HasH3Index};
 
 pub trait ToPolygon {
     fn to_polygon(&self) -> Polygon<f64>;
@@ -88,7 +88,7 @@ impl ToAlignedLinkedPolygons for Vec<Index> {
 
                 // edge length of the child indexes
                 let edge_length = {
-                    let ring= Index::from(h3indexes[0]).to_polygon();
+                    let ring= Index::new(h3indexes[0]).to_polygon();
                     let p1 = Point::from(ring.exterior().0[0]);
                     let p2 = Point::from(ring.exterior().0[1]);
                     p1.euclidean_distance(&p2)
