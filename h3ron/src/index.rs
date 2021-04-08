@@ -49,11 +49,8 @@ impl TryFrom<u64> for Index {
 
     fn try_from(h3index: H3Index) -> Result<Self, Self::Error> {
         let index = Index::new(h3index);
-        if !index.is_valid() {
-            Err(Error::InvalidH3Index)
-        } else {
-            Ok(index)
-        }
+        index.validate()?;
+        Ok(index)
     }
 }
 
