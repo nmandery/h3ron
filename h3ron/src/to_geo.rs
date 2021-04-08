@@ -70,7 +70,7 @@ impl ToAlignedLinkedPolygons for Vec<Index> {
     ) -> Vec<Polygon<f64>> {
         let mut h3indexes_grouped = HashMap::new();
         for i in self.iter() {
-            let parent = i.get_parent(align_to_h3_resolution);
+            let parent = i.get_parent_unchecked(align_to_h3_resolution);
             h3indexes_grouped
                 .entry(parent)
                 .or_insert_with(Vec::new)

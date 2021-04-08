@@ -19,7 +19,7 @@ impl ToH3Indexes for Polygon<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<Index>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
         let mut indexes = polyfill(&self, h3_resolution);
-        Ok(indexes.drain(..).map(|i| Index::new(i)).collect())
+        Ok(indexes.drain(..).map(Index::new).collect())
     }
 }
 
@@ -37,7 +37,7 @@ impl ToH3Indexes for MultiPolygon<f64> {
 impl ToH3Indexes for Point<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<Index>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
-        Ok(vec![Index::from_coordinate(&self.0, h3_resolution)])
+        Ok(vec![Index::from_coordinate(&self.0, h3_resolution)?])
     }
 }
 
@@ -45,7 +45,7 @@ impl ToH3Indexes for MultiPoint<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<Index>, Error> {
         let mut outvec = vec![];
         for pt in self.0.iter() {
-            outvec.push(Index::from_coordinate(&pt.0, h3_resolution));
+            outvec.push(Index::from_coordinate(&pt.0, h3_resolution)?);
         }
         Ok(outvec)
     }
@@ -54,7 +54,7 @@ impl ToH3Indexes for MultiPoint<f64> {
 impl ToH3Indexes for Coordinate<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<Index>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
-        Ok(vec![Index::from_coordinate(&self, h3_resolution)])
+        Ok(vec![Index::from_coordinate(&self, h3_resolution)?])
     }
 }
 
@@ -62,7 +62,7 @@ impl ToH3Indexes for LineString<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<Index>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
         let mut indexes = line(&self, h3_resolution)?;
-        Ok(indexes.drain(..).map(|i| Index::new(i)).collect())
+        Ok(indexes.drain(..).map(Index::new).collect())
     }
 }
 

@@ -180,8 +180,8 @@ pub fn line_between_indexes(start: H3Index, end: H3Index) -> Result<Vec<H3Index>
 pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Index>, Error> {
     let mut h3_indexes_out = vec![];
     for coords in linestring.0.windows(2) {
-        let start_index = Index::from_coordinate(&coords[0], h3_resolution);
-        let end_index = Index::from_coordinate(&coords[1], h3_resolution);
+        let start_index = Index::from_coordinate(&coords[0], h3_resolution)?;
+        let end_index = Index::from_coordinate(&coords[1], h3_resolution)?;
 
         let mut segment_indexes =
             line_between_indexes_not_checked(start_index.h3index(), end_index.h3index())?;

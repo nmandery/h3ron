@@ -87,7 +87,7 @@ impl Index {
     }
 
     pub fn is_parent_of(&self, other: &Index) -> bool {
-        *self == other.get_parent(self.resolution())
+        *self == other.get_parent_unchecked(self.resolution())
     }
 
     pub fn is_child_of(&self, other: &Index) -> bool {
@@ -98,11 +98,27 @@ impl Index {
         self.is_parent_of(other)
     }
 
-    pub fn get_parent(&self, parent_resolution: u8) -> Index {
+    /// Retrieves the parent index at `parent_resolution`.
+    ///
+    /// # Returns
+    ///
+    /// This method may fail if the `parent_resolution` is higher thant the curent `self` resolution.
+    /// If you don't want it to fail use `get_parent_unchecked`
+    pub fn get_parent(&self, parent_resolution: u8) -> Result<Self, Error> {
+        Index::try_from(unsafe { h3ron_h3_sys::h3ToParent(self.0, parent_resolution as c_int) })
+    }
+
+    /// Retrieves the parent index at `parent_resolution`.
+    ///
+    /// # Returns
+    ///
+    /// This method may return an invalid `Index` with a `0` value.
+    /// Use `get_parent` for validity check
+    pub fn get_parent_unchecked(&self, parent_resolution: u8) -> Self {
         Index::new(unsafe { h3ron_h3_sys::h3ToParent(self.0, parent_resolution as c_int) })
     }
 
-    pub fn get_children(&self, child_resolution: u8) -> Vec<Index> {
+    pub fn get_children(&self, child_resolution: u8) -> Vec<Self> {
         let max_size =
             unsafe { h3ron_h3_sys::maxH3ToChildrenSize(self.0, child_resolution as c_int) };
         let mut h3_indexes_out: Vec<h3ron_h3_sys::H3Index> = vec![0; max_size as usize];
@@ -116,20 +132,20 @@ impl Index {
         drain_h3indexes_to_indexes(h3_indexes_out)
     }
 
-    pub fn from_point(pt: &Point<f64>, h3_resolution: u8) -> Self {
+    pub fn from_point(pt: &Point<f64>, h3_resolution: u8) -> Result<Self, Error> {
         let h3index = unsafe {
             let gc = point_to_geocoord(pt);
             h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
         };
-        Index::new(h3index)
+        Index::try_from(h3index)
     }
 
-    pub fn from_coordinate(c: &Coordinate<f64>, h3_resolution: u8) -> Self {
+    pub fn from_coordinate(c: &Coordinate<f64>, h3_resolution: u8) -> Result<Self, Error> {
         let h3index = unsafe {
             let gc = coordinate_to_geocoord(c);
             h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
         };
-        Index::new(h3index)
+        Index::try_from(h3index)
     }
 
     /// Checks if the current index and `other` are neighbors.
