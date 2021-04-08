@@ -82,12 +82,22 @@ impl Index {
         (unsafe { h3ron_h3_sys::h3GetResolution(self.0) }) as u8
     }
 
+    /// Checks the validity of the index
     pub fn is_valid(&self) -> bool {
         unsafe { h3ron_h3_sys::h3IsValid(self.0) != 0 }
     }
 
+    /// Checks the validity of the index
+    pub fn validate(&self) -> Result<(), Error> {
+        if !self.is_valid() {
+            Err(Error::InvalidH3Index)
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn is_parent_of(&self, other: &Index) -> bool {
-        *self == other.get_parent(self.resolution())
+        *self == other.get_parent_unchecked(self.resolution())
     }
 
     pub fn is_child_of(&self, other: &Index) -> bool {
@@ -98,11 +108,32 @@ impl Index {
         self.is_parent_of(other)
     }
 
-    pub fn get_parent(&self, parent_resolution: u8) -> Index {
+    /// Retrieves the parent index at `parent_resolution`.
+    ///
+    /// # Returns
+    ///
+    /// This method may fail if the `parent_resolution` is higher than current `self` resolution.
+    ///
+    /// If you don't want it to fail use `get_parent_unchecked`
+    pub fn get_parent(&self, parent_resolution: u8) -> Result<Self, Error> {
+        let res = self.get_parent_unchecked(parent_resolution);
+        res.validate()?;
+        Ok(res)
+    }
+
+    /// Retrieves the parent index at `parent_resolution`.
+    ///
+    /// # Returns
+    ///
+    /// This method may return an invalid `Index` if the `parent_resolution`is higher than current
+    /// `self` resolution.
+    ///
+    /// Use `get_parent` for validity check.
+    pub fn get_parent_unchecked(&self, parent_resolution: u8) -> Self {
         Index::new(unsafe { h3ron_h3_sys::h3ToParent(self.0, parent_resolution as c_int) })
     }
 
-    pub fn get_children(&self, child_resolution: u8) -> Vec<Index> {
+    pub fn get_children(&self, child_resolution: u8) -> Vec<Self> {
         let max_size =
             unsafe { h3ron_h3_sys::maxH3ToChildrenSize(self.0, child_resolution as c_int) };
         let mut h3_indexes_out: Vec<h3ron_h3_sys::H3Index> = vec![0; max_size as usize];
@@ -116,7 +147,12 @@ impl Index {
         drain_h3indexes_to_indexes(h3_indexes_out)
     }
 
-    pub fn from_point(pt: &Point<f64>, h3_resolution: u8) -> Self {
+    /// Build a new `Index` from a `Point`.
+    ///
+    /// # Returns
+    /// The built index may be invalid.
+    /// Use the `from_point` method for validity check.
+    pub fn from_point_unchecked(pt: &Point<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = point_to_geocoord(pt);
             h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
@@ -124,12 +160,39 @@ impl Index {
         Index::new(h3index)
     }
 
-    pub fn from_coordinate(c: &Coordinate<f64>, h3_resolution: u8) -> Self {
+    /// Build a new `Index` from a `Point`.
+    ///
+    /// # Returns
+    /// If the built index is invalid, returns an Error.
+    /// Use the `from_point_unchecked` to avoid error.
+    pub fn from_point(pt: &Point<f64>, h3_resolution: u8) -> Result<Self, Error> {
+        let res = Self::from_point_unchecked(pt, h3_resolution);
+        res.validate()?;
+        Ok(res)
+    }
+
+    /// Build a new `Index` from coordinates.
+    ///
+    /// # Returns
+    /// The built index may be invalid.
+    /// Use the `from_coordinate` method for validity check.
+    pub fn from_coordinate_unchecked(c: &Coordinate<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = coordinate_to_geocoord(c);
             h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
         };
         Index::new(h3index)
+    }
+
+    /// Build a new `Index` from coordinates.
+    ///
+    /// # Returns
+    /// If the built index is invalid, returns an Error.
+    /// Use the `from_coordinate_unchecked` to avoid error.
+    pub fn from_coordinate(c: &Coordinate<f64>, h3_resolution: u8) -> Result<Self, Error> {
+        let res = Self::from_coordinate_unchecked(c, h3_resolution);
+        res.validate()?;
+        Ok(res)
     }
 
     /// Checks if the current index and `other` are neighbors.

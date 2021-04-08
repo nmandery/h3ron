@@ -97,7 +97,10 @@ impl<'a> H3CompactedVec {
         }
         let mut index = Index::new(h3index);
         for r in index.resolution()..=H3_MIN_RESOLUTION {
-            index = index.get_parent(r);
+            index = match index.get_parent(r) {
+                Ok(i) => i,
+                Err(_) => continue,
+            };
             if self.indexes_by_resolution[r as usize].contains(&index.h3index()) {
                 return true;
             }
@@ -261,7 +264,8 @@ impl<'a> H3CompactedVec {
                 orig_h3indexes.drain(..).for_each(|h3index| {
                     let index = Index::new(h3index);
                     if !(lowest_res..r).any(|parent_res| {
-                        known_indexes.contains(&index.get_parent(parent_res as u8).h3index())
+                        known_indexes
+                            .contains(&index.get_parent_unchecked(parent_res as u8).h3index())
                     }) {
                         known_indexes.insert(h3index);
                         self.indexes_by_resolution[r].push(h3index);
