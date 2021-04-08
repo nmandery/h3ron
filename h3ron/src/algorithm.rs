@@ -84,6 +84,7 @@ mod tests {
     #[test]
     fn smooth_donut_linked_polygon() {
         let ring = Index::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
+            .unwrap()
             .hex_ring(4)
             .unwrap();
         let polygons = ring.to_linked_polygons(false);
