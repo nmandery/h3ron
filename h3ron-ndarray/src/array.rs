@@ -15,6 +15,7 @@ use crate::{error::Error, transform::Transform};
 //use rayon::prelude::*;
 
 /// the order of the axis in the two-dimensional array
+#[allow(clippy::upper_case_acronyms)]
 pub enum AxisOrder {
     /// X,Y ordering
     XY,
