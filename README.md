@@ -25,7 +25,7 @@ Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to
 
 [Documentation](https://docs.rs/h3ron-ndarray)
 
-## [h3ronpy](./h3ronpy)
+## [h3ronpy](./h3ronpy) [![PyPI version](https://img.shields.io/pypi/v/h3ronpy)](https://pypi.python.org/pypi/h3ronpy/)
 
 Python bindings for h3ron, build using [pyo3](https://github.com/PyO3/PyO3).
 
