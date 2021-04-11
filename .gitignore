@@ -10,4 +10,5 @@ flamegraph*.svg
 /h3ronpy/h3ronpy/h3ronpy*.so
 /h3ronpy/.ipynb_checkpoints/
 /h3ronpy/venv/
+/venv
 __pycache__
