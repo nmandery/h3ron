@@ -56,12 +56,30 @@ mod tests {
 
     #[test]
     fn test_local_ij() {
-        let index = Index::try_from(0x89283080ddbffff_u64).unwrap();
-        let ring = index.k_ring(1);
+        let origin_index = Index::try_from(0x89283080ddbffff_u64).unwrap();
+        let ring = origin_index.k_ring(1);
         assert_ne!(ring.len(), 0);
-        let other = ring.iter().find(|i| **i != index).unwrap().clone();
-        let coordij = h3_to_local_ij(&index, &other).unwrap();
-        let other2 = local_ij_to_h3(&index, &coordij).unwrap();
-        assert_eq!(other, other2);
+        let other_index = ring.iter().find(|i| **i != origin_index).unwrap().clone();
+
+        // the coordij of the origin index. This is not necessarily at (0, 0)
+        let coordij_origin = h3_to_local_ij(&origin_index, &origin_index).unwrap();
+
+        // the coordij of the other index in the coordinate system of the origin index
+        let coordij_other = h3_to_local_ij(&origin_index, &other_index).unwrap();
+
+        // As the other_index was taken from k_ring 1, the difference of the i and j coordinates
+        // must be -1, 0 or 1
+        assert!(
+            ((coordij_origin.i - coordij_other.i) >= -1)
+                && ((coordij_origin.i - coordij_other.i) <= 1)
+        );
+        assert!(
+            ((coordij_origin.j - coordij_other.j) >= -1)
+                && ((coordij_origin.j - coordij_other.j) <= 1)
+        );
+
+        // convert the coordij back to an index
+        let other_index_2 = local_ij_to_h3(&origin_index, &coordij_other).unwrap();
+        assert_eq!(other_index, other_index_2);
     }
 }
