@@ -13,10 +13,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  ci-linux:
+    runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
     - name: Pull submodules
@@ -26,7 +24,15 @@ jobs:
       run: sudo apt-get update && sudo apt-get install cmake libgdal-dev
     - name: Build
       run: cargo build --verbose
-    - name: Run tests
+    - name: Run rust tests
       # run only selected packages while https://github.com/PyO3/pyo3/issues/340 is open
       run: cargo test -p h3ron && cargo test -p h3ron-ndarray
-    # todo: add benchmarks?
+    - name: install h3ronpy python dependencies
+      working-directory: h3ronpy
+      run: python install-dev-dependencies.py
+    - name: build h3ronpy
+      working-directory: h3ronpy
+      run: maturin develop
+    - name: run python tests
+      working-directory: h3ronpy
+      run: pytest -v
