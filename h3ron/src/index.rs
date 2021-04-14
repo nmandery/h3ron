@@ -3,6 +3,7 @@ use crate::Error;
 use h3ron_h3_sys::H3Index;
 use std::os::raw::c_int;
 
+/// Trait to handle types having a H3 Index like hexagon and edges
 pub trait Index: Sized + PartialEq {
     /// Get the u64 H3 Index address
     fn h3index(&self) -> H3Index;
@@ -13,13 +14,7 @@ pub trait Index: Sized + PartialEq {
     fn new(h3index: H3Index) -> Self;
 
     /// Checks the validity of the index
-    fn validate(&self) -> Result<(), Error> {
-        if !self.is_valid() {
-            Err(Error::InvalidH3Index)
-        } else {
-            Ok(())
-        }
-    }
+    fn validate(&self) -> Result<(), Error>;
 
     /// Gets the index resolution (0-15)
     fn resolution(&self) -> u8 {
@@ -28,7 +23,7 @@ pub trait Index: Sized + PartialEq {
 
     /// Checks the validity of the index
     fn is_valid(&self) -> bool {
-        unsafe { h3ron_h3_sys::h3IsValid(self.h3index()) != 0 }
+        self.validate().is_ok()
     }
 
     /// Checks if `self` is a parent of `other`

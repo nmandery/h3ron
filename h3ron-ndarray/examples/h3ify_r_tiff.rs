@@ -3,7 +3,7 @@ use gdal::{
     Dataset, Driver,
 };
 
-use h3ron::{HexagonIndex, ToPolygon};
+use h3ron::{HexagonIndex, Index, ToPolygon};
 use h3ron_ndarray::{AxisOrder, H3Converter, ResolutionSearchMode::SmallerThanPixel, Transform};
 use std::convert::TryFrom;
 

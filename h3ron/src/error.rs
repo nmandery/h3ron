@@ -7,7 +7,8 @@ use std::fmt;
 pub enum Error {
     NoLocalIJCoordinates,
     InvalidInput,
-    InvalidH3Index,
+    InvalidH3Hexagon(H3Index),
+    InvalidH3Edge(H3Index),
     PentagonalDistortion,
     LineNotComputable,
     MixedResolutions,
@@ -19,7 +20,8 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InvalidInput => write!(f, "invalid input"),
-            Self::InvalidH3Index => write!(f, "invalid h3ron index"),
+            Self::InvalidH3Hexagon(i) => write!(f, "invalid h3ron index {:x}", i),
+            Self::InvalidH3Edge(i) => write!(f, "invalid h3ron edge index {:x}", i),
             Self::NoLocalIJCoordinates => write!(f, "no local IJ coordinates found"),
             Self::PentagonalDistortion => write!(f, "pentagonal distortion"),
             Self::LineNotComputable => write!(f, "line is not computable"),

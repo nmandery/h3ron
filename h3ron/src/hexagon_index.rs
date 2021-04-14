@@ -12,9 +12,9 @@ use h3ron_h3_sys::{GeoCoord, H3Index};
 use crate::error::Error;
 use crate::index::Index;
 use crate::util::{coordinate_to_geocoord, drain_h3indexes_to_indexes, point_to_geocoord};
-use crate::{max_k_ring_size, AreaUnits, FromH3Index, ToCoordinate, ToPolygon};
+use crate::{max_k_ring_size, AreaUnits, EdgeIndex, FromH3Index, ToCoordinate, ToPolygon};
 
-/// a single H3 index
+/// H3 Index representing a H3 hexagon
 #[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
 pub struct HexagonIndex(H3Index);
 
@@ -42,6 +42,14 @@ impl Index for HexagonIndex {
 
     fn new(h3index: H3Index) -> Self {
         Self(h3index)
+    }
+
+    fn validate(&self) -> Result<(), Error> {
+        if !unsafe { h3ron_h3_sys::h3IsValid(self.h3index()) != 0 } {
+            Err(Error::InvalidH3Hexagon(self.h3index()))
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -215,6 +223,41 @@ impl HexagonIndex {
     pub fn get_base_cell(&self) -> u8 {
         unsafe { h3ron_h3_sys::h3GetBaseCell(self.0) as u8 }
     }
+
+    /// Gets the unidirectional edge from `self` to `destination`
+    ///
+    /// # Returns
+    /// The built index may be invalid.
+    /// Use the `unidirectional_edge_to_unchecked` method for validity check.
+    pub fn unidirectional_edge_to_unchecked(&self, destination: &Self) -> EdgeIndex {
+        EdgeIndex::new(unsafe {
+            h3ron_h3_sys::getH3UnidirectionalEdge(self.h3index(), destination.h3index())
+        })
+    }
+
+    /// Gets the unidirectional edge from `self` to `destination`
+    ///
+    /// # Returns
+    /// If the built index is invalid, returns an Error.
+    /// Use the `unidirectional_edge_to_unchecked` to avoid error.
+    pub fn unidirectional_edge_to(&self, destination: &Self) -> Result<EdgeIndex, Error> {
+        let res = self.unidirectional_edge_to_unchecked(destination);
+        res.validate()?;
+        Ok(res)
+    }
+
+    /// Retrieves all unidirectional H3 edges around `self`
+    pub fn unidirectional_edges(&self) -> Vec<EdgeIndex> {
+        let mut h3_edges_out: Vec<H3Index> = vec![0; 6];
+
+        unsafe {
+            h3ron_h3_sys::getH3UnidirectionalEdgesFromHexagon(
+                self.h3index(),
+                h3_edges_out.as_mut_ptr(),
+            )
+        };
+        drain_h3indexes_to_indexes(h3_edges_out)
+    }
 }
 
 impl ToString for HexagonIndex {
@@ -372,7 +415,6 @@ mod tests {
                 .or_insert_with(|| vec![*dist]);
         }
 
-        println!("{:?}", indexes_resolutions);
         assert!(indexes.len() > 10);
         for (k, index) in indexes.iter() {
             assert!(index.is_valid());
@@ -422,5 +464,60 @@ mod tests {
         let ring = idx.hex_ring(3).unwrap();
         let neighbor = ring.first().unwrap();
         assert_eq!(idx.distance_to(&neighbor), 3);
+    }
+
+    mod edges {
+        use super::*;
+
+        #[test]
+        fn can_retrieve_edges() {
+            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            let edges = index.unidirectional_edges();
+            let indexes: Vec<String> = edges.into_iter().map(|e| e.to_string()).collect();
+            assert_eq!(
+                indexes,
+                vec![
+                    "119283080ddbffff".to_string(),
+                    "129283080ddbffff".to_string(),
+                    "139283080ddbffff".to_string(),
+                    "149283080ddbffff".to_string(),
+                    "159283080ddbffff".to_string(),
+                    "169283080ddbffff".to_string()
+                ]
+            );
+        }
+
+        #[test]
+        fn retrieved_edges_are_valid() {
+            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            let edges = index.unidirectional_edges();
+            for edge in edges.into_iter() {
+                edge.validate().unwrap();
+            }
+        }
+
+        #[test]
+        fn can_find_edge_to() {
+            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            let ring = index.hex_ring(1).unwrap();
+            let neighbor = *ring.first().unwrap();
+            let edge_to = index.unidirectional_edge_to(&neighbor).unwrap();
+            let edge_from = neighbor.unidirectional_edge_to(&index).unwrap();
+            assert_ne!(edge_to.h3index(), 0);
+            assert_ne!(edge_from.h3index(), 0);
+            assert_ne!(edge_from, edge_to);
+            assert_eq!(edge_to.destination_index().unwrap(), neighbor);
+            assert_eq!(edge_to.origin_index().unwrap(), index);
+            assert_eq!(edge_from.destination_index().unwrap(), index);
+            assert_eq!(edge_from.origin_index().unwrap(), neighbor);
+        }
+
+        #[should_panic(expected = "InvalidH3Edge")]
+        #[test]
+        fn can_fail_to_find_edge_to() {
+            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            let wrong_neighbor: HexagonIndex = 0x8a2a1072b59ffff_u64.try_into().unwrap();
+            index.unidirectional_edge_to(&wrong_neighbor).unwrap();
+        }
     }
 }
