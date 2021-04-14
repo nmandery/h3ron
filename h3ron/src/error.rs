@@ -1,4 +1,4 @@
-use crate::{Index, H3_MAX_RESOLUTION};
+use crate::{HexagonIndex, Index, H3_MAX_RESOLUTION};
 use h3ron_h3_sys::H3Index;
 use std::convert::TryFrom;
 use std::fmt;
@@ -34,7 +34,8 @@ impl std::error::Error for Error {}
 
 /// ensure two indexes have the same resolution
 pub fn check_same_resolution(index0: H3Index, index1: H3Index) -> Result<(), Error> {
-    if Index::try_from(index0)?.resolution() != Index::try_from(index1)?.resolution() {
+    if HexagonIndex::try_from(index0)?.resolution() != HexagonIndex::try_from(index1)?.resolution()
+    {
         Err(Error::MixedResolutions)
     } else {
         Ok(())

@@ -3,7 +3,7 @@ use gdal::{
     Dataset, Driver,
 };
 
-use h3ron::{Index, ToPolygon};
+use h3ron::{HexagonIndex, ToPolygon};
 use h3ron_ndarray::{AxisOrder, H3Converter, ResolutionSearchMode::SmallerThanPixel, Transform};
 use std::convert::TryFrom;
 
@@ -47,7 +47,7 @@ fn main() {
 
     results.iter().for_each(|(_value, index_stack)| {
         for h3index in index_stack.iter_compacted_indexes() {
-            let index = Index::try_from(h3index).unwrap();
+            let index = HexagonIndex::try_from(h3index).unwrap();
             let mut ft = Feature::new(&defn).unwrap();
             ft.set_geometry(index.to_polygon().to_gdal().unwrap())
                 .unwrap();

@@ -8,7 +8,7 @@ use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, radsToDegs, H3Index, 
 
 use crate::algorithm::smoothen_h3_linked_polygon;
 use crate::collections::H3CompactedVec;
-use crate::{HasH3Index, Index};
+use crate::{HexagonIndex, Index};
 
 pub trait ToPolygon {
     fn to_polygon(&self) -> Polygon<f64>;
@@ -23,7 +23,7 @@ pub trait ToLinkedPolygons {
     fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>>;
 }
 
-impl ToLinkedPolygons for Vec<Index> {
+impl ToLinkedPolygons for Vec<HexagonIndex> {
     fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
         let mut h3indexes: Vec<_> = self.iter().map(|i| i.h3index()).collect();
         h3indexes.sort_unstable();
@@ -62,7 +62,7 @@ pub trait ToAlignedLinkedPolygons {
     ) -> Vec<Polygon<f64>>;
 }
 
-impl ToAlignedLinkedPolygons for Vec<Index> {
+impl ToAlignedLinkedPolygons for Vec<HexagonIndex> {
     fn to_aligned_linked_polygons(
         &self,
         align_to_h3_resolution: u8,
@@ -94,7 +94,7 @@ impl ToAlignedLinkedPolygons for Vec<Index> {
 
                 // edge length of the child indexes
                 let edge_length = {
-                    let ring = Index::new(h3indexes[0]).to_polygon();
+                    let ring = HexagonIndex::new(h3indexes[0]).to_polygon();
                     let p1 = Point::from(ring.exterior().0[0]);
                     let p2 = Point::from(ring.exterior().0[1]);
                     p1.euclidean_distance(&p2)
@@ -197,11 +197,11 @@ pub fn to_linked_polygons(h3indexes: &[H3Index], smoothen: bool) -> Vec<Polygon<
 mod tests {
     use geo_types::Coordinate;
 
-    use crate::{Index, ToLinkedPolygons};
+    use crate::{HexagonIndex, ToLinkedPolygons};
 
     #[test]
     fn donut_linked_polygon() {
-        let ring = Index::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
+        let ring = HexagonIndex::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
             .unwrap()
             .hex_ring(1)
             .unwrap();

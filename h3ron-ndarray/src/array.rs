@@ -6,7 +6,7 @@ use geo_types::{Coordinate, Rect};
 use log::debug;
 use ndarray::{parallel::prelude::*, ArrayView2, Axis};
 
-use h3ron::{collections::H3CompactedVec, polyfill, Index, ToCoordinate};
+use h3ron::{collections::H3CompactedVec, polyfill, HexagonIndex, Index, ToCoordinate};
 
 use crate::resolution::{nearest_h3_resolution, ResolutionSearchMode};
 use crate::{error::Error, transform::Transform};
@@ -289,7 +289,8 @@ where
                 for h3index in h3indexes {
                     // find the array element for the coordinate of the h3ron index
                     let arr_coord = {
-                        let transformed = &inverse_transform * &Index::new(h3index).to_coordinate();
+                        let transformed =
+                            &inverse_transform * &HexagonIndex::new(h3index).to_coordinate();
 
                         match self.axis_order {
                             AxisOrder::XY => [

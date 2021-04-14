@@ -79,11 +79,11 @@ mod tests {
     use geo_types::Coordinate;
 
     use crate::algorithm::smoothen_h3_linked_polygon;
-    use crate::{Index, ToLinkedPolygons};
+    use crate::{HexagonIndex, ToLinkedPolygons};
 
     #[test]
     fn smooth_donut_linked_polygon() {
-        let ring = Index::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
+        let ring = HexagonIndex::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
             .unwrap()
             .hex_ring(4)
             .unwrap();

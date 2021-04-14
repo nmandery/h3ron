@@ -9,35 +9,26 @@ pub use to_geo::{
 };
 
 use crate::error::check_same_resolution;
-pub use crate::error::Error;
-pub use crate::index::Index;
-pub use crate::index::ToIndex;
-pub use crate::to_h3::ToH3Indexes;
 use crate::util::linestring_to_geocoords;
+pub use {
+    edge_index::EdgeIndex, error::Error, hexagon_index::HexagonIndex, index::Index,
+    to_h3::ToH3Indexes,
+};
 
 #[macro_use]
 mod util;
 pub mod algorithm;
 pub mod collections;
+mod edge_index;
 pub mod error;
 pub mod experimental;
+mod hexagon_index;
 mod index;
 mod to_geo;
 mod to_h3;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
-
-/// marker trait for indexes, including conversion to a H3Index
-pub trait HasH3Index {
-    fn h3index(&self) -> H3Index;
-}
-
-impl HasH3Index for H3Index {
-    fn h3index(&self) -> H3Index {
-        *self
-    }
-}
 
 pub trait FromH3Index {
     fn from_h3index(h3index: H3Index) -> Self;
@@ -180,8 +171,8 @@ pub fn line_between_indexes(start: H3Index, end: H3Index) -> Result<Vec<H3Index>
 pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Index>, Error> {
     let mut h3_indexes_out = vec![];
     for coords in linestring.0.windows(2) {
-        let start_index = Index::from_coordinate(&coords[0], h3_resolution)?;
-        let end_index = Index::from_coordinate(&coords[1], h3_resolution)?;
+        let start_index = HexagonIndex::from_coordinate(&coords[0], h3_resolution)?;
+        let end_index = HexagonIndex::from_coordinate(&coords[1], h3_resolution)?;
 
         let mut segment_indexes =
             line_between_indexes_not_checked(start_index.h3index(), end_index.h3index())?;
