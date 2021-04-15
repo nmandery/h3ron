@@ -149,10 +149,84 @@ jobs:
           git submodule init
           git submodule update
 
-      - name: Publish on crates.io
+      - name: Publish h3ron-h3-sys on crates.io
+        working-directory: h3ron-h3-sys
         run: |
           cargo login ${{ secrets.CARGO }}
           cargo publish
+          # wait a bit as the crates depend on each other and crates.io needs a few seconds
+          # to synchronize after an upload
+          sleep 10
+
+      - name: Publish h3ron on crates.io
+        working-directory: h3ron
+        run: |
+          cargo login ${{ secrets.CARGO }}
+          cargo publish
+          # wait a bit as the crates depend on each other and crates.io needs a few seconds
+          # to synchronize after an upload
+          sleep 10
+
+      - name: Publish h3ron-ndarray on crates.io
+        working-directory: h3ron-ndarray
+        run: |
+          cargo login ${{ secrets.CARGO }}
+          cargo publish
+          # wait a bit as the crates depend on each other and crates.io needs a few seconds
+          # to synchronize after an upload
+          sleep 10
+
+
+  python-publish-manylinux-2014:
+    needs: build
+    runs-on: ubuntu-latest
+    container: quay.io/pypa/manylinux2014_x86_64
+    steps:
+
+      - uses: actions/checkout@v1
+
+      - name: Pull git submodules
+        run: |
+          git submodule init
+          git submodule update
+
+      - name: Install latest stable rust
+        run: |
+          curl --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- --profile minimal --default-toolchain stable -y
+
+      - name: Install dependencies
+        working-directory: h3ronpy
+        run: |
+          yum install gdal-devel
+          export PATH="/opt/python/cp38-cp38/bin/:$PATH"
+          pip install wheel
+          python install-dev-dependencies.py
+
+      - name: Build Python package
+        working-directory: h3ronpy
+        run: |
+          source $HOME/.cargo/env
+          export PATH="/opt/python/cp38-cp38/bin/:$PATH"
+          maturin build --release --strip --interpreter /opt/python/cp38-cp38/bin/python --manylinux 2014
+
+      - name: List wheels
+        run: find ./target/wheels/
+
+      - name: Install wheels
+        run: |
+          source $HOME/.cargo/env
+          export PATH="/opt/python/cp38-cp38/bin/:$PATH"
+          pip install target/wheels/h3ronpy*.whl
+
+      - name: PyPi publish
+        if: github.event_name == 'release' && github.event.action == 'created'
+        env:
+          MATURIN_PASSWORD: ${{ secrets.PYPI }}
+        working-directory: h3ronpy
+        run: |
+          source $HOME/.cargo/env
+          export PATH="/opt/python/cp38-cp38/bin/:$PATH"
+          maturin publish --username __token__
 
   python-publish:
     needs: build
@@ -162,7 +236,7 @@ jobs:
       matrix:
         python-version: [3.8]
         os: [
-            ubuntu-latest,
+            #ubuntu-latest,
             #macos-latest,
             windows-latest
         ]
