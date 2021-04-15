@@ -177,6 +177,7 @@ jobs:
 
 
   python-publish-manylinux-2-24:
+    if: (github.event_name == 'release' && github.event.action == 'created') || github.event_name == 'schedule'
     needs: lint
     runs-on: ubuntu-latest
     container: quay.io/pypa/manylinux_2_24_x86_64
@@ -204,6 +205,7 @@ jobs:
 
       - name: Build Python package
         working-directory: h3ronpy
+        shell: bash
         run: |
           source $HOME/.cargo/env
           export PATH="/opt/python/cp38-cp38/bin/:$PATH"
@@ -222,6 +224,7 @@ jobs:
         env:
           MATURIN_PASSWORD: ${{ secrets.PYPI }}
         working-directory: h3ronpy
+        shell: bash
         run: |
           source $HOME/.cargo/env
           export PATH="/opt/python/cp38-cp38/bin/:$PATH"
