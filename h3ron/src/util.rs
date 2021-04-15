@@ -1,8 +1,7 @@
 use geo_types::{Coordinate, LineString, Point};
 
+use crate::Index;
 use h3ron_h3_sys::{degsToRads, GeoCoord, H3Index};
-
-use crate::index::Index;
 
 /// filter out 0 values ( = positions in the vec not used to store h3indexes)
 macro_rules! remove_zero_indexes_from_vec {
@@ -12,11 +11,8 @@ macro_rules! remove_zero_indexes_from_vec {
 }
 
 #[inline]
-pub(crate) fn drain_h3indexes_to_indexes(mut v: Vec<H3Index>) -> Vec<Index> {
-    v.drain(..)
-        .filter(|h3i| *h3i != 0)
-        .map(Index::new)
-        .collect()
+pub(crate) fn drain_h3indexes_to_indexes<T: Index>(mut v: Vec<H3Index>) -> Vec<T> {
+    v.drain(..).filter(|h3i| *h3i != 0).map(T::new).collect()
 }
 
 pub(crate) unsafe fn coordinate_to_geocoord(c: &Coordinate<f64>) -> GeoCoord {
