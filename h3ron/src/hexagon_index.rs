@@ -472,17 +472,21 @@ mod tests {
         #[test]
         fn can_retrieve_edges() {
             let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            assert_eq!(index.resolution(), 9);
             let edges = index.unidirectional_edges();
-            let indexes: Vec<String> = edges.into_iter().map(|e| e.to_string()).collect();
+            let indexes: Vec<(String, u8)> = edges
+                .into_iter()
+                .map(|e| (e.to_string(), e.resolution()))
+                .collect();
             assert_eq!(
                 indexes,
                 vec![
-                    "119283080ddbffff".to_string(),
-                    "129283080ddbffff".to_string(),
-                    "139283080ddbffff".to_string(),
-                    "149283080ddbffff".to_string(),
-                    "159283080ddbffff".to_string(),
-                    "169283080ddbffff".to_string()
+                    ("119283080ddbffff".to_string(), 9),
+                    ("129283080ddbffff".to_string(), 9),
+                    ("139283080ddbffff".to_string(), 9),
+                    ("149283080ddbffff".to_string(), 9),
+                    ("159283080ddbffff".to_string(), 9),
+                    ("169283080ddbffff".to_string(), 9)
                 ]
             );
         }
