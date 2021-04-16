@@ -25,6 +25,8 @@ pub enum Error {
     UnsupportedOperation,
     #[error("Invalid H3 resolution: {0}")]
     InvalidH3Resolution(u8),
+    #[error("Invalid H3 direction bit {0}")]
+    InvalidH3Direction(u8),
 }
 
 /// ensure two indexes have the same resolution
