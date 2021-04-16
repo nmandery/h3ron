@@ -5,6 +5,21 @@ const H3_PER_DIGIT_OFFSET: u8 = 3;
 const H3_DIGIT_MASK: u8 = 7;
 
 /// H3 digit representing ijk+ axes direction.
+/// See [documentation](https://h3geo.org/docs/core-library/h3Indexing/#introduction)
+///
+/// ```text
+///            j Axis
+///            ___
+///           /   \
+///       .--(  2  )--.
+///      / 3  \___/  6 \
+///      \    /   \    /
+///       )--(  0  )--(
+///      /    \___/    \
+///      \ 1  /   \  4 /
+///       '--(  5  )--'   i Axis
+/// k Axis    \___/
+///```
 #[derive(Clone, Copy, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub enum H3Direction {
     /// H3 digit in center
