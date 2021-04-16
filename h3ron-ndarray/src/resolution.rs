@@ -7,7 +7,7 @@ use crate::{
     AxisOrder,
 };
 
-use h3ron::{HexagonIndex, ToPolygon, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
+use h3ron::{H3Cell, ToPolygon, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 
 pub enum ResolutionSearchMode {
     /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
@@ -50,7 +50,7 @@ pub fn nearest_h3_resolution(
         // calculate the area of the center index to avoid using the approximate values
         // of the h3ron hexArea functions
         let area_h3_index = area_linearring(
-            HexagonIndex::from_coordinate_unchecked(&center_of_array, h3_res)
+            H3Cell::from_coordinate_unchecked(&center_of_array, h3_res)
                 .to_polygon()
                 .exterior(),
         );

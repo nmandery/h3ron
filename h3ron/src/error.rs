@@ -1,43 +1,36 @@
-use crate::{HexagonIndex, Index, H3_MAX_RESOLUTION};
-use h3ron_h3_sys::H3Index;
 use std::convert::TryFrom;
-use std::fmt;
+use thiserror::Error as DeriveError;
 
-#[derive(Debug)]
+use h3ron_h3_sys::H3Index;
+
+use crate::{H3Cell, Index, H3_MAX_RESOLUTION};
+
+#[derive(Debug, DeriveError)]
 pub enum Error {
+    #[error("Local IJ coordinates not found")]
     NoLocalIJCoordinates,
+    #[error("Invalid input")]
     InvalidInput,
+    #[error("Invalid H3 Hexagon index {0:x}")]
     InvalidH3Hexagon(H3Index),
+    #[error("Invalid H3 Edge index {0:x}")]
     InvalidH3Edge(H3Index),
+    #[error("Pentagonal distortion")]
     PentagonalDistortion,
+    #[error("Line is not computable")]
     LineNotComputable,
+    #[error("Mixed H3 resolutions: {0} and {1}")]
     MixedResolutions(u8, u8),
+    #[error("Unsupported operation")]
     UnsupportedOperation,
+    #[error("Invalid H3 resolution: {0}")]
     InvalidH3Resolution(u8),
 }
 
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidInput => write!(f, "invalid input"),
-            Self::InvalidH3Hexagon(i) => write!(f, "invalid h3ron hexagon index {:x}", i),
-            Self::InvalidH3Edge(i) => write!(f, "invalid h3ron edge index {:x}", i),
-            Self::NoLocalIJCoordinates => write!(f, "no local IJ coordinates found"),
-            Self::PentagonalDistortion => write!(f, "pentagonal distortion"),
-            Self::LineNotComputable => write!(f, "line is not computable"),
-            Self::MixedResolutions(r1, r2) => write!(f, "mixed h3 resolutions: {} and {}", r1, r2),
-            Self::UnsupportedOperation => write!(f, "unsupported operation"),
-            Self::InvalidH3Resolution(r) => write!(f, "invalid h3 resolution: {}", r),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
-
 /// ensure two indexes have the same resolution
 pub fn check_same_resolution(index0: H3Index, index1: H3Index) -> Result<(), Error> {
-    let res0 = HexagonIndex::try_from(index0)?.resolution();
-    let res1 = HexagonIndex::try_from(index1)?.resolution();
+    let res0 = H3Cell::try_from(index0)?.resolution();
+    let res1 = H3Cell::try_from(index1)?.resolution();
     if res0 != res1 {
         Err(Error::MixedResolutions(res0, res1))
     } else {

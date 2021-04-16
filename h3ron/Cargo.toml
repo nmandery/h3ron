@@ -13,6 +13,8 @@ repository = "https://github.com/nmandery/h3ron"
 [dependencies]
 geo = "^0.16"
 itertools = "^0.10"
+# Error handling
+thiserror = "1.0"
 
 [dependencies.h3ron-h3-sys]
 path = "../h3ron-h3-sys"
