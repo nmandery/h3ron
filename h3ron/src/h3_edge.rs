@@ -1,5 +1,5 @@
 use crate::index::Index;
-use crate::{Error, FromH3Index, HexagonIndex};
+use crate::{Error, FromH3Index, H3Cell};
 use h3ron_h3_sys::H3Index;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
@@ -9,10 +9,10 @@ use std::str::FromStr;
 
 /// H3 Index representing an Unidirectional H3 edge
 #[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
-pub struct EdgeIndex(H3Index);
+pub struct H3Edge(H3Index);
 
 /// convert to index including validation
-impl TryFrom<u64> for EdgeIndex {
+impl TryFrom<u64> for H3Edge {
     type Error = Error;
 
     fn try_from(h3index: H3Index) -> Result<Self, Self::Error> {
@@ -22,7 +22,7 @@ impl TryFrom<u64> for EdgeIndex {
     }
 }
 
-impl EdgeIndex {
+impl H3Edge {
     pub fn is_edge_valid(&self) -> bool {
         unsafe { h3ron_h3_sys::h3UnidirectionalEdgeIsValid(self.h3index()) != 0 }
     }
@@ -57,10 +57,10 @@ impl EdgeIndex {
     /// # Returns
     /// The built index may be invalid.
     /// Use the `destination_index` method for validity check.
-    pub fn destination_index_unchecked(&self) -> HexagonIndex {
+    pub fn destination_index_unchecked(&self) -> H3Cell {
         let index =
             unsafe { h3ron_h3_sys::getDestinationH3IndexFromUnidirectionalEdge(self.h3index()) };
-        HexagonIndex::new(index)
+        H3Cell::new(index)
     }
 
     /// Retrieves the destination hexagon H3 Index of `self`
@@ -68,7 +68,7 @@ impl EdgeIndex {
     /// # Returns
     /// If the built index is invalid, returns an Error.
     /// Use the `destination_index_unchecked` to avoid error.
-    pub fn destination_index(&self) -> Result<HexagonIndex, Error> {
+    pub fn destination_index(&self) -> Result<H3Cell, Error> {
         let res = self.destination_index_unchecked();
         res.validate()?;
         Ok(res)
@@ -79,9 +79,9 @@ impl EdgeIndex {
     /// # Returns
     /// The built index may be invalid.
     /// Use the `origin_index` method for validity check.
-    pub fn origin_index_unchecked(&self) -> HexagonIndex {
+    pub fn origin_index_unchecked(&self) -> H3Cell {
         let index = unsafe { h3ron_h3_sys::getOriginH3IndexFromUnidirectionalEdge(self.h3index()) };
-        HexagonIndex::new(index)
+        H3Cell::new(index)
     }
 
     /// Retrieves the origin hexagon H3 Index of `self`
@@ -89,20 +89,20 @@ impl EdgeIndex {
     /// # Returns
     /// If the built index is invalid, returns an Error.
     /// Use the `origin_index_unchecked` to avoid error.
-    pub fn origin_index(&self) -> Result<HexagonIndex, Error> {
+    pub fn origin_index(&self) -> Result<H3Cell, Error> {
         let res = self.origin_index_unchecked();
         res.validate()?;
         Ok(res)
     }
 }
 
-impl FromH3Index for EdgeIndex {
+impl FromH3Index for H3Edge {
     fn from_h3index(h3index: H3Index) -> Self {
-        EdgeIndex::new(h3index)
+        H3Edge::new(h3index)
     }
 }
 
-impl Index for EdgeIndex {
+impl Index for H3Edge {
     fn h3index(&self) -> H3Index {
         self.0
     }
@@ -120,13 +120,13 @@ impl Index for EdgeIndex {
     }
 }
 
-impl ToString for EdgeIndex {
+impl ToString for H3Edge {
     fn to_string(&self) -> String {
         format!("{:x}", self.0)
     }
 }
 
-impl FromStr for EdgeIndex {
+impl FromStr for H3Edge {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -144,15 +144,15 @@ mod tests {
     #[should_panic(expected = "InvalidH3Edge")]
     #[test]
     fn checks_both_validity() {
-        let edge = EdgeIndex::new(0x149283080ddbffff);
+        let edge = H3Edge::new(0x149283080ddbffff);
         assert!(edge.validate().is_ok());
-        let edge = EdgeIndex::new(0x89283080ddbffff_u64);
+        let edge = H3Edge::new(0x89283080ddbffff_u64);
         edge.validate().unwrap();
     }
 
     #[test]
     fn can_find_parent() {
-        let edge = EdgeIndex::new(0x149283080ddbffff);
+        let edge = H3Edge::new(0x149283080ddbffff);
         assert_eq!(edge.resolution(), 9);
         let parent_8 = edge.get_parent(8).unwrap();
         assert_eq!(parent_8.resolution(), 8);

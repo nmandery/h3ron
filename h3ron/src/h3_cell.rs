@@ -12,14 +12,14 @@ use h3ron_h3_sys::{GeoCoord, H3Index};
 use crate::error::Error;
 use crate::index::Index;
 use crate::util::{coordinate_to_geocoord, drain_h3indexes_to_indexes, point_to_geocoord};
-use crate::{max_k_ring_size, AreaUnits, EdgeIndex, FromH3Index, ToCoordinate, ToPolygon};
+use crate::{max_k_ring_size, AreaUnits, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
 
-/// H3 Index representing a H3 hexagon
+/// H3 Index representing a H3 Cell (hexagon)
 #[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
-pub struct HexagonIndex(H3Index);
+pub struct H3Cell(H3Index);
 
 /// convert to index including validation
-impl TryFrom<u64> for HexagonIndex {
+impl TryFrom<u64> for H3Cell {
     type Error = Error;
 
     fn try_from(h3index: H3Index) -> Result<Self, Self::Error> {
@@ -29,13 +29,13 @@ impl TryFrom<u64> for HexagonIndex {
     }
 }
 
-impl FromH3Index for HexagonIndex {
+impl FromH3Index for H3Cell {
     fn from_h3index(h3index: H3Index) -> Self {
         Self::new(h3index)
     }
 }
 
-impl Index for HexagonIndex {
+impl Index for H3Cell {
     fn h3index(&self) -> H3Index {
         self.0
     }
@@ -53,7 +53,7 @@ impl Index for HexagonIndex {
     }
 }
 
-impl HexagonIndex {
+impl H3Cell {
     /// Build a new `Index` from a `Point`.
     ///
     /// # Returns
@@ -108,7 +108,7 @@ impl HexagonIndex {
         res == 1
     }
 
-    pub fn k_ring(&self, k: u32) -> Vec<HexagonIndex> {
+    pub fn k_ring(&self, k: u32) -> Vec<H3Cell> {
         let max_size = unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize };
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
 
@@ -119,7 +119,7 @@ impl HexagonIndex {
         drain_h3indexes_to_indexes(h3_indexes_out)
     }
 
-    pub fn hex_ring(&self, k: u32) -> Result<Vec<HexagonIndex>, Error> {
+    pub fn hex_ring(&self, k: u32) -> Result<Vec<H3Cell>, Error> {
         // calculation of max_size taken from
         // https://github.com/uber/h3-py/blob/dd08189b378429291c342d0af3d3cc1e38a659d5/src/h3/_cy/cells.pyx#L111
         let max_size = if k > 0 { 6 * k as usize } else { 1 };
@@ -146,7 +146,7 @@ impl HexagonIndex {
     ///
     /// A `Vec` of `(u32, Index)` tuple is returned. The `u32` value is the K Ring distance
     /// of the `Index` value.
-    pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, HexagonIndex)> {
+    pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, H3Cell)> {
         let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
@@ -161,11 +161,7 @@ impl HexagonIndex {
         self.associate_index_distances(h3_indexes_out, distances_out, k_min)
     }
 
-    pub fn hex_range_distances(
-        &self,
-        k_min: u32,
-        k_max: u32,
-    ) -> Result<Vec<(u32, HexagonIndex)>, Error> {
+    pub fn hex_range_distances(&self, k_min: u32, k_max: u32) -> Result<Vec<(u32, H3Cell)>, Error> {
         let max_size = unsafe { h3ron_h3_sys::maxKringSize(k_max as c_int) as usize };
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
@@ -196,12 +192,12 @@ impl HexagonIndex {
         mut h3_indexes_out: Vec<H3Index>,
         distances_out: Vec<c_int>,
         k_min: u32,
-    ) -> Vec<(u32, HexagonIndex)> {
+    ) -> Vec<(u32, H3Cell)> {
         h3_indexes_out
             .drain(..)
             .enumerate()
             .filter(|(idx, h3index)| *h3index != 0 && distances_out[*idx] >= k_min as i32)
-            .map(|(idx, h3index)| (distances_out[idx] as u32, HexagonIndex::new(h3index)))
+            .map(|(idx, h3index)| (distances_out[idx] as u32, H3Cell::new(h3index)))
             .collect()
     }
 
@@ -229,8 +225,8 @@ impl HexagonIndex {
     /// # Returns
     /// The built index may be invalid.
     /// Use the `unidirectional_edge_to_unchecked` method for validity check.
-    pub fn unidirectional_edge_to_unchecked(&self, destination: &Self) -> EdgeIndex {
-        EdgeIndex::new(unsafe {
+    pub fn unidirectional_edge_to_unchecked(&self, destination: &Self) -> H3Edge {
+        H3Edge::new(unsafe {
             h3ron_h3_sys::getH3UnidirectionalEdge(self.h3index(), destination.h3index())
         })
     }
@@ -240,14 +236,14 @@ impl HexagonIndex {
     /// # Returns
     /// If the built index is invalid, returns an Error.
     /// Use the `unidirectional_edge_to_unchecked` to avoid error.
-    pub fn unidirectional_edge_to(&self, destination: &Self) -> Result<EdgeIndex, Error> {
+    pub fn unidirectional_edge_to(&self, destination: &Self) -> Result<H3Edge, Error> {
         let res = self.unidirectional_edge_to_unchecked(destination);
         res.validate()?;
         Ok(res)
     }
 
     /// Retrieves all unidirectional H3 edges around `self`
-    pub fn unidirectional_edges(&self) -> Vec<EdgeIndex> {
+    pub fn unidirectional_edges(&self) -> Vec<H3Edge> {
         let mut h3_edges_out: Vec<H3Index> = vec![0; 6];
 
         unsafe {
@@ -260,24 +256,24 @@ impl HexagonIndex {
     }
 }
 
-impl ToString for HexagonIndex {
+impl ToString for H3Cell {
     fn to_string(&self) -> String {
         format!("{:x}", self.0)
     }
 }
 
-impl FromStr for HexagonIndex {
+impl FromStr for H3Cell {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let h3index: H3Index = CString::new(s)
             .map(|cs| unsafe { h3ron_h3_sys::stringToH3(cs.as_ptr()) })
             .map_err(|_| Error::InvalidInput)?;
-        HexagonIndex::try_from(h3index)
+        H3Cell::try_from(h3index)
     }
 }
 
-impl ToPolygon for HexagonIndex {
+impl ToPolygon for H3Cell {
     /// the polygon spanning the area of the index
     fn to_polygon(&self) -> Polygon<f64> {
         let gb = unsafe {
@@ -298,7 +294,7 @@ impl ToPolygon for HexagonIndex {
     }
 }
 
-impl ToCoordinate for HexagonIndex {
+impl ToCoordinate for H3Cell {
     /// the centroid coordinate of the h3 index
     fn to_coordinate(&self) -> Coordinate<f64> {
         unsafe {
@@ -323,42 +319,37 @@ mod tests {
 
     use h3ron_h3_sys::H3Index;
 
-    use crate::hexagon_index::HexagonIndex;
+    use crate::h3_cell::H3Cell;
     use crate::Index;
 
     #[test]
     fn test_h3_to_string() {
         let h3index = 0x89283080ddbffff_u64;
         assert_eq!(
-            HexagonIndex::try_from(h3index).unwrap().to_string(),
+            H3Cell::try_from(h3index).unwrap().to_string(),
             "89283080ddbffff".to_string()
         );
     }
 
     #[test]
     fn test_string_to_h3() {
-        let index = HexagonIndex::from_str("89283080ddbffff").expect("parsing failed");
-        assert_eq!(
-            HexagonIndex::try_from(0x89283080ddbffff_u64).unwrap(),
-            index
-        );
+        let index = H3Cell::from_str("89283080ddbffff").expect("parsing failed");
+        assert_eq!(H3Cell::try_from(0x89283080ddbffff_u64).unwrap(), index);
     }
 
     #[test]
     fn test_is_valid() {
         assert_eq!(
-            HexagonIndex::try_from(0x89283080ddbffff_u64)
-                .unwrap()
-                .is_valid(),
+            H3Cell::try_from(0x89283080ddbffff_u64).unwrap().is_valid(),
             true
         );
-        assert_eq!(HexagonIndex::new(0_u64).is_valid(), false);
-        assert!(HexagonIndex::try_from(0_u64).is_err());
+        assert_eq!(H3Cell::new(0_u64).is_valid(), false);
+        assert!(H3Cell::try_from(0_u64).is_err());
     }
 
     #[test]
     fn test_hex_ring_1() {
-        let idx = HexagonIndex::try_from(0x89283080ddbffff_u64).unwrap();
+        let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
         let ring = idx.hex_ring(1).unwrap();
         assert_eq!(ring.len(), 6);
         assert!(ring.iter().all(|index| index.is_valid()));
@@ -366,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_hex_ring_0() {
-        let idx = HexagonIndex::new(0x89283080ddbffff_u64);
+        let idx = H3Cell::new(0x89283080ddbffff_u64);
         let ring = idx.hex_ring(0).unwrap();
         assert_eq!(ring.len(), 1);
         assert!(ring.iter().all(|index| index.is_valid()));
@@ -374,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_k_ring_distances() {
-        let idx = HexagonIndex::new(0x89283080ddbffff_u64);
+        let idx = H3Cell::new(0x89283080ddbffff_u64);
         let k_min = 2;
         let k_max = 2;
         let indexes = idx.k_ring_distances(k_min, k_max);
@@ -388,7 +379,7 @@ mod tests {
 
     #[test]
     fn test_hex_range_distances() {
-        let idx = HexagonIndex::new(0x89283080ddbffff_u64);
+        let idx = H3Cell::new(0x89283080ddbffff_u64);
         let k_min = 2;
         let k_max = 2;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
@@ -402,7 +393,7 @@ mod tests {
 
     #[test]
     fn test_hex_range_distances_2() {
-        let idx = HexagonIndex::new(0x89283080ddbffff_u64);
+        let idx = H3Cell::new(0x89283080ddbffff_u64);
         let k_min = 0;
         let k_max = 10;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
@@ -425,9 +416,9 @@ mod tests {
 
     #[test]
     fn serde_index_roundtrip() {
-        let idx = HexagonIndex::new(0x89283080ddbffff_u64);
+        let idx = H3Cell::new(0x89283080ddbffff_u64);
         let serialized_data = serialize(&idx).unwrap();
-        let idx_2: HexagonIndex = deserialize(&serialized_data).unwrap();
+        let idx_2: H3Cell = deserialize(&serialized_data).unwrap();
         assert_eq!(idx, idx_2);
         assert_eq!(idx.h3index(), idx_2.h3index());
     }
@@ -438,13 +429,13 @@ mod tests {
     fn serde_index_from_h3index() {
         let idx: H3Index = 0x89283080ddbffff_u64;
         let serialized_data = serialize(&idx).unwrap();
-        let idx_2: HexagonIndex = deserialize(&serialized_data).unwrap();
+        let idx_2: H3Cell = deserialize(&serialized_data).unwrap();
         assert_eq!(idx, idx_2.h3index());
     }
 
     #[test]
     fn test_is_neighbor() {
-        let idx: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+        let idx: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
         assert!(idx.is_neighbor_to(neighbor));
@@ -456,7 +447,7 @@ mod tests {
 
     #[test]
     fn test_distance_to() {
-        let idx: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+        let idx: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
         assert_eq!(idx.distance_to(&idx), 0);
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
@@ -471,7 +462,7 @@ mod tests {
 
         #[test]
         fn can_retrieve_edges() {
-            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             assert_eq!(index.resolution(), 9);
             let edges = index.unidirectional_edges();
             let indexes: Vec<(String, u8)> = edges
@@ -493,7 +484,7 @@ mod tests {
 
         #[test]
         fn retrieved_edges_are_valid() {
-            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let edges = index.unidirectional_edges();
             for edge in edges.into_iter() {
                 edge.validate().unwrap();
@@ -502,7 +493,7 @@ mod tests {
 
         #[test]
         fn can_find_edge_to() {
-            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
+            let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let ring = index.hex_ring(1).unwrap();
             let neighbor = *ring.first().unwrap();
             let edge_to = index.unidirectional_edge_to(&neighbor).unwrap();
@@ -519,8 +510,8 @@ mod tests {
         #[should_panic(expected = "InvalidH3Edge")]
         #[test]
         fn can_fail_to_find_edge_to() {
-            let index: HexagonIndex = 0x89283080ddbffff_u64.try_into().unwrap();
-            let wrong_neighbor: HexagonIndex = 0x8a2a1072b59ffff_u64.try_into().unwrap();
+            let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
+            let wrong_neighbor: H3Cell = 0x8a2a1072b59ffff_u64.try_into().unwrap();
             index.unidirectional_edge_to(&wrong_neighbor).unwrap();
         }
     }

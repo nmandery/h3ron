@@ -3,7 +3,7 @@ use std::result::Result;
 use h3ron_h3_sys::H3Index;
 
 use crate::error::Error;
-use crate::hexagon_index::HexagonIndex;
+use crate::H3Cell;
 use crate::Index;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -18,7 +18,7 @@ impl Default for CoordIJ {
     }
 }
 
-pub fn h3_to_local_ij(origin_index: &HexagonIndex, index: &HexagonIndex) -> Result<CoordIJ, Error> {
+pub fn h3_to_local_ij(origin_index: &H3Cell, index: &H3Cell) -> Result<CoordIJ, Error> {
     unsafe {
         let mut cij = h3ron_h3_sys::CoordIJ { i: 0, j: 0 };
         if h3ron_h3_sys::experimentalH3ToLocalIj(origin_index.h3index(), index.h3index(), &mut cij)
@@ -31,10 +31,7 @@ pub fn h3_to_local_ij(origin_index: &HexagonIndex, index: &HexagonIndex) -> Resu
     }
 }
 
-pub fn local_ij_to_h3(
-    origin_index: &HexagonIndex,
-    coordij: &CoordIJ,
-) -> Result<HexagonIndex, Error> {
+pub fn local_ij_to_h3(origin_index: &H3Cell, coordij: &CoordIJ) -> Result<H3Cell, Error> {
     unsafe {
         let cij = h3ron_h3_sys::CoordIJ {
             i: coordij.i,
@@ -44,7 +41,7 @@ pub fn local_ij_to_h3(
         if h3ron_h3_sys::experimentalLocalIjToH3(origin_index.h3index(), &cij, &mut h3_index_out)
             == 0
         {
-            Ok(HexagonIndex::new(h3_index_out))
+            Ok(H3Cell::new(h3_index_out))
         } else {
             Err(Error::NoLocalIJCoordinates)
         }
@@ -54,12 +51,12 @@ pub fn local_ij_to_h3(
 #[cfg(test)]
 mod tests {
     use crate::experimental::{h3_to_local_ij, local_ij_to_h3};
-    use crate::hexagon_index::HexagonIndex;
+    use crate::h3_cell::H3Cell;
     use std::convert::TryFrom;
 
     #[test]
     fn test_local_ij() {
-        let origin_index = HexagonIndex::try_from(0x89283080ddbffff_u64).unwrap();
+        let origin_index = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
         let ring = origin_index.k_ring(1);
         assert_ne!(ring.len(), 0);
         let other_index = ring.iter().find(|i| **i != origin_index).unwrap().clone();

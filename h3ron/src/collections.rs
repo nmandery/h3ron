@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::H3Index;
 
-use crate::hexagon_index::HexagonIndex;
+use crate::H3Cell;
 use crate::{compact, Index, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 
 const H3_RESOLUTION_RANGE_USIZE: RangeInclusive<usize> =
@@ -95,7 +95,7 @@ impl<'a> H3CompactedVec {
         if self.is_empty() {
             return false;
         }
-        let mut index = HexagonIndex::new(h3index);
+        let mut index = H3Cell::new(h3index);
         for r in index.resolution()..=H3_MIN_RESOLUTION {
             index = match index.get_parent(r) {
                 Ok(i) => i,
@@ -112,7 +112,7 @@ impl<'a> H3CompactedVec {
     ///
     /// will trigger a re-compacting when `compact` is set
     pub fn add_index(&mut self, h3_index: H3Index, compact: bool) {
-        let resolution = HexagonIndex::new(h3_index).resolution();
+        let resolution = H3Cell::new(h3_index).resolution();
         self.add_index_to_resolution(h3_index, resolution, compact);
     }
 
@@ -132,7 +132,7 @@ impl<'a> H3CompactedVec {
     pub fn add_indexes(&mut self, h3_indexes: &[H3Index], compact: bool) {
         let mut resolutions_touched = HashSet::new();
         for h3_index in h3_indexes {
-            let res = HexagonIndex::new(*h3_index).resolution() as usize;
+            let res = H3Cell::new(*h3_index).resolution() as usize;
             resolutions_touched.insert(res);
             self.indexes_by_resolution[res].push(*h3_index);
         }
@@ -235,7 +235,7 @@ impl<'a> H3CompactedVec {
             indexes_to_compact.dedup();
             let compacted = compact(&indexes_to_compact);
             for h3_index in compacted {
-                let res = HexagonIndex::new(h3_index).resolution() as usize;
+                let res = H3Cell::new(h3_index).resolution() as usize;
                 resolutions_touched.insert(res);
                 self.indexes_by_resolution[res].push(h3_index);
             }
@@ -262,7 +262,7 @@ impl<'a> H3CompactedVec {
             for r in (lowest_res + 1)..=(H3_MAX_RESOLUTION as usize) {
                 let mut orig_h3indexes = std::mem::take(&mut self.indexes_by_resolution[r]);
                 orig_h3indexes.drain(..).for_each(|h3index| {
-                    let index = HexagonIndex::new(h3index);
+                    let index = H3Cell::new(h3index);
                     if !(lowest_res..r).any(|parent_res| {
                         known_indexes
                             .contains(&index.get_parent_unchecked(parent_res as u8).h3index())
@@ -290,8 +290,8 @@ impl FromIterator<H3Index> for H3CompactedVec {
     }
 }
 
-impl FromIterator<HexagonIndex> for H3CompactedVec {
-    fn from_iter<T: IntoIterator<Item = HexagonIndex>>(iter: T) -> Self {
+impl FromIterator<H3Cell> for H3CompactedVec {
+    fn from_iter<T: IntoIterator<Item = H3Cell>>(iter: T) -> Self {
         let mut cv = Self::new();
         for index in iter {
             cv.add_index(index.h3index(), false);
@@ -361,7 +361,7 @@ impl<'a> Iterator for H3CompactedVecUncompactedIterator<'a> {
                 [self.current_resolution]
                 .get(self.current_pos)
             {
-                self.current_uncompacted = HexagonIndex::new(*next_parent)
+                self.current_uncompacted = H3Cell::new(*next_parent)
                     .get_children(self.iteration_resolution as u8)
                     .iter()
                     .map(|i| i.h3index())
