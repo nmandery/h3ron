@@ -15,6 +15,7 @@ geo = "^0.16"
 itertools = "^0.10"
 # Error handling
 thiserror = "1.0"
+svgbobdoc = "^0.2"
 
 [dependencies.h3ron-h3-sys]
 path = "../h3ron-h3-sys"
