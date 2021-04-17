@@ -10,7 +10,10 @@ pub use to_geo::{
 
 use crate::error::check_same_resolution;
 use crate::util::linestring_to_geocoords;
-pub use {error::Error, h3_cell::H3Cell, h3_edge::H3Edge, index::Index, to_h3::ToH3Indexes};
+pub use {
+    error::Error, h3_cell::H3Cell, h3_direction::H3Direction, h3_edge::H3Edge, index::Index,
+    to_h3::ToH3Indexes,
+};
 
 #[macro_use]
 mod util;
@@ -19,6 +22,7 @@ pub mod collections;
 pub mod error;
 pub mod experimental;
 mod h3_cell;
+mod h3_direction;
 mod h3_edge;
 mod index;
 mod to_geo;
