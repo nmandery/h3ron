@@ -3,7 +3,7 @@ use crate::Error;
 use h3ron_h3_sys::H3Index;
 use std::os::raw::c_int;
 
-/// Trait to handle types having a H3 Index like hexagon and edges
+/// Trait to handle types having a H3 Index like cells and edges
 pub trait Index: Sized + PartialEq {
     /// Get the u64 H3 Index address
     fn h3index(&self) -> H3Index;

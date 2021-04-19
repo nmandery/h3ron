@@ -46,7 +46,7 @@ impl Index for H3Cell {
 
     fn validate(&self) -> Result<(), Error> {
         if !unsafe { h3ron_h3_sys::h3IsValid(self.h3index()) != 0 } {
-            Err(Error::InvalidH3Hexagon(self.h3index()))
+            Err(Error::InvalidH3Cell(self.h3index()))
         } else {
             Ok(())
         }
