@@ -7,31 +7,31 @@ use crate::H3Cell;
 use crate::Index;
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct CoordIJ {
+pub struct CoordIj {
     pub i: i32,
     pub j: i32,
 }
 
-impl Default for CoordIJ {
+impl Default for CoordIj {
     fn default() -> Self {
         Self { i: 0, j: 0 }
     }
 }
 
-pub fn h3_to_local_ij(origin_index: &H3Cell, index: &H3Cell) -> Result<CoordIJ, Error> {
+pub fn h3_to_local_ij(origin_index: &H3Cell, index: &H3Cell) -> Result<CoordIj, Error> {
     unsafe {
         let mut cij = h3ron_h3_sys::CoordIJ { i: 0, j: 0 };
         if h3ron_h3_sys::experimentalH3ToLocalIj(origin_index.h3index(), index.h3index(), &mut cij)
             == 0
         {
-            Ok(CoordIJ { i: cij.i, j: cij.j })
+            Ok(CoordIj { i: cij.i, j: cij.j })
         } else {
-            Err(Error::NoLocalIJCoordinates)
+            Err(Error::NoLocalIjCoordinates)
         }
     }
 }
 
-pub fn local_ij_to_h3(origin_index: &H3Cell, coordij: &CoordIJ) -> Result<H3Cell, Error> {
+pub fn local_ij_to_h3(origin_index: &H3Cell, coordij: &CoordIj) -> Result<H3Cell, Error> {
     unsafe {
         let cij = h3ron_h3_sys::CoordIJ {
             i: coordij.i,
@@ -43,7 +43,7 @@ pub fn local_ij_to_h3(origin_index: &H3Cell, coordij: &CoordIJ) -> Result<H3Cell
         {
             Ok(H3Cell::new(h3_index_out))
         } else {
-            Err(Error::NoLocalIJCoordinates)
+            Err(Error::NoLocalIjCoordinates)
         }
     }
 }

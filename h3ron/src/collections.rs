@@ -263,10 +263,11 @@ impl<'a> H3CompactedVec {
                 let mut orig_h3indexes = std::mem::take(&mut self.indexes_by_resolution[r]);
                 orig_h3indexes.drain(..).for_each(|h3index| {
                     let index = H3Cell::new(h3index);
-                    if !(lowest_res..r).any(|parent_res| {
+                    let is_parent_known = (lowest_res..r).any(|parent_res| {
                         known_indexes
                             .contains(&index.get_parent_unchecked(parent_res as u8).h3index())
-                    }) {
+                    });
+                    if !is_parent_known {
                         known_indexes.insert(h3index);
                         self.indexes_by_resolution[r].push(h3index);
                     }

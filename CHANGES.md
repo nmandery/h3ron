@@ -24,6 +24,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   , [#11](https://github.com/nmandery/h3ron/pull/11), [#15](https://github.com/nmandery/h3ron/pull/15)
 - Error handling improvements. [#10](https://github.com/nmandery/h3ron/pull/10)
   , [#11](https://github.com/nmandery/h3ron/pull/11)
+- Renaming `CoordIJ` to `CoordIj` and `Error::NoLocalIJCoordinates` to `Error::NoLocalIjCoordinates` to follow clippy
+  suggestions.
 
 #### Removed
 

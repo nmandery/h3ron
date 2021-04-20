@@ -8,7 +8,7 @@ use crate::{H3Cell, Index, H3_MAX_RESOLUTION};
 #[derive(Debug, DeriveError)]
 pub enum Error {
     #[error("Local IJ coordinates not found")]
-    NoLocalIJCoordinates,
+    NoLocalIjCoordinates,
     #[error("Invalid input")]
     InvalidInput,
     #[error("Invalid H3 Cell index {0:x}")]
