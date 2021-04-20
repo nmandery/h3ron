@@ -1,3 +1,4 @@
+use std::ops::{Add, Sub};
 use std::result::Result;
 
 use h3ron_h3_sys::H3Index;
@@ -6,7 +7,7 @@ use crate::error::Error;
 use crate::H3Cell;
 use crate::Index;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub struct CoordIj {
     pub i: i32,
     pub j: i32,
@@ -15,6 +16,28 @@ pub struct CoordIj {
 impl Default for CoordIj {
     fn default() -> Self {
         Self { i: 0, j: 0 }
+    }
+}
+
+impl Sub for CoordIj {
+    type Output = CoordIj;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        CoordIj {
+            i: self.i - rhs.i,
+            j: self.j - rhs.j,
+        }
+    }
+}
+
+impl Add for CoordIj {
+    type Output = CoordIj;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        CoordIj {
+            i: self.i + rhs.i,
+            j: self.j + rhs.j,
+        }
     }
 }
 
@@ -50,9 +73,10 @@ pub fn local_ij_to_h3(origin_index: &H3Cell, coordij: &CoordIj) -> Result<H3Cell
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
+
     use crate::experimental::{h3_to_local_ij, local_ij_to_h3};
     use crate::h3_cell::H3Cell;
-    use std::convert::TryFrom;
 
     #[test]
     fn test_local_ij() {
@@ -69,14 +93,9 @@ mod tests {
 
         // As the other_index was taken from k_ring 1, the difference of the i and j coordinates
         // must be -1, 0 or 1
-        assert!(
-            ((coordij_origin.i - coordij_other.i) >= -1)
-                && ((coordij_origin.i - coordij_other.i) <= 1)
-        );
-        assert!(
-            ((coordij_origin.j - coordij_other.j) >= -1)
-                && ((coordij_origin.j - coordij_other.j) <= 1)
-        );
+        let coordij_diff = coordij_origin - coordij_other;
+        assert!(coordij_diff.i.abs() <= 1);
+        assert!(coordij_diff.j.abs() <= 1);
 
         // convert the coordij back to an index
         let other_index_2 = local_ij_to_h3(&origin_index, &coordij_other).unwrap();

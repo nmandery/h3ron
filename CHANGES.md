@@ -17,6 +17,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
     - Get a hexagons edges.
 - Implementation of the relative H3 direction system (see https://h3geo.org/docs/core-library/h3Indexing)
   . [#13](https://github.com/nmandery/h3ron/pull/13)
+- Implementing `Add` and `Sub` traits for `CoordIj`. [#9](https://github.com/nmandery/h3ron/issues/9)
 
 #### Changed
 
