@@ -52,7 +52,7 @@ impl H3Edge {
         unsafe { h3ron_h3_sys::exactEdgeLengthRads(self.h3index()) }
     }
 
-    /// Retrieves the destination hexagon H3 Index of `self`
+    /// Retrieves the destination H3 Cell of `self`
     ///
     /// # Returns
     /// The built index may be invalid.
@@ -63,7 +63,7 @@ impl H3Edge {
         H3Cell::new(index)
     }
 
-    /// Retrieves the destination hexagon H3 Index of `self`
+    /// Retrieves the destination H3 Cell of `self`
     ///
     /// # Returns
     /// If the built index is invalid, returns an Error.
@@ -74,7 +74,7 @@ impl H3Edge {
         Ok(res)
     }
 
-    /// Retrieves the origin hexagon H3 Index of `self`
+    /// Retrieves the origin H3 Cell of `self`
     ///
     /// # Returns
     /// The built index may be invalid.
@@ -84,7 +84,7 @@ impl H3Edge {
         H3Cell::new(index)
     }
 
-    /// Retrieves the origin hexagon H3 Index of `self`
+    /// Retrieves the origin H3 Cell of `self`
     ///
     /// # Returns
     /// If the built index is invalid, returns an Error.

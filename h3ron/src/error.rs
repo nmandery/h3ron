@@ -11,8 +11,8 @@ pub enum Error {
     NoLocalIJCoordinates,
     #[error("Invalid input")]
     InvalidInput,
-    #[error("Invalid H3 Hexagon index {0:x}")]
-    InvalidH3Hexagon(H3Index),
+    #[error("Invalid H3 Cell index {0:x}")]
+    InvalidH3Cell(H3Index),
     #[error("Invalid H3 Edge index {0:x}")]
     InvalidH3Edge(H3Index),
     #[error("Pentagonal distortion")]
