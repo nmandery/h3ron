@@ -83,7 +83,7 @@ mod tests {
         let origin_index = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
         let ring = origin_index.k_ring(1);
         assert_ne!(ring.len(), 0);
-        let other_index = ring.iter().find(|i| **i != origin_index).unwrap().clone();
+        let other_index = *ring.iter().find(|i| **i != origin_index).unwrap();
 
         // the coordij of the origin index. This is not necessarily at (0, 0)
         let coordij_origin = h3_to_local_ij(&origin_index, &origin_index).unwrap();
