@@ -13,10 +13,17 @@ use crate::error::Error;
 use crate::index::Index;
 use crate::util::{coordinate_to_geocoord, drain_h3indexes_to_indexes, point_to_geocoord};
 use crate::{max_k_ring_size, AreaUnits, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
+use std::fmt::{self, Debug, Formatter};
 
 /// H3 Index representing a H3 Cell (hexagon)
-#[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
+#[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
 pub struct H3Cell(H3Index);
+
+impl Debug for H3Cell {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "H3Cell({})", self.to_string())
+    }
+}
 
 /// convert to index including validation
 impl TryFrom<u64> for H3Cell {
@@ -329,6 +336,12 @@ mod tests {
             H3Cell::try_from(h3index).unwrap().to_string(),
             "89283080ddbffff".to_string()
         );
+    }
+
+    #[test]
+    fn test_debug_hexadecimal() {
+        let cell = H3Cell::new(0x89283080ddbffff_u64);
+        assert_eq!(format!("{:?}", cell), "H3Cell(89283080ddbffff)".to_string())
     }
 
     #[test]
