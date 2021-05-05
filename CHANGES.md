@@ -7,6 +7,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### h3ron crate
+
+#### Added
+
+- `Debug` trait implementations for `H3Cell` and `H3Edge` to display the `H3Index` in hexadecimal.
+  [#16](https://github.com/nmandery/h3ron/pull/16)
+
 ## [0.10.0] - 2021-04-24
 
 ### h3ron crate
