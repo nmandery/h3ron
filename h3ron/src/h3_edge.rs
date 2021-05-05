@@ -4,12 +4,19 @@ use h3ron_h3_sys::H3Index;
 use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::ffi::CString;
+use std::fmt::{self, Debug, Formatter};
 use std::os::raw::c_int;
 use std::str::FromStr;
 
 /// H3 Index representing an Unidirectional H3 edge
-#[derive(PartialOrd, PartialEq, Clone, Debug, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
+#[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
 pub struct H3Edge(H3Index);
+
+impl Debug for H3Edge {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "H3Edge({})", self.to_string())
+    }
+}
 
 /// convert to index including validation
 impl TryFrom<u64> for H3Edge {
@@ -160,5 +167,14 @@ mod tests {
         let parent_1 = edge.get_parent(1).unwrap();
         assert_eq!(parent_1.resolution(), 1);
         assert!(edge.is_child_of(&parent_1));
+    }
+
+    #[test]
+    fn debug_hexadecimal() {
+        let edge = H3Edge::new(0x149283080ddbffff);
+        assert_eq!(
+            format!("{:?}", edge),
+            "H3Edge(149283080ddbffff)".to_string()
+        )
     }
 }
