@@ -14,6 +14,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `Debug` trait implementations for `H3Cell` and `H3Edge` to display the `H3Index` in hexadecimal.
   [#16](https://github.com/nmandery/h3ron/pull/16)
 
+### h3ronpy
+
+#### Added
+
+- Support for transforming `numpy.float32` and `numpy.float64` raster arrays to H3 dataframes by warping the array values in `OrderedFloat<T>`.
+
+
 ## [0.10.0] - 2021-04-24
 
 ### h3ron crate
