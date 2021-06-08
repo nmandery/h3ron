@@ -23,6 +23,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Changed
 
 - Fix `ValueError` when converting empty dataframes. [#17](https://github.com/nmandery/h3ron/issues/17)
+- Deprecate `h3ronpy.util.h3index_column_to_geodataframe` in favor of `h3ronpy.util.dataframe_to_geodataframe`.
 
 
 ## [0.10.0] - 2021-04-24
