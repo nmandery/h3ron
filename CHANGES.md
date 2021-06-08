@@ -20,6 +20,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Support for transforming `numpy.float32` and `numpy.float64` raster arrays to H3 dataframes by warping the array values in `OrderedFloat<T>`.
 
+#### Changed
+
+- Fix `ValueError` when converting empty dataframes. [#17](https://github.com/nmandery/h3ron/issues/17)
+
 
 ## [0.10.0] - 2021-04-24
 
