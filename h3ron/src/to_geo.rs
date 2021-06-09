@@ -8,7 +8,7 @@ use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, radsToDegs, H3Index, 
 
 use crate::algorithm::smoothen_h3_linked_polygon;
 use crate::collections::H3CompactedVec;
-use crate::{H3Cell, Index};
+use crate::{Error, H3Cell, Index};
 
 pub trait ToPolygon {
     fn to_polygon(&self) -> Polygon<f64>;
@@ -16,6 +16,11 @@ pub trait ToPolygon {
 
 pub trait ToCoordinate {
     fn to_coordinate(&self) -> Coordinate<f64>;
+}
+
+pub trait ToLineString {
+    fn to_linestring(&self) -> Result<LineString<f64>, Error>;
+    fn to_linestring_unchecked(&self) -> LineString<f64>;
 }
 
 /// join hexagon polygons to larger polygons where hexagons are touching each other

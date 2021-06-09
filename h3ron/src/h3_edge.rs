@@ -1,12 +1,17 @@
-use crate::index::Index;
-use crate::{Error, FromH3Index, H3Cell};
-use h3ron_h3_sys::H3Index;
-use serde::{Deserialize, Serialize};
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
 use std::os::raw::c_int;
 use std::str::FromStr;
+
+use geo::LineString;
+use serde::{Deserialize, Serialize};
+
+use h3ron_h3_sys::H3Index;
+
+use crate::index::Index;
+use crate::to_geo::ToLineString;
+use crate::{Error, FromH3Index, H3Cell, ToCoordinate};
 
 /// H3 Index representing an Unidirectional H3 edge
 #[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
@@ -144,6 +149,24 @@ impl FromStr for H3Edge {
     }
 }
 
+impl ToLineString for H3Edge {
+    /// create a linestring from the origin index to the destination index
+    fn to_linestring(&self) -> Result<LineString<f64>, Error> {
+        Ok(LineString::from(vec![
+            self.origin_index()?.to_coordinate(),
+            self.destination_index()?.to_coordinate(),
+        ]))
+    }
+
+    /// create a linestring from the origin index to the destination index
+    fn to_linestring_unchecked(&self) -> LineString<f64> {
+        LineString::from(vec![
+            self.origin_index_unchecked().to_coordinate(),
+            self.destination_index_unchecked().to_coordinate(),
+        ])
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -176,5 +199,14 @@ mod tests {
             format!("{:?}", edge),
             "H3Edge(149283080ddbffff)".to_string()
         )
+    }
+
+    #[test]
+    fn to_linestring() {
+        let edge = H3Edge::new(0x149283080ddbffff);
+        let ls = edge.to_linestring().unwrap();
+        assert_eq!(ls.0.len(), 2);
+        assert_eq!(ls.0[0], edge.origin_index_unchecked().to_coordinate());
+        assert_eq!(ls.0[1], edge.destination_index_unchecked().to_coordinate());
     }
 }

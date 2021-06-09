@@ -13,6 +13,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `Debug` trait implementations for `H3Cell` and `H3Edge` to display the `H3Index` in hexadecimal.
   [#16](https://github.com/nmandery/h3ron/pull/16)
+- `ToLineString` trait providing `to_linestring` and `to_linestring_unchecked` methods to convert
+  `H3Edge` to a `geo-types` `LineString<f64>`.
 
 ### h3ronpy
 
