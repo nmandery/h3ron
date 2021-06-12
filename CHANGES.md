@@ -15,6 +15,16 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   [#16](https://github.com/nmandery/h3ron/pull/16)
 - `ToLineString` trait providing `to_linestring` and `to_linestring_unchecked` methods to convert
   `H3Edge` to a `geo-types` `LineString<f64>`.
+  
+#### Changed
+
+- Update dependencies: `geo-types` 0.6->0.7
+
+### h3ron-ndarray crate
+
+#### Changed
+
+- Update dependencies: `geo-types` 0.6->0.7, `ndarray` 0.14->0.15, `gdal` 0.7->0.8
 
 ### h3ronpy
 
@@ -26,6 +36,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - Fix `ValueError` when converting empty dataframes. [#17](https://github.com/nmandery/h3ron/issues/17)
 - Deprecate `h3ronpy.util.h3index_column_to_geodataframe` in favor of `h3ronpy.util.dataframe_to_geodataframe`.
+- Update dependencies: `geo-types` 0.6->0.7, `ndarray` 0.14->0.15
 
 
 ## [0.10.0] - 2021-04-24

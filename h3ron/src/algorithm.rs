@@ -76,6 +76,7 @@ pub fn smoothen_h3_linked_polygon(in_poly: &Polygon<f64>) -> Polygon<f64> {
 
 #[cfg(test)]
 mod tests {
+    use geo::algorithm::coords_iter::CoordsIter;
     use geo_types::Coordinate;
 
     use crate::algorithm::smoothen_h3_linked_polygon;
@@ -98,8 +99,8 @@ mod tests {
         //let gj_smoothed = geojson::Value::from(&smoothed);
         //println!("{}", gj_smoothed);
 
-        assert!(smoothed.exterior().num_coords() < 10);
+        assert!(smoothed.exterior().coords_count() < 10);
         assert_eq!(smoothed.interiors().len(), 1);
-        assert!(smoothed.interiors()[0].num_coords() < 10);
+        assert!(smoothed.interiors()[0].coords_count() < 10);
     }
 }

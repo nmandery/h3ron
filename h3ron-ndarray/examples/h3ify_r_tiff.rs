@@ -15,7 +15,7 @@ fn main() {
     let transform = Transform::from_gdal(&dataset.geo_transform().unwrap());
     let band = dataset.rasterband(1).unwrap();
     let band_array = band
-        .read_as_array::<u8>((0, 0), band.size(), band.size())
+        .read_as_array::<u8>((0, 0), band.size(), band.size(), None)
         .unwrap();
 
     let view = band_array.view();

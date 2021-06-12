@@ -11,12 +11,12 @@ homepage = "https://github.com/nmandery/h3ron"
 repository = "https://github.com/nmandery/h3ron"
 
 [dependencies]
-geo-types = "^0.6"
+geo-types = "^0.7"
 rayon = "^1.5"
 log = "^0.4"
 
 [dependencies.ndarray]
-version = "^0.14"
+version = "^0.15"
 features = ["rayon"]
 
 [dependencies.h3ron]
@@ -30,7 +30,7 @@ env_logger = "^0.8"
 criterion = "^0.3"
 
 [dev-dependencies.gdal]
-version = "^0.7"
+version = "^0.8"
 features = ["array"]
 
 
