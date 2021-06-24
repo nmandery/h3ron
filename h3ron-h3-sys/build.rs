@@ -42,13 +42,13 @@ fn main() {
         .unwrap()
         .captures_iter(&header_contents)
     {
-        builder = builder.whitelist_function(&cap["func"]);
+        builder = builder.allowlist_function(&cap["func"]);
     }
     for cap in Regex::new(r"struct\s+\{[^\}]*}\s*(?P<type>[a-zA-Z0-9_]+)")
         .unwrap()
         .captures_iter(&header_contents)
     {
-        builder = builder.whitelist_type(&cap["type"]);
+        builder = builder.allowlist_type(&cap["type"]);
     }
     // Finish the builder and generate the bindings.
     let bindings = builder
