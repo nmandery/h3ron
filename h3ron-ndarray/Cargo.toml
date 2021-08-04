@@ -26,7 +26,7 @@ version = "0.11.0" # for publishing on crates.io
 
 [dev-dependencies]
 approx = "^0.5"
-env_logger = "^0.8"
+env_logger = "^0.9"
 criterion = "^0.3"
 
 [dev-dependencies.gdal]
