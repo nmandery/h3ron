@@ -9,15 +9,18 @@ use std::fs;
 use std::path::PathBuf;
 
 fn main() {
+    println!("cargo:rerun-if-changed=libh3");
+
     // build h3ron as a static library
     let dst_path = Config::new("libh3")
-        .define("ENABLE_COVERAGE", "OFF")
         .define("BUILD_BENCHMARKS", "OFF")
         .define("BUILD_FILTERS", "OFF")
         .define("BUILD_GENERATORS", "OFF")
         .define("BUILD_TESTING", "OFF")
+        .define("ENABLE_COVERAGE", "OFF")
         .define("ENABLE_DOCS", "OFF")
         .define("ENABLE_FORMAT", "OFF")
+        .define("ENABLE_LINTING", "OFF")
         .build();
 
     // link to the static library we just build
