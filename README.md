@@ -24,13 +24,13 @@ bindgen-generated bindings for the statically linked libh3 C library.
 
 ### [h3ron](./h3ron) [![Latest Version](https://img.shields.io/crates/v/h3ron.svg)](https://crates.io/crates/h3ron) [![Documentation](https://docs.rs/h3ron/badge.svg)](https://docs.rs/h3ron)
 
-high level rust API including collections for selected parts of H3.
+High-level rust API for H3.
 
 [Documentation](https://docs.rs/h3ron)
 
 ### [h3ron-ndarray](h3ron-ndarray) [![Latest Version](https://img.shields.io/crates/v/h3ron-ndarray.svg)](https://crates.io/crates/h3ron-ndarray) [![Documentation](https://docs.rs/h3ron-ndarray/badge.svg)](https://docs.rs/h3ron-ndarray)
 
-Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to generate H3 data from raster data (using [gdal](https://github.com/georust/gdal), ...)
+Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to generate H3 cells from raster data (using [gdal](https://github.com/georust/gdal), ...)
 
 [Documentation](https://docs.rs/h3ron-ndarray)
 

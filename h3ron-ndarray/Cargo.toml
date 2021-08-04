@@ -2,7 +2,7 @@
 name = "h3ron-ndarray"
 version = "0.11.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
-description = "Integration with the ndarray crate to generate H3 data from raster data (using gdal, ...)"
+description = "Integration with the ndarray crate to generate H3 cells from raster data (using gdal, ...)"
 edition = "2018"
 license = "MIT"
 keywords = ["geo", "spatial", "h3", "ndarray"]
