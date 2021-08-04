@@ -19,6 +19,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### h3ron-h3-sys crate
 #### Changed
+- Silence `deref_nullptr` warnings in cbindgen generated bindings. #19
 - Updated libh3 to v3.7.2
 - dependency updates
 

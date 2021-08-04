@@ -3,6 +3,10 @@
 #![allow(non_snake_case)]
 #![allow(clippy::upper_case_acronyms)]
 
+// https://github.com/nmandery/h3ron/issues/19
+// https://github.com/rust-lang/rust-bindgen/issues/1651
+#[allow(deref_nullptr)]
+
 //! low-level bindings to H3
 //!
 //! This crate includes the C sources for libh3, so compiling it requires a c-compiler and the `cmake`
