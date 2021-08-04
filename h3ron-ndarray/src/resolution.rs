@@ -2,7 +2,7 @@ use geo_types::{Coordinate, Rect};
 
 use crate::{
     error::Error,
-    sphere::{area_linearring, area_rect},
+    sphere::{area_squaremeters_linearring, area_squaremeters_rect},
     transform::Transform,
     AxisOrder,
 };
@@ -40,8 +40,8 @@ pub fn nearest_h3_resolution(
                 (shape[axis_order.y_axis()] - 1) as f64,
             )),
     );
-    let area_pixel =
-        area_rect(&bbox_array) / (shape[axis_order.x_axis()] * shape[axis_order.y_axis()]) as f64;
+    let area_pixel = area_squaremeters_rect(&bbox_array)
+        / (shape[axis_order.x_axis()] * shape[axis_order.y_axis()]) as f64;
     let center_of_array = bbox_array.center();
 
     let mut nearest_h3_res = 0;
@@ -49,7 +49,7 @@ pub fn nearest_h3_resolution(
     for h3_res in H3_MIN_RESOLUTION..=H3_MAX_RESOLUTION {
         // calculate the area of the center index to avoid using the approximate values
         // of the h3ron hexArea functions
-        let area_h3_index = area_linearring(
+        let area_h3_index = area_squaremeters_linearring(
             H3Cell::from_coordinate_unchecked(&center_of_array, h3_res)
                 .to_polygon()
                 .exterior(),

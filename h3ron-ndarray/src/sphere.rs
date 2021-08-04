@@ -1,12 +1,16 @@
 use geo_types::{Coordinate, LineString, Rect};
 
+/// earth radius at the equator in meters
 const EARTH_RADIUS_EQUATOR: f64 = 6_378_137_f64;
 
 /// calculate the approximate area of the given linestring ring (wgs84 coordinates) in square meters
 ///
 /// roughly taken from https://gis.stackexchange.com/questions/711/how-can-i-measure-area-from-geographic-coordinates
-/// full paper at: https://www.semanticscholar.org/paper/Some-algorithms-for-polygons-on-a-sphere.-Chamberlain-Duquette/79668c0fe32788176758a2285dd674fa8e7b8fa8
-pub fn area_linearring(ring: &LineString<f64>) -> f64 {
+///
+/// Published in Chamberlain, R. and W. Duquette. “Some algorithms for polygons on a sphere.” (2007).
+/// The full paper is available at:
+/// https://www.semanticscholar.org/paper/Some-algorithms-for-polygons-on-a-sphere.-Chamberlain-Duquette/79668c0fe32788176758a2285dd674fa8e7b8fa8
+pub fn area_squaremeters_linearring(ring: &LineString<f64>) -> f64 {
     ring.0
         .windows(2)
         .map(|coords| {
@@ -20,7 +24,7 @@ pub fn area_linearring(ring: &LineString<f64>) -> f64 {
 }
 
 /// calculate the approximate area of the given rect (wgs84 coordinates) in square meters
-pub fn area_rect(bounds: &Rect<f64>) -> f64 {
+pub fn area_squaremeters_rect(bounds: &Rect<f64>) -> f64 {
     let ring = LineString::from(vec![
         Coordinate {
             x: bounds.min().x,
@@ -43,5 +47,5 @@ pub fn area_rect(bounds: &Rect<f64>) -> f64 {
             y: bounds.min().y,
         },
     ]);
-    area_linearring(&ring)
+    area_squaremeters_linearring(&ring)
 }
