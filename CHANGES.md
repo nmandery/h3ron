@@ -7,6 +7,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### h3ron crate
+
+#### Added
+
+- `change_cell_resolution` iterator
+
 ## [0.11.0] - 2021-06-12
 
 ### h3ron crate

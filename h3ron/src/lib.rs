@@ -25,6 +25,7 @@ mod h3_cell;
 mod h3_direction;
 mod h3_edge;
 mod index;
+pub mod iter;
 mod to_geo;
 mod to_h3;
 
