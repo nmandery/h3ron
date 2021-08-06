@@ -1,6 +1,6 @@
 use gdal::{
     vector::{Defn, Feature, FieldDefn, OGRFieldType, ToGdal},
-    Dataset, Driver,
+    Dataset, Driver, LayerOptions,
 };
 
 use h3ron::{H3Cell, Index, ToPolygon};
@@ -34,7 +34,7 @@ fn main() {
     let mut out_dataset = out_drv
         .create_vector_only("h3ify_r_tiff_results.gpkg")
         .unwrap();
-    let out_lyr = out_dataset.create_layer_blank().unwrap();
+    let out_lyr = out_dataset.create_layer(Default::default()).unwrap();
 
     let h3index_field_defn = FieldDefn::new("h3index", OGRFieldType::OFTString).unwrap();
     h3index_field_defn.set_width(20);
