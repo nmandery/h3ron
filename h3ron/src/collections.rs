@@ -165,7 +165,7 @@ impl<'a> H3CompactedVec {
     /// iterate over the compacted (or not, depending on if `compact` was called) contents
     pub fn iter_compacted_indexes(&self) -> H3CompactedVecCompactedIterator {
         H3CompactedVecCompactedIterator {
-            compacted_vec: &self,
+            compacted_vec: self,
             current_resolution: H3_MIN_RESOLUTION as usize,
             current_pos: 0,
         }

@@ -18,7 +18,7 @@ pub trait ToH3Indexes {
 impl ToH3Indexes for Polygon<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<H3Cell>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
-        let mut indexes = polyfill(&self, h3_resolution);
+        let mut indexes = polyfill(self, h3_resolution);
         Ok(indexes.drain(..).map(H3Cell::new).collect())
     }
 }
@@ -54,14 +54,14 @@ impl ToH3Indexes for MultiPoint<f64> {
 impl ToH3Indexes for Coordinate<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<H3Cell>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
-        Ok(vec![H3Cell::from_coordinate(&self, h3_resolution)?])
+        Ok(vec![H3Cell::from_coordinate(self, h3_resolution)?])
     }
 }
 
 impl ToH3Indexes for LineString<f64> {
     fn to_h3_indexes(&self, h3_resolution: u8) -> Result<Vec<H3Cell>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
-        let mut indexes = line(&self, h3_resolution)?;
+        let mut indexes = line(self, h3_resolution)?;
         Ok(indexes.drain(..).map(H3Cell::new).collect())
     }
 }

@@ -1,6 +1,6 @@
 use gdal::{
     vector::{Defn, Feature, FieldDefn, OGRFieldType, ToGdal},
-    Dataset, Driver, LayerOptions,
+    Dataset, Driver,
 };
 
 use h3ron::{H3Cell, Index, ToPolygon};

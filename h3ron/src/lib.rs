@@ -67,7 +67,7 @@ unsafe fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
 
 pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
     unsafe {
-        let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(&poly.exterior());
+        let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(poly.exterior());
         let mut interiors: Vec<Vec<GeoCoord>> = poly
             .interiors()
             .iter()
@@ -88,7 +88,7 @@ pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
 
 pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
     let mut h3_indexes = unsafe {
-        let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(&poly.exterior());
+        let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(poly.exterior());
         let mut interiors: Vec<Vec<GeoCoord>> = poly
             .interiors()
             .iter()
