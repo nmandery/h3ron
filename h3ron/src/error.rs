@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use thiserror::Error as DeriveError;
 
 use h3ron_h3_sys::H3Index;
@@ -29,10 +28,10 @@ pub enum Error {
     InvalidH3Direction(u8),
 }
 
-/// ensure two indexes have the same resolution
-pub fn check_same_resolution(index0: H3Index, index1: H3Index) -> Result<(), Error> {
-    let res0 = H3Cell::try_from(index0)?.resolution();
-    let res1 = H3Cell::try_from(index1)?.resolution();
+/// ensure two cells have the same resolution
+pub fn check_same_resolution(cell0: H3Cell, cell1: H3Cell) -> Result<(), Error> {
+    let res0 = cell0.resolution();
+    let res1 = cell1.resolution();
     if res0 != res1 {
         Err(Error::MixedResolutions(res0, res1))
     } else {

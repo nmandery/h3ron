@@ -80,16 +80,16 @@ mod tests {
 
     #[test]
     fn test_local_ij() {
-        let origin_index = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
-        let ring = origin_index.k_ring(1);
+        let origin_cell = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
+        let ring = origin_cell.k_ring(1);
         assert_ne!(ring.len(), 0);
-        let other_index = *ring.iter().find(|i| **i != origin_index).unwrap();
+        let other_cell = *ring.iter().find(|i| **i != origin_cell).unwrap();
 
         // the coordij of the origin index. This is not necessarily at (0, 0)
-        let coordij_origin = h3_to_local_ij(&origin_index, &origin_index).unwrap();
+        let coordij_origin = h3_to_local_ij(&origin_cell, &origin_cell).unwrap();
 
         // the coordij of the other index in the coordinate system of the origin index
-        let coordij_other = h3_to_local_ij(&origin_index, &other_index).unwrap();
+        let coordij_other = h3_to_local_ij(&origin_cell, &other_cell).unwrap();
 
         // As the other_index was taken from k_ring 1, the difference of the i and j coordinates
         // must be -1, 0 or 1
@@ -98,7 +98,7 @@ mod tests {
         assert!(coordij_diff.j.abs() <= 1);
 
         // convert the coordij back to an index
-        let other_index_2 = local_ij_to_h3(&origin_index, &coordij_other).unwrap();
-        assert_eq!(other_index, other_index_2);
+        let other_index_2 = local_ij_to_h3(&origin_cell, &coordij_other).unwrap();
+        assert_eq!(other_cell, other_index_2);
     }
 }

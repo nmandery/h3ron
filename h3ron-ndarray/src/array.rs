@@ -6,7 +6,7 @@ use geo_types::{Coordinate, Rect};
 use log::debug;
 use ndarray::{parallel::prelude::*, ArrayView2, Axis};
 
-use h3ron::{collections::H3CompactedVec, polyfill, H3Cell, Index, ToCoordinate};
+use h3ron::{collections::CompactedCellVec, polyfill, ToCoordinate};
 
 use crate::resolution::{nearest_h3_resolution, ResolutionSearchMode};
 use crate::{error::Error, transform::Transform};
@@ -241,7 +241,7 @@ where
         }
     }
 
-    fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, H3CompactedVec>, compact: bool) {
+    fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, CompactedCellVec>, compact: bool) {
         chunk_map.iter_mut().for_each(|(_value, compacted_vec)| {
             if compact {
                 compacted_vec.compact();
@@ -255,7 +255,7 @@ where
         &self,
         h3_resolution: u8,
         compact: bool,
-    ) -> Result<HashMap<&'a T, H3CompactedVec>, Error> {
+    ) -> Result<HashMap<&'a T, CompactedCellVec>, Error> {
         let inverse_transform = self.transform.invert()?;
 
         let rect_size = min(
@@ -284,13 +284,11 @@ where
                 // the window in geographical coordinates
                 let window_box = self.transform * &array_window;
 
-                let mut chunk_h3_map = HashMap::<&T, H3CompactedVec>::new();
-                let h3indexes = polyfill(&window_box.to_polygon(), h3_resolution);
-                for h3index in h3indexes {
+                let mut chunk_h3_map = HashMap::<&T, CompactedCellVec>::new();
+                for cell in polyfill(&window_box.to_polygon(), h3_resolution) {
                     // find the array element for the coordinate of the h3ron index
                     let arr_coord = {
-                        let transformed =
-                            &inverse_transform * &H3Cell::new(h3index).to_coordinate();
+                        let transformed = &inverse_transform * &cell.to_coordinate();
 
                         match self.axis_order {
                             AxisOrder::XY => [
@@ -311,8 +309,8 @@ where
                         }
                         chunk_h3_map
                             .entry(value)
-                            .or_insert_with(H3CompactedVec::new)
-                            .add_index_to_resolution(h3index, h3_resolution, false);
+                            .or_insert_with(CompactedCellVec::new)
+                            .add_cell(cell, false);
                     }
                 }
 
@@ -329,7 +327,7 @@ where
             for (value, mut compacted_vec) in chunk_h3_map.drain() {
                 h3_map
                     .entry(value)
-                    .or_insert_with(H3CompactedVec::new)
+                    .or_insert_with(CompactedCellVec::new)
                     .append(&mut compacted_vec, false);
             }
         }

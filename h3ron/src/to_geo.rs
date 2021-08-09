@@ -7,7 +7,7 @@ use geo_types::{Coordinate, LineString, Point, Polygon};
 use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, radsToDegs, H3Index, LinkedGeoPolygon};
 
 use crate::algorithm::smoothen_h3_linked_polygon;
-use crate::collections::H3CompactedVec;
+use crate::collections::CompactedCellVec;
 use crate::{Error, H3Cell, Index};
 
 pub trait ToPolygon {
@@ -30,20 +30,20 @@ pub trait ToLinkedPolygons {
 
 impl ToLinkedPolygons for Vec<H3Cell> {
     fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
-        let mut h3indexes: Vec<_> = self.iter().map(|i| i.h3index()).collect();
-        h3indexes.sort_unstable();
-        h3indexes.dedup();
-        to_linked_polygons(&h3indexes, smoothen)
+        let mut cells = self.clone();
+        cells.sort_unstable();
+        cells.dedup();
+        to_linked_polygons(&cells, smoothen)
     }
 }
 
-impl ToLinkedPolygons for H3CompactedVec {
+impl ToLinkedPolygons for CompactedCellVec {
     fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
         if let Some(res) = self.finest_resolution_contained() {
-            let mut h3indexes: Vec<_> = self.iter_uncompacted_indexes(res).collect();
-            h3indexes.sort_unstable();
-            h3indexes.dedup();
-            to_linked_polygons(&h3indexes, smoothen)
+            let mut cells: Vec<_> = self.iter_uncompacted_cells(res).collect();
+            cells.sort_unstable();
+            cells.dedup();
+            to_linked_polygons(&cells, smoothen)
         } else {
             vec![]
         }
@@ -52,7 +52,7 @@ impl ToLinkedPolygons for H3CompactedVec {
 
 /// join hexagon polygons to larger polygons where hexagons are touching each other
 ///
-/// The indexes will be grouped by the `align_to_h3_resolution`, so this will generate polygons
+/// The cells will be grouped by the `align_to_h3_resolution`, so this will generate polygons
 /// not exceeding the area of that parent resolution.
 ///
 /// Corners will be aligned to the corners of the parent resolution when they are less than an
@@ -73,23 +73,23 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
         align_to_h3_resolution: u8,
         smoothen: bool,
     ) -> Vec<Polygon<f64>> {
-        let mut h3indexes_grouped = HashMap::new();
-        for i in self.iter() {
-            let parent = i.get_parent_unchecked(align_to_h3_resolution);
-            h3indexes_grouped
-                .entry(parent)
+        let mut cells_grouped = HashMap::new();
+        for cell in self.iter() {
+            let parent_cell = cell.get_parent_unchecked(align_to_h3_resolution);
+            cells_grouped
+                .entry(parent_cell)
                 .or_insert_with(Vec::new)
-                .push(i.h3index())
+                .push(*cell)
         }
 
         let mut polygons = Vec::new();
-        for (parent_index, h3indexes) in h3indexes_grouped.drain() {
+        for (parent_cell, cells) in cells_grouped.drain() {
             if smoothen {
                 //
                 // align to the corners of the parent index
                 //
 
-                let parent_poly_vertices: Vec<_> = parent_index
+                let parent_poly_vertices: Vec<_> = parent_cell
                     .to_polygon()
                     .exterior()
                     .0
@@ -99,13 +99,13 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
 
                 // edge length of the child indexes
                 let edge_length = {
-                    let ring = H3Cell::new(h3indexes[0]).to_polygon();
+                    let ring = cells[0].to_polygon();
                     let p1 = Point::from(ring.exterior().0[0]);
                     let p2 = Point::from(ring.exterior().0[1]);
                     p1.euclidean_distance(&p2)
                 };
 
-                for poly in to_linked_polygons(&h3indexes, true).drain(..) {
+                for poly in to_linked_polygons(&cells, true).drain(..) {
                     let points_new: Vec<_> = poly
                         .exterior()
                         .0
@@ -128,21 +128,21 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
                     ));
                 }
             } else {
-                polygons.append(&mut to_linked_polygons(&h3indexes, false));
+                polygons.append(&mut to_linked_polygons(&cells, false));
             }
         }
         polygons
     }
 }
 
-/// convert raw h3indexes to linked polygons
+/// convert cells to linked polygons
 ///
 /// With `smoothen` an optional smoothing can be applied to the polygons to remove
 /// H3 artifacts.
 ///
-/// for this case, the slice must already be deduplicated, and all h3 indexes must be the same resolutions
-pub fn to_linked_polygons(h3indexes: &[H3Index], smoothen: bool) -> Vec<Polygon<f64>> {
-    if h3indexes.is_empty() {
+/// for this case, the slice must already be deduplicated, and all h3 cells must be the same resolutions
+pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>> {
+    if cells.is_empty() {
         return vec![];
     }
     unsafe {
@@ -151,7 +151,14 @@ pub fn to_linked_polygons(h3indexes: &[H3Index], smoothen: bool) -> Vec<Polygon<
             last: std::ptr::null_mut(),
             next: std::ptr::null_mut(),
         };
-        h3SetToLinkedGeo(h3indexes.as_ptr(), h3indexes.len() as c_int, &mut lgp);
+        // the following requires `repr(transparent)` on H3Cell
+        let h3index_slice =
+            std::slice::from_raw_parts(cells.as_ptr() as *const H3Index, cells.len());
+        h3SetToLinkedGeo(
+            h3index_slice.as_ptr(),
+            h3index_slice.len() as c_int,
+            &mut lgp,
+        );
 
         let mut polygons = vec![];
         let mut cur_linked_geo_polygon = Some(&lgp);

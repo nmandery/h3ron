@@ -46,7 +46,7 @@ fn main() {
     let defn = Defn::from_layer(&out_lyr);
 
     results.iter().for_each(|(_value, index_stack)| {
-        for h3index in index_stack.iter_compacted_indexes() {
+        for h3index in index_stack.iter_compacted_cells() {
             let index = H3Cell::try_from(h3index).unwrap();
             let mut ft = Feature::new(&defn).unwrap();
             ft.set_geometry(index.to_polygon().to_gdal().unwrap())

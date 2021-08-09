@@ -17,6 +17,7 @@ use std::fmt::{self, Debug, Formatter};
 
 /// H3 Index representing a H3 Cell (hexagon)
 #[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
+#[repr(transparent)]
 pub struct H3Cell(H3Index);
 
 impl Debug for H3Cell {
@@ -122,7 +123,6 @@ impl H3Cell {
         unsafe {
             h3ron_h3_sys::kRing(self.0, k as c_int, h3_indexes_out.as_mut_ptr());
         }
-        remove_zero_indexes_from_vec!(h3_indexes_out);
         drain_h3indexes_to_indexes(h3_indexes_out)
     }
 

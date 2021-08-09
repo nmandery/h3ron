@@ -9,10 +9,10 @@ pub use to_geo::{
 };
 
 use crate::error::check_same_resolution;
-use crate::util::linestring_to_geocoords;
+use crate::util::{drain_h3indexes_to_indexes, linestring_to_geocoords};
 pub use {
     error::Error, h3_cell::H3Cell, h3_direction::H3Direction, h3_edge::H3Edge, index::Index,
-    to_h3::ToH3Indexes,
+    to_h3::ToH3Cells,
 };
 
 #[macro_use]
@@ -86,8 +86,8 @@ pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
     }
 }
 
-pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
-    let mut h3_indexes = unsafe {
+pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Cell> {
+    let h3_indexes = unsafe {
         let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(poly.exterior());
         let mut interiors: Vec<Vec<GeoCoord>> = poly
             .interiors()
@@ -111,37 +111,39 @@ pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Index> {
         h3ron_h3_sys::polyfill(&gp, h3_resolution as c_int, h3_indexes.as_mut_ptr());
         h3_indexes
     };
-    remove_zero_indexes_from_vec!(h3_indexes);
-    h3_indexes
+    drain_h3indexes_to_indexes(h3_indexes)
 }
 
 ///
-/// the input vec must be deduplicated
-pub fn compact(h3_indexes: &[H3Index]) -> Vec<H3Index> {
-    let mut h3_indexes_out: Vec<H3Index> = vec![0; h3_indexes.len()];
+/// the input vec must be deduplicated and all cells must be at the same resolution
+pub fn compact(cells: &[H3Cell]) -> Vec<H3Cell> {
+    let mut h3_indexes_out: Vec<H3Index> = vec![0; cells.len()];
     unsafe {
+        // the following requires `repr(transparent)` on H3Cell
+        let h3index_slice =
+            std::slice::from_raw_parts(cells.as_ptr() as *const H3Index, cells.len());
         h3ron_h3_sys::compact(
-            h3_indexes.as_ptr(),
+            h3index_slice.as_ptr(),
             h3_indexes_out.as_mut_ptr(),
-            h3_indexes.len() as c_int,
+            cells.len() as c_int,
         );
     }
-    remove_zero_indexes_from_vec!(h3_indexes_out);
-    h3_indexes_out
+    drain_h3indexes_to_indexes(h3_indexes_out)
 }
 
+/// maximum number of cells needed for the k_ring
 pub fn max_k_ring_size(k: u32) -> usize {
     unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
 }
 
-/// Number of indexes in a line connecting two indexes
-pub fn line_size(start: H3Index, end: H3Index) -> Result<usize, Error> {
+/// Number of cells in a line connecting two cells
+pub fn line_size(start: H3Cell, end: H3Cell) -> Result<usize, Error> {
     check_same_resolution(start, end)?;
     line_size_not_checked(start, end)
 }
 
-fn line_size_not_checked(start: H3Index, end: H3Index) -> Result<usize, Error> {
-    let size = unsafe { h3ron_h3_sys::h3LineSize(start, end) };
+fn line_size_not_checked(start: H3Cell, end: H3Cell) -> Result<usize, Error> {
+    let size = unsafe { h3ron_h3_sys::h3LineSize(start.h3index(), end.h3index()) };
     if size < 0 {
         Err(Error::LineNotComputable)
     } else {
@@ -149,46 +151,44 @@ fn line_size_not_checked(start: H3Index, end: H3Index) -> Result<usize, Error> {
     }
 }
 
-fn line_between_indexes_not_checked(start: H3Index, end: H3Index) -> Result<Vec<H3Index>, Error> {
+fn line_between_cells_not_checked(start: H3Cell, end: H3Cell) -> Result<Vec<H3Cell>, Error> {
     let num_indexes = line_size_not_checked(start, end)?;
     let mut h3_indexes_out: Vec<H3Index> = vec![0; num_indexes];
-    let retval = unsafe { h3ron_h3_sys::h3Line(start, end, h3_indexes_out.as_mut_ptr()) };
+    let retval = unsafe {
+        h3ron_h3_sys::h3Line(start.h3index(), end.h3index(), h3_indexes_out.as_mut_ptr())
+    };
     if retval != 0 {
         return Err(Error::LineNotComputable);
     }
-    remove_zero_indexes_from_vec!(h3_indexes_out);
-    Ok(h3_indexes_out)
+    Ok(drain_h3indexes_to_indexes(h3_indexes_out))
 }
 
 /// Line of h3 indexes connecting two indexes
-pub fn line_between_indexes(start: H3Index, end: H3Index) -> Result<Vec<H3Index>, Error> {
+pub fn line_between_cells(start: H3Cell, end: H3Cell) -> Result<Vec<H3Cell>, Error> {
     check_same_resolution(start, end)?;
-    line_between_indexes_not_checked(start, end)
+    line_between_cells_not_checked(start, end)
 }
 
-/// Generate h3 indexes along the given linestring
+/// Generate h3 cells along the given linestring
 ///
-/// The returned indexes are ordered sequentially, there may
-/// be duplicates caused by multiple line seqments
-pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Index>, Error> {
-    let mut h3_indexes_out = vec![];
+/// The returned cells are ordered sequentially, there may
+/// be duplicates caused by the start and endpoints of multiple line segments.
+pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Cell>, Error> {
+    let mut cells_out = vec![];
     for coords in linestring.0.windows(2) {
         let start_index = H3Cell::from_coordinate(&coords[0], h3_resolution)?;
         let end_index = H3Cell::from_coordinate(&coords[1], h3_resolution)?;
 
-        let mut segment_indexes =
-            line_between_indexes_not_checked(start_index.h3index(), end_index.h3index())?;
+        let mut segment_indexes = line_between_cells_not_checked(start_index, end_index)?;
         if segment_indexes.is_empty() {
             continue;
         }
-        if !h3_indexes_out.is_empty()
-            && h3_indexes_out[h3_indexes_out.len() - 1] == segment_indexes[0]
-        {
-            h3_indexes_out.remove(h3_indexes_out.len() - 1);
+        if !cells_out.is_empty() && cells_out[cells_out.len() - 1] == segment_indexes[0] {
+            cells_out.remove(cells_out.len() - 1);
         }
-        h3_indexes_out.append(&mut segment_indexes);
+        cells_out.append(&mut segment_indexes);
     }
-    Ok(h3_indexes_out)
+    Ok(cells_out)
 }
 
 #[cfg(test)]
@@ -196,16 +196,17 @@ mod tests {
     use geo::Coordinate;
     use geo_types::LineString;
 
-    use crate::{line, line_between_indexes};
+    use crate::{line, line_between_cells, H3Cell};
+    use std::convert::TryFrom;
 
     #[test]
     fn line_across_multiple_faces() {
         // ported from H3s testH3Line.c
-        let start = 0x85285aa7fffffff_u64;
-        let end = 0x851d9b1bfffffff_u64;
+        let start = H3Cell::try_from(0x85285aa7fffffff_u64).unwrap();
+        let end = H3Cell::try_from(0x851d9b1bfffffff_u64).unwrap();
 
         // Line not computable across multiple icosa faces
-        assert!(line_between_indexes(start, end).is_err());
+        assert!(line_between_cells(start, end).is_err());
     }
 
     #[test]

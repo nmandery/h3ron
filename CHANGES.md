@@ -16,6 +16,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Changed
 
 - dependency updates
+- Using `repr(transparent)` for `H3Cell` and `H3Edge` types.
+- Removing `H3Index` from most of the API:
+  - Changing all functions from `H3Index` parameters and return values to `H3Cell`/`H3Edge`. In the names of the functions the term "index" has also been replaced. 
+  - Replacing the `ToH3Indexes` trait with `ToH3Cells`
+  - Changed `H3CompactedVec` to `CompactedCellVec`
+- Make `CompactedCellVec::add_cells` take a generic iterator and remove `add_indexes_from_iter`.
+- remove `FromIterator<H3Index> for CompactedCellVec`
 
 ### h3ron-h3-sys crate
 #### Changed
@@ -26,6 +33,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### h3ron-ndarray crate
 #### Changed
 - dependency updates
+- Return `CompactedCellVec`s from `raster::H3Converter::to_h3()`.
 
 
 ### h3ronpy

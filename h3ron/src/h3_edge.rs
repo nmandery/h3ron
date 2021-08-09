@@ -15,6 +15,7 @@ use crate::{Error, FromH3Index, H3Cell, ToCoordinate};
 
 /// H3 Index representing an Unidirectional H3 edge
 #[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
+#[repr(transparent)]
 pub struct H3Edge(H3Index);
 
 impl Debug for H3Edge {
