@@ -22,7 +22,7 @@ fn convert_r_dataset<'a>(
     transform: &'a Transform,
     h3_resolution: u8,
 ) {
-    let conv = H3Converter::new(&view, &Some(0_u8), &transform, AxisOrder::XY);
+    let conv = H3Converter::new(view, &Some(0_u8), transform, AxisOrder::XY);
     let _ = conv.to_h3(h3_resolution, true).unwrap();
 }
 

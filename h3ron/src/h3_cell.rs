@@ -352,11 +352,8 @@ mod tests {
 
     #[test]
     fn test_is_valid() {
-        assert_eq!(
-            H3Cell::try_from(0x89283080ddbffff_u64).unwrap().is_valid(),
-            true
-        );
-        assert_eq!(H3Cell::new(0_u64).is_valid(), false);
+        assert!(H3Cell::try_from(0x89283080ddbffff_u64).unwrap().is_valid());
+        assert!(!H3Cell::new(0_u64).is_valid());
         assert!(H3Cell::try_from(0_u64).is_err());
     }
 
@@ -464,10 +461,10 @@ mod tests {
         assert_eq!(idx.distance_to(&idx), 0);
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(&neighbor), 1);
+        assert_eq!(idx.distance_to(neighbor), 1);
         let ring = idx.hex_ring(3).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(&neighbor), 3);
+        assert_eq!(idx.distance_to(neighbor), 3);
     }
 
     mod edges {

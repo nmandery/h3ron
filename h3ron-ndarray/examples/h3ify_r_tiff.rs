@@ -3,9 +3,8 @@ use gdal::{
     Dataset, Driver,
 };
 
-use h3ron::{H3Cell, Index, ToPolygon};
+use h3ron::{Index, ToPolygon};
 use h3ron_ndarray::{AxisOrder, H3Converter, ResolutionSearchMode::SmallerThanPixel, Transform};
-use std::convert::TryFrom;
 
 fn main() {
     env_logger::init(); // run with the environment variable RUST_LOG set to "debug" for log output
@@ -46,13 +45,12 @@ fn main() {
     let defn = Defn::from_layer(&out_lyr);
 
     results.iter().for_each(|(_value, index_stack)| {
-        for h3index in index_stack.iter_compacted_cells() {
-            let index = H3Cell::try_from(h3index).unwrap();
+        for cell in index_stack.iter_compacted_cells() {
             let mut ft = Feature::new(&defn).unwrap();
-            ft.set_geometry(index.to_polygon().to_gdal().unwrap())
+            ft.set_geometry(cell.to_polygon().to_gdal().unwrap())
                 .unwrap();
-            ft.set_field_string("h3index", &index.to_string()).unwrap();
-            ft.set_field_integer("h3res", index.resolution() as i32)
+            ft.set_field_string("h3index", &cell.to_string()).unwrap();
+            ft.set_field_integer("h3res", cell.resolution() as i32)
                 .unwrap();
             ft.create(&out_lyr).unwrap();
         }
