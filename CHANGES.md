@@ -7,6 +7,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.12.0] - 2021-08-10
+
 ### h3ron crate
 
 #### Added
@@ -163,7 +165,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 The changes done in earlier versions where not documented in this changelog and can only be reconstructed from the
 commits in git.
 
-[Unreleased]: https://github.com/nmandery/h3ron/compare/v0.10.0...HEAD
-
-[0.10.0]: https://github.com/nmandery/h3ron/compare/v0.10.0...v0.9.0
+[Unreleased]: https://github.com/nmandery/h3ron/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/nmandery/h3ron/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/nmandery/h3ron/compare/v0.10.0...v0.11.0
+[0.10.0]: https://github.com/nmandery/h3ron/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/nmandery/h3ron/compare/v0.8.1...v0.9.0
