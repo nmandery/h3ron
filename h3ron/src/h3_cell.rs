@@ -116,6 +116,10 @@ impl H3Cell {
         res == 1
     }
 
+    /// `k_ring` produces all cells within k distance of the origin cell.
+    ///
+    /// k-ring 0 is defined as the origin cell, k-ring 1 is defined as k-ring 0 and all
+    /// neighboring cells, and so on.
     pub fn k_ring(&self, k: u32) -> Vec<H3Cell> {
         let max_size = unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize };
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];

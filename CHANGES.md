@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+=======
+### h3ron crate
+#### Added
+- `neighbors_within_distance_window_or_default` iterator including a few simplified wrapper functions.
+
 ### h3ron-ndarray crate
 #### Changed
 - Documentation improvements
