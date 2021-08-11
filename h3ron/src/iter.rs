@@ -324,7 +324,7 @@ mod tests {
 
         let mut n_neighbors = 0_usize;
         for neighbor in
-            neighbors_within_distance_window(std::iter::once(cell), |cell| hm.get(&cell), 1, 1)
+            neighbors_within_distance_window(std::iter::once(cell), |cell| hm.get(cell), 1, 1)
         {
             n_neighbors += 1;
             assert_eq!(neighbor.cell, cell);
@@ -338,12 +338,12 @@ mod tests {
     fn test_neighbors_within_distance_window_or_default() {
         let cell = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 6).unwrap();
         let mut hm: HashMap<H3Cell, u32> = Default::default();
-        hm.insert(cell.clone(), 4_u32);
+        hm.insert(cell, 4_u32);
 
         let mut n_neighbors = 0_usize;
         for neighbor in neighbors_within_distance_window_or_default(
             std::iter::once(cell),
-            |cell| hm.get(&cell),
+            |cell| hm.get(cell),
             1,
             1,
             Some(&6),
@@ -365,7 +365,7 @@ mod tests {
 
         let n_neighbors = neighbors_within_distance_window_or_default(
             std::iter::once(cell),
-            |cell| hm.get(&cell),
+            |cell| hm.get(cell),
             1,
             1,
             Some(&6),
