@@ -4,22 +4,25 @@ use geo_types::{Coordinate, Rect};
 
 use crate::error::Error;
 
-/// affine geotransfrom
+/// Affine Geotransform
 ///
-/// ported from affine library (used by rasterio)
-/// https://github.com/sgillies/affine/blob/master/affine/__init__.py
+/// Ported from [affine library](https://github.com/sgillies/affine/blob/master/affine/__init__.py) (used by rasterio).
 ///
-/// a, b, c, d, e, f : float
-/// Coefficients of an augmented affine transformation matrix
+/// `a`, `b`, `c`, `d`, `e` and `f` are typed as `f64` and are coefficients of an augmented affine
+/// transformation matrix:
+///
+/// ```text
 ///   | x' |   | a  b  c | | x |
 ///   | y' | = | d  e  f | | y |
 ///   | 1  |   | 0  0  1 | | 1 |
+/// ```
 ///
 /// `a`, `b`, and `c` are the elements of the first row of the matrix. `d`, `e`, and `f` are the elements of the second row.
 ///
-/// other sources:
-/// * GDAL geotransform: https://gdal.org/tutorials/geotransforms_tut.html
-/// * rasterio 1.0+ vs. GDAL: https://rasterio.readthedocs.io/en/latest/topics/migrating-to-v1.html#affine-affine-vs-gdal-style-geotransforms
+/// Other sources:
+/// * [GDAL geotransform](https://gdal.org/tutorials/geotransforms_tut.html)
+/// * [rasterio 1.0+ vs. GDAL](https://rasterio.readthedocs.io/en/latest/topics/migrating-to-v1.html#affine-affine-vs-gdal-style-geotransforms)
+///
 #[derive(Clone, PartialEq, Debug)]
 pub struct Transform {
     a: f64,

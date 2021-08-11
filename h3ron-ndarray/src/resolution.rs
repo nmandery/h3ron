@@ -10,16 +10,16 @@ use crate::{
 use h3ron::{H3Cell, ToPolygon, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 
 pub enum ResolutionSearchMode {
-    /// chose the h3 resolution where the difference in the area of a pixel and the h3index is
+    /// Chose the h3 resolution where the difference in the area of a pixel and the h3index is
     /// as small as possible.
     MinDiff,
 
-    /// chose the h3 resolution where the area of the h3index is smaller than the area of a pixel.
+    /// Chose the h3 resolution where the area of the h3index is smaller than the area of a pixel.
     SmallerThanPixel,
 }
 
-/// find the h3 resolution closed to the size of a pixel in an array
-/// of the given shape with the given transform
+/// Find the h3 resolution closed to the size of a pixel in an array
+/// of the given shape with the given transform.
 pub fn nearest_h3_resolution(
     shape: &[usize],
     transform: &Transform,

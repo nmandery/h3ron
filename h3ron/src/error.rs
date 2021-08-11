@@ -28,7 +28,7 @@ pub enum Error {
     InvalidH3Direction(u8),
 }
 
-/// ensure two cells have the same resolution
+/// Ensure two cells have the same resolution
 pub fn check_same_resolution(cell0: H3Cell, cell1: H3Cell) -> Result<(), Error> {
     let res0 = cell0.resolution();
     let res1 = cell1.resolution();
@@ -39,7 +39,7 @@ pub fn check_same_resolution(cell0: H3Cell, cell1: H3Cell) -> Result<(), Error> 
     }
 }
 
-/// ensure the given resolution is valid
+/// Ensure the given resolution is valid
 pub fn check_valid_h3_resolution(h3_res: u8) -> Result<(), Error> {
     if h3_res > H3_MAX_RESOLUTION {
         Err(Error::InvalidH3Resolution(h3_res))

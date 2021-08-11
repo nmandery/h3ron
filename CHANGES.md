@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### h3ron-ndarray crate
+#### Changed
+- Documentation improvements
+- Switch to `thiserror` crate for the error implementation.
+
 ## [0.12.0] - 2021-08-10
 
 ### h3ron crate

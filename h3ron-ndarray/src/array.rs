@@ -14,15 +14,15 @@ use crate::{error::Error, transform::Transform};
 // already imported by ndarray::parallel::prelude
 //use rayon::prelude::*;
 
-/// the order of the axis in the two-dimensional array
+/// The order of the axis in the two-dimensional array
 #[allow(clippy::upper_case_acronyms)]
 pub enum AxisOrder {
-    /// X,Y ordering
+    /// `X,Y` ordering
     XY,
 
-    /// Y,X ordering
+    /// `Y,X` ordering
     ///
-    /// this is the order used by github.com/georust/gdal (ndarray feature gate)
+    /// This is the order used by [github.com/georust/gdal](https://github.com/georust/gdal) (behind the `ndarray` feature gate)
     YX,
 }
 
@@ -69,9 +69,9 @@ where
     chunks
 }
 
-/// find all boxes in the array where there are any values except the nodata_value
+/// Find all boxes in the array where there are any values except the `nodata_value`
 ///
-/// this implementation is far from perfect and often recognizes multiple smaller
+/// This implementation is far from perfect and often recognizes multiple smaller
 /// clusters as one as its based on completely empty columns and rows, but it is probably
 /// sufficient for the purpose to reduce the number of hexagons
 /// to be generated when dealing with fragmented/sparse datasets.

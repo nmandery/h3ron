@@ -14,6 +14,7 @@ repository = "https://github.com/nmandery/h3ron"
 geo-types = "^0.7"
 rayon = "^1.5"
 log = "^0.4"
+thiserror = "1.0"
 
 [dependencies.ndarray]
 version = "^0.15"

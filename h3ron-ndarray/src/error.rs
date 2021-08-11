@@ -1,20 +1,11 @@
-use std::fmt;
+use thiserror::Error as DeriveError;
 
-#[derive(Debug)]
+#[derive(Debug, DeriveError)]
 pub enum Error {
+    #[error("Transform is not invertible")]
     TransformNotInvertible,
+    #[error("Empty array")]
     EmptyArray,
+    #[error("Unsupported array shape")]
     UnsupportedArrayShape,
 }
-
-impl fmt::Display for Error {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::TransformNotInvertible => write!(f, "transform is not invertible"),
-            Self::EmptyArray => write!(f, "empty array"),
-            Self::UnsupportedArrayShape => write!(f, "unsupported array shape"),
-        }
-    }
-}
-
-impl std::error::Error for Error {}
