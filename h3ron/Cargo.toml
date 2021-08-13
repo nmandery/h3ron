@@ -36,3 +36,11 @@ version = "^0.22"
 features = [
     "geo-types"
 ]
+
+[dev-dependencies.criterion]
+version = "^0.3"
+features = ["html_reports"]
+
+[[bench]]
+name = "k_ring_variants"
+harness = false

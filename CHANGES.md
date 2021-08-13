@@ -9,6 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### h3ron crate
 #### Added
+- `KRingBuilder` for repeated creation of small k-rings while avoiding allocations for each cell.
 - `neighbors_within_distance_window_or_default` iterator including a few simplified wrapper functions.
 
 ### h3ron-ndarray crate

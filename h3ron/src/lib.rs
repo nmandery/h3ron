@@ -132,6 +132,7 @@ pub fn compact(cells: &[H3Cell]) -> Vec<H3Cell> {
 }
 
 /// maximum number of cells needed for the k_ring
+#[inline]
 pub fn max_k_ring_size(k: u32) -> usize {
     unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
 }

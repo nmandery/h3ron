@@ -120,6 +120,10 @@ impl H3Cell {
     ///
     /// k-ring 0 is defined as the origin cell, k-ring 1 is defined as k-ring 0 and all
     /// neighboring cells, and so on.
+    ///
+    /// # Note
+    ///
+    /// For repeated building of k-rings, there is also [`super::iter::KRingBuilder`].
     pub fn k_ring(&self, k: u32) -> Vec<H3Cell> {
         let max_size = unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize };
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
@@ -157,6 +161,11 @@ impl H3Cell {
     ///
     /// A `Vec` of `(u32, Index)` tuple is returned. The `u32` value is the K Ring distance
     /// of the `Index` value.
+    ///
+    /// # Note
+    ///
+    /// For repeated building of k-rings, there is also [`super::iter::KRingBuilder`].
+    ///
     pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, H3Cell)> {
         let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
@@ -173,7 +182,7 @@ impl H3Cell {
     }
 
     pub fn hex_range_distances(&self, k_min: u32, k_max: u32) -> Result<Vec<(u32, H3Cell)>, Error> {
-        let max_size = unsafe { h3ron_h3_sys::maxKringSize(k_max as c_int) as usize };
+        let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
         let res = unsafe {
