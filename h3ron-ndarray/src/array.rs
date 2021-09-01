@@ -248,6 +248,7 @@ where
             } else {
                 compacted_vec.dedup();
             }
+            compacted_vec.shrink_to_fit();
         });
     }
 

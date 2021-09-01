@@ -28,7 +28,7 @@ impl<'a> CompactedCellVec {
 
     /// append the contents of another Stack to this one
     ///
-    /// Indexes get moved, see Vec::append
+    /// Indexes get moved, see [`Vec::append`]
     ///
     /// will trigger a re-compacting when compact is true
     pub fn append(&mut self, other: &mut Self, compact: bool) {
@@ -57,12 +57,19 @@ impl<'a> CompactedCellVec {
     /// append the contents of a vector. The caller is responsible to ensure that
     /// the append cells all are at resolution `resolution`.
     ///
-    /// Cells get moved, this is the same API as `Vec::append`
+    /// Cells get moved, this is the same API as [`Vec::append`].
     pub fn append_to_resolution(&mut self, resolution: u8, cells: &mut Vec<H3Cell>, compact: bool) {
         self.cells_by_resolution[resolution as usize].append(cells);
         if compact {
             self.compact_from_resolution_up(resolution as usize, &[]);
         }
+    }
+
+    /// shrink the underlying vec to fit using [`Vec::shrink_to_fit`].
+    pub fn shrink_to_fit(&mut self) {
+        self.cells_by_resolution
+            .iter_mut()
+            .for_each(|cells| cells.shrink_to_fit())
     }
 
     pub fn len(&self) -> usize {

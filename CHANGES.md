@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 #### Added
 - `KRingBuilder` for repeated creation of small k-rings while avoiding allocations for each cell.
 - `neighbors_within_distance_window_or_default` iterator including a few simplified wrapper functions.
+- add `CompactedCellVec::shrink_to_fit`
 
 ### h3ron-ndarray crate
 #### Changed
