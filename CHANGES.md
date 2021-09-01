@@ -17,6 +17,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Documentation improvements
 - Switch to `thiserror` crate for the error implementation.
 
+### h3ronpy
+#### Removed
+- The python extension has been removed from this repository and moved to its own repository at
+  [github.com/nmandery/h3ronpy](https://github.com/nmandery/h3ronpy).
+
 ## [0.12.0] - 2021-08-10
 
 ### h3ron crate

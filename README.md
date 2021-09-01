@@ -2,16 +2,9 @@
 
 ![ci](https://github.com/nmandery/h3ron/workflows/CI/badge.svg)
 
-[Rust](https://rustlang.org) library for the [H3](https://h3geo.org) geospatial indexing system including python bindings.
+[Rust](https://rustlang.org) library for the [H3](https://h3geo.org) geospatial indexing system.
 
-
-## [h3ronpy](./h3ronpy) Python extension [![PyPI version](https://img.shields.io/pypi/v/h3ronpy)](https://pypi.python.org/pypi/h3ronpy/)
-
-Python extension for the [H3](https://h3geo.org) geospatial indexing system exposing some functionalities of the `h3ron*` rust crates to the python language and integrating with the [numpy](https://numpy.org/), [pandas](https://pandas.pydata.org/),
-[geopandas](https://geopandas.org/), [rasterio](https://rasterio.readthedocs.io/en/latest/) and [gdal](https://gdal.org/) libraries.
-
-
-## Rust crates
+## Crates
 
 This repository consists of multiple crates:
 
@@ -34,7 +27,10 @@ Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to
 
 [Documentation](https://docs.rs/h3ron-ndarray)
 
-For an overview of some features complementary to libh3 please see the [README](h3ronpy/README.md) of the python bindings.
+## Python bindings
+
+Python bindings for parts of the functionalities are available in the `h3ronpy` extension now located in an [own repository](https://github.com/nmandery/h3ronpy).
+For an overview of some features complementary to libh3 please see the README of the python bindings.
 
 
 ## Why this name?
