@@ -9,9 +9,8 @@ After version 0.12 the version numbers from the individual crates are decoupled 
 done without github actions and without having to coordinate the release process with the `h3ronpy`
 python extension.
 
-See the individual changelog files:
+## h3ron-graph [Unreleased]
+### Added
+- Added initial version of this crate.
 
-* [h3ron](h3ron/CHANGES.md)
-* [h3ron-h3-sys](h3ron-h3-sys/CHANGES.md)
-* [h3ron-ndarray](h3ron-ndarray/CHANGES.md)
-* [h3ron-graph](h3ron-graph/CHANGES.md)
+[Unreleased]: https://github.com/nmandery/h3ron/compare/v0.12.0...HEAD
