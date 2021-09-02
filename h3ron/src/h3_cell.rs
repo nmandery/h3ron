@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use h3ron_h3_sys::{GeoCoord, H3Index};
 
 use crate::error::Error;
-use crate::index::Index;
+use crate::index::{HasH3Resolution, Index};
 use crate::util::{coordinate_to_geocoord, drain_h3indexes_to_indexes, point_to_geocoord};
 use crate::{max_k_ring_size, AreaUnits, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
 use std::fmt::{self, Debug, Formatter};
@@ -58,6 +58,12 @@ impl Index for H3Cell {
         } else {
             Ok(())
         }
+    }
+}
+
+impl HasH3Resolution for H3Cell {
+    fn h3_resolution(&self) -> u8 {
+        self.resolution()
     }
 }
 

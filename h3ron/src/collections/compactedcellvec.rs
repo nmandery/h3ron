@@ -1,10 +1,11 @@
 use std::borrow::Borrow;
-use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::ops::RangeInclusive;
 
 use serde::{Deserialize, Serialize};
 
+use crate::collections::H3CellSet;
+use crate::collections::HashSet;
 use crate::H3Cell;
 use crate::{compact, Index, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 
@@ -241,7 +242,7 @@ impl<'a> CompactedCellVec {
             let mut known_cells = self.cells_by_resolution[lowest_res]
                 .iter()
                 .cloned()
-                .collect::<HashSet<_>>();
+                .collect::<H3CellSet>();
 
             for r in (lowest_res + 1)..=(H3_MAX_RESOLUTION as usize) {
                 let mut orig_cells = std::mem::take(&mut self.cells_by_resolution[r]);

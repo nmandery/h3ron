@@ -27,6 +27,12 @@ Integration with the [ndarray](https://github.com/rust-ndarray/ndarray) crate to
 
 [Documentation](https://docs.rs/h3ron-ndarray)
 
+### [h3ron-graph](h3ron-graph) [![Latest Version](https://img.shields.io/crates/v/h3ron-graph.svg)](https://crates.io/crates/h3ron-graph) [![Documentation](https://docs.rs/h3ron-graph/badge.svg)](https://docs.rs/h3ron-graph)
+
+Graph algorithms on edges of th3 H3 spatial indexing system.
+
+[Documentation](https://docs.rs/h3ron-graph)
+
 ## Python bindings
 
 Python bindings for parts of the functionalities are available in the `h3ronpy` extension now located in an [own repository](https://github.com/nmandery/h3ronpy).

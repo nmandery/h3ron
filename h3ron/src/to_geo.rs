@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use crate::collections::H3CellMap;
 use std::os::raw::c_int;
 
 use geo::algorithm::euclidean_distance::EuclideanDistance;
@@ -73,7 +73,7 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
         align_to_h3_resolution: u8,
         smoothen: bool,
     ) -> Vec<Polygon<f64>> {
-        let mut cells_grouped = HashMap::new();
+        let mut cells_grouped = H3CellMap::default();
         for cell in self.iter() {
             let parent_cell = cell.get_parent_unchecked(align_to_h3_resolution);
             cells_grouped

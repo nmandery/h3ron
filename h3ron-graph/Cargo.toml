@@ -1,0 +1,66 @@
+[package]
+name = "h3ron-graph"
+version = "0.1.0"
+authors = ["Nico Mandery <nico@nmandery.net>"]
+description = "Graph algorithms on edges of th3 H3 spatial indexing system"
+edition = "2018"
+license = "MIT"
+keywords = ["geo", "spatial", "h3", "graph"]
+readme = "../README.md"
+homepage = "https://github.com/nmandery/h3ron"
+repository = "https://github.com/nmandery/h3ron"
+
+[features]
+use-gdal = ["gdal", "ordered-float"]
+osm = ["osmpbfreader"]
+io = ["h3ron/io"] # required for benchmarks and examples to be able to enable h3ron/io when being started with '--all-features'
+
+[dependencies]
+geo = "0.18"
+geo-types = "0.7"
+rayon = "^1.5"
+log = "^0.4"
+thiserror = "1.0"
+indexmap = "1.7"
+num-traits = "0.2"
+
+[dependencies.h3ron]
+path = "../h3ron"
+version = "0.12.0" # for publishing on crates.io
+features = ["use-rayon"]
+
+[dependencies.osmpbfreader]
+version = "0.15"
+optional = true
+
+[dependencies.gdal]
+version = "0.9.0"
+optional = true
+features = ["bindgen"]
+
+[dependencies.serde]
+version = "1"
+features = ["derive"]
+
+[dependencies.ordered-float]
+version = "2"
+features = ["serde"]
+optional = true
+
+[dev-dependencies]
+
+[dev-dependencies.criterion]
+version = "^0.3"
+features = ["html_reports"]
+
+[dev-dependencies.clap]
+version = "^2.33"
+
+[[bench]]
+name = "route_germany"
+required-features = ["ordered-float", "h3ron/io"]
+harness = false
+
+[[example]]
+name = "graph_from_osm"
+required-features = ["osm", "ordered-float", "h3ron/io"]

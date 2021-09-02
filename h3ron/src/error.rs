@@ -26,6 +26,13 @@ pub enum Error {
     InvalidH3Resolution(u8),
     #[error("Invalid H3 direction bit {0}")]
     InvalidH3Direction(u8),
+
+    /// io error. The io error is always part of the enum
+    /// regardless if the `io` feature is enabled to avoid having
+    /// different variations of this enum depending on the selected
+    /// feature flags.
+    #[error("io error: {0}")]
+    IOError(#[from] std::io::Error),
 }
 
 /// Ensure two cells have the same resolution

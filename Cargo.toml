@@ -3,7 +3,8 @@
 members = [
     "h3ron-h3-sys",
     "h3ron",
-    "h3ron-ndarray"
+    "h3ron-ndarray",
+    "h3ron-graph",
 ]
 [profile.release]
 #debug = true # for flamegraph

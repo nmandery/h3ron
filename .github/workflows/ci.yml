@@ -52,7 +52,7 @@ jobs:
         with:
           command: test
           toolchain: stable
-          args: --workspace
+          args: --workspace --all-features
 
 #
 #  rust-publish:

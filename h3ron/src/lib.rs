@@ -1,3 +1,9 @@
+//!
+//! # Features
+//!
+//! * **io**: Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
+//! during development.
+//! * **use-rayon**: Enables [`collections::ThreadPartitionedMap`].
 use std::iter::Iterator;
 use std::os::raw::c_int;
 
@@ -11,8 +17,8 @@ pub use to_geo::{
 use crate::error::check_same_resolution;
 use crate::util::{drain_h3indexes_to_indexes, linestring_to_geocoords};
 pub use {
-    error::Error, h3_cell::H3Cell, h3_direction::H3Direction, h3_edge::H3Edge, index::Index,
-    to_h3::ToH3Cells,
+    error::Error, h3_cell::H3Cell, h3_direction::H3Direction, h3_edge::H3Edge,
+    index::HasH3Resolution, index::Index, to_h3::ToH3Cells,
 };
 
 #[macro_use]
@@ -25,6 +31,8 @@ mod h3_cell;
 mod h3_direction;
 mod h3_edge;
 mod index;
+#[cfg(feature = "io")]
+pub mod io;
 pub mod iter;
 mod to_geo;
 mod to_h3;

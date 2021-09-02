@@ -9,3 +9,4 @@ perf.data.old
 flamegraph*.svg
 /venv
 __pycache__
+*.osm.pbf

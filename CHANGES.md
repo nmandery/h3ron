@@ -7,16 +7,27 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+Version numbers from the individual crates are now decoupled from each other as releases are now
+done without github actions and without having to coordinate the release process with the `h3ronpy`
+python extension.
+
 ### h3ron crate
 #### Added
 - `KRingBuilder` for repeated creation of small k-rings while avoiding allocations for each cell.
 - `neighbors_within_distance_window_or_default` iterator including a few simplified wrapper functions.
 - add `CompactedCellVec::shrink_to_fit`
+- added specialized collections based on `hashbrown` with `ahash` hashing. Added
+  `ThreadPartionedMap` behind `use-rayon` feature.
+- `HasH3Resolution` trait
 
 ### h3ron-ndarray crate
 #### Changed
 - Documentation improvements
 - Switch to `thiserror` crate for the error implementation.
+
+### h3ron-graph crate
+#### Added
+- Added initial version of this crate.
 
 ### h3ronpy
 #### Removed

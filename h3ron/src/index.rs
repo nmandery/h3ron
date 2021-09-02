@@ -81,3 +81,10 @@ pub trait Index: Sized + PartialEq {
         drain_h3indexes_to_indexes(h3_indexes_out)
     }
 }
+
+/// trait to be implemented by all structs being based
+/// on H3 data with a given resolution
+pub trait HasH3Resolution {
+    /// Gets the index resolution (0-15)
+    fn h3_resolution(&self) -> u8;
+}

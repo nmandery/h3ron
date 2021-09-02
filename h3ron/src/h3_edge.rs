@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::H3Index;
 
-use crate::index::Index;
+use crate::index::{HasH3Resolution, Index};
 use crate::to_geo::ToLineString;
 use crate::{Error, FromH3Index, H3Cell, ToCoordinate};
 
@@ -130,6 +130,12 @@ impl Index for H3Edge {
         } else {
             Ok(())
         }
+    }
+}
+
+impl HasH3Resolution for H3Edge {
+    fn h3_resolution(&self) -> u8 {
+        self.resolution()
     }
 }
 
