@@ -223,7 +223,7 @@ where
         loop {
             if let Some((cell, value)) = self.current_cell_key_value.as_ref() {
                 // advance until we find the next existing neighbor
-                while let Some((neighbor_cell, neighbor_k)) = self.k_ring_builder.next() {
+                for (neighbor_cell, neighbor_k) in &mut self.k_ring_builder {
                     if let Some(neighbor_value) =
                         (self.get_cell_value_fn)(&neighbor_cell).or(self.neighbor_default_value)
                     {

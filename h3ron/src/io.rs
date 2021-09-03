@@ -1,3 +1,6 @@
+//! Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
+//! during development.
+//!
 use std::io;
 
 use crate::Error;
@@ -59,7 +62,7 @@ mod tests {
         let data = vec![1_i32, 2, 3, 4];
         let mut data_bytes: Vec<u8> = vec![];
         serialize_into(Cursor::new(&mut data_bytes), &data, compress).unwrap();
-        assert!(data_bytes.len() > 0);
+        assert!(!data_bytes.is_empty());
         let data2: Vec<i32> = deserialize_from(Cursor::new(&data_bytes)).unwrap();
         assert_eq!(data, data2);
     }
