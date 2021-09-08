@@ -5,7 +5,7 @@
 //! fluctuation in runtime during benchmarks. Interestingly the normally very fast
 //! `rustc_hash` (uses `FxHash`) seems to be very slow with H3 cells and edges. Mostly noticed during
 //! deserialization of graphs, but also during using the `pathfinding` crate which uses
-//! `rustc_hash` internally. May be related to https://github.com/rust-lang/rustc-hash/issues/14 and
+//! `rustc_hash` internally. May be related to <https://github.com/rust-lang/rustc-hash/issues/14> and
 //! the quadratic insertion cost issue described [here](https://accidentallyquadratic.tumblr.com/post/153545455987/rust-hash-iteration-reinsertion).
 //!
 //! `hashbrown` is used as it supports some APIs which are still unstable on `std::collections::HashMap`.
