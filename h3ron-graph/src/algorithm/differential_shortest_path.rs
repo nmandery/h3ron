@@ -5,8 +5,10 @@ use std::sync::Arc;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::algo::path::Path;
-use crate::algo::shortest_path::{ManyToManyOptions, ShortestPath};
+use crate::algorithm::path::Path;
+use crate::algorithm::shortest_path::{
+    ManyToManyOptions, ShortestPathManyToMany, ShortestPathOptions,
+};
 use crate::error::Error;
 use h3ron::collections::H3CellSet;
 use h3ron::iter::change_cell_resolution;
@@ -36,19 +38,21 @@ pub fn differential_shortest_path<G, T, I>(
     origin_cells: I,
     destination_cells: I,
     downsampled_graph: Option<Arc<G>>,
-    many_to_many_options: ManyToManyOptions,
+    shortest_path_options: &ShortestPathOptions,
+    many_to_many_options: &ManyToManyOptions,
 ) -> Result<Vec<DifferentialShortestPath<Path<T>>>, Error>
 where
     T: PartialEq + Ord + Send + Copy + Sync,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
-    G: ShortestPath<T> + HasH3Resolution,
+    G: ShortestPathManyToMany<T> + HasH3Resolution,
 {
     differential_shortest_path_map(
         graph,
         origin_cells,
         destination_cells,
         downsampled_graph,
+        shortest_path_options,
         many_to_many_options,
         |path| path,
     )
@@ -59,18 +63,19 @@ pub fn differential_shortest_path_map<G, T, I, F, O>(
     origin_cells: I,
     destination_cells: I,
     downsampled_graph: Option<Arc<G>>,
-    many_to_many_options: ManyToManyOptions,
+    shortest_path_options: &ShortestPathOptions,
+    many_to_many_options: &ManyToManyOptions,
     path_map_fn: F,
 ) -> Result<Vec<DifferentialShortestPath<O>>, Error>
 where
     T: PartialEq + Ord + Send + Copy + Sync,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
-    G: ShortestPath<T> + HasH3Resolution,
+    G: ShortestPathManyToMany<T> + HasH3Resolution,
     F: Fn(Path<T>) -> O + Send + Sync + Clone,
     O: Send + Ord + Clone + Sync,
 {
-    let exclude_cells = if let Some(ex) = many_to_many_options.exclude_cells {
+    let exclude_cells = if let Some(ex) = &shortest_path_options.exclude_cells {
         ex
     } else {
         return Err(Error::ParameterError(
@@ -111,23 +116,23 @@ where
             let without_disturbance = ds_graph.shortest_path_many_to_many_map(
                 &downsampled_origins,
                 &downsampled_destinations,
-                &ManyToManyOptions {
-                    num_destinations_to_reach: many_to_many_options.num_destinations_to_reach,
+                &ShortestPathOptions {
+                    exclude_cells: None,
                     num_gap_cells_to_graph: 0,
-                    ..Default::default()
                 },
+                many_to_many_options,
                 path_map_fn.clone(),
             )?;
             let exclude_cells_downsampled: H3CellSet =
-                change_cell_resolution(&exclude_cells, ds_graph.h3_resolution()).collect();
+                change_cell_resolution(exclude_cells.clone(), ds_graph.h3_resolution()).collect();
             let with_disturbance = ds_graph.shortest_path_many_to_many_map(
                 &downsampled_origins,
                 &downsampled_destinations,
-                &ManyToManyOptions {
-                    num_destinations_to_reach: many_to_many_options.num_destinations_to_reach,
+                &ShortestPathOptions {
                     exclude_cells: Some(exclude_cells_downsampled.clone()),
                     num_gap_cells_to_graph: 0,
                 },
+                many_to_many_options,
                 path_map_fn.clone(),
             )?;
 
@@ -170,22 +175,19 @@ where
     let mut paths_without_disturbance = graph.shortest_path_many_to_many_map(
         &selected_origin_cells,
         &destination_cells,
-        &ManyToManyOptions {
-            num_destinations_to_reach: many_to_many_options.num_destinations_to_reach,
-            num_gap_cells_to_graph: many_to_many_options.num_gap_cells_to_graph,
-            ..Default::default()
+        &ShortestPathOptions {
+            num_gap_cells_to_graph: shortest_path_options.num_gap_cells_to_graph,
+            exclude_cells: None,
         },
+        many_to_many_options,
         path_map_fn.clone(),
     )?;
 
     let mut paths_with_disturbance = graph.shortest_path_many_to_many_map(
         &selected_origin_cells,
         &destination_cells,
-        &ManyToManyOptions {
-            num_destinations_to_reach: many_to_many_options.num_destinations_to_reach,
-            exclude_cells: Some(exclude_cells),
-            num_gap_cells_to_graph: many_to_many_options.num_gap_cells_to_graph,
-        },
+        shortest_path_options,
+        many_to_many_options,
         path_map_fn,
     )?;
 

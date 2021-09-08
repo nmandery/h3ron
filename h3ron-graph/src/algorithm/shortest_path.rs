@@ -5,8 +5,8 @@ use std::ops::Add;
 use num_traits::Zero;
 use rayon::prelude::*;
 
-use crate::algo::dijkstra::{build_path_with_cost, dijkstra_partial};
-use crate::algo::path::Path;
+use crate::algorithm::dijkstra::{build_path_with_cost, dijkstra_partial};
+use crate::algorithm::path::Path;
 use crate::error::Error;
 use crate::routing::RoutingH3EdgeGraph;
 use h3ron::collections::{H3CellMap, H3CellSet, HashMap};
@@ -14,12 +14,7 @@ use h3ron::iter::change_cell_resolution;
 use h3ron::{H3Cell, HasH3Resolution};
 
 #[derive(Clone, Debug)]
-pub struct ManyToManyOptions {
-    /// number of destinations to reach.
-    /// Routing for the origin cell will stop when this number of destinations are reached. When not set,
-    /// routing will continue until all destinations are reached
-    pub num_destinations_to_reach: Option<usize>,
-
+pub struct ShortestPathOptions {
     /// cells which are not allowed to be used for routing
     pub exclude_cells: Option<H3CellSet>,
 
@@ -29,10 +24,9 @@ pub struct ManyToManyOptions {
     pub num_gap_cells_to_graph: u32,
 }
 
-impl Default for ManyToManyOptions {
+impl Default for ShortestPathOptions {
     fn default() -> Self {
         Self {
-            num_destinations_to_reach: None,
             exclude_cells: None,
             num_gap_cells_to_graph: 0,
         }
@@ -40,6 +34,31 @@ impl Default for ManyToManyOptions {
 }
 
 pub trait ShortestPath<T: Ord + Send + Clone> {
+    fn shortest_path(
+        &self,
+        origin_cell: H3Cell,
+        destination_cell: H3Cell,
+        options: &ShortestPathOptions,
+    ) -> Result<Option<Path<T>>, Error>;
+}
+
+#[derive(Clone, Debug)]
+pub struct ManyToManyOptions {
+    /// number of destinations to reach.
+    /// Routing for the origin cell will stop when this number of destinations are reached. When not set,
+    /// routing will continue until all destinations are reached
+    pub num_destinations_to_reach: Option<usize>,
+}
+
+impl Default for ManyToManyOptions {
+    fn default() -> Self {
+        Self {
+            num_destinations_to_reach: None,
+        }
+    }
+}
+
+pub trait ShortestPathManyToMany<T: Ord + Send + Clone> {
     /// Returns found paths keyed by the origin cell.
     ///
     /// All cells must be in the h3 resolution of the graph.
@@ -48,13 +67,20 @@ pub trait ShortestPath<T: Ord + Send + Clone> {
         &self,
         origin_cells: I,
         destination_cells: I,
-        options: &ManyToManyOptions,
+        shortest_path_options: &ShortestPathOptions,
+        many_to_many_options: &ManyToManyOptions,
     ) -> Result<H3CellMap<Vec<Path<T>>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
     {
-        self.shortest_path_many_to_many_map(origin_cells, destination_cells, options, |path| path)
+        self.shortest_path_many_to_many_map(
+            origin_cells,
+            destination_cells,
+            shortest_path_options,
+            many_to_many_options,
+            |path| path,
+        )
     }
 
     /// Returns found paths, transformed by the `path_map_fn` and keyed by the
@@ -68,7 +94,8 @@ pub trait ShortestPath<T: Ord + Send + Clone> {
         &self,
         origin_cells: I,
         destination_cells: I,
-        options: &ManyToManyOptions,
+        shortest_path_options: &ShortestPathOptions,
+        many_to_many_options: &ManyToManyOptions,
         path_map_fn: F,
     ) -> Result<H3CellMap<Vec<O>>, Error>
     where
@@ -78,7 +105,7 @@ pub trait ShortestPath<T: Ord + Send + Clone> {
         O: Send + Ord + Clone;
 }
 
-impl<T> ShortestPath<T> for RoutingH3EdgeGraph<T>
+impl<T> ShortestPathManyToMany<T> for RoutingH3EdgeGraph<T>
 where
     T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
@@ -86,7 +113,8 @@ where
         &self,
         origin_cells: I,
         destination_cells: I,
-        options: &ManyToManyOptions,
+        shortest_path_options: &ShortestPathOptions,
+        many_to_many_options: &ManyToManyOptions,
         path_map_fn: F,
     ) -> Result<H3CellMap<Vec<O>>, Error>
     where
@@ -102,7 +130,7 @@ where
                 .filtered_graph_membership::<Vec<_>, _>(
                     change_cell_resolution(origin_cells, self.h3_resolution()).collect(),
                     |node_type| node_type.is_origin(),
-                    options.num_gap_cells_to_graph,
+                    shortest_path_options.num_gap_cells_to_graph,
                 )
                 .drain(..)
             {
@@ -129,7 +157,7 @@ where
             .filtered_graph_membership::<Vec<_>, _>(
                 change_cell_resolution(destination_cells, self.h3_resolution()).collect(),
                 |node_type| node_type.is_destination(),
-                options.num_gap_cells_to_graph,
+                shortest_path_options.num_gap_cells_to_graph,
             )
             .drain(..)
             .filter_map(|connected_cell| {
@@ -145,7 +173,7 @@ where
         }
 
         let is_excluded = |cell: H3Cell| {
-            options
+            shortest_path_options
                 .exclude_cells
                 .as_ref()
                 .map(|exclude| exclude.contains(&cell))
@@ -157,7 +185,7 @@ where
             filtered_origin_cells.len(),
             filtered_destination_cells.len(),
             self.h3_resolution(),
-            options.num_gap_cells_to_graph
+            shortest_path_options.num_gap_cells_to_graph
         );
         let paths = filtered_origin_cells
             .par_iter()
@@ -195,7 +223,7 @@ where
 
                             // stop when enough destination cells are reached
                             destination_cells_reached.len()
-                                >= options
+                                >= many_to_many_options
                                     .num_destinations_to_reach
                                     .unwrap_or_else(|| filtered_destination_cells.len())
                         } else {
@@ -233,5 +261,38 @@ where
             .flatten()
             .collect::<H3CellMap<_>>();
         Ok(paths)
+    }
+}
+
+impl<T> ShortestPath<T> for RoutingH3EdgeGraph<T>
+where
+    T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+{
+    fn shortest_path(
+        &self,
+        origin_cell: H3Cell,
+        destination_cell: H3Cell,
+        shortest_path_options: &ShortestPathOptions,
+    ) -> Result<Option<Path<T>>, Error> {
+        // this implementation just uses the many_to_many variant, so it has a bit of
+        // overhead in regards to rayon and the used collections
+        self.shortest_path_many_to_many(
+            vec![origin_cell],
+            vec![destination_cell],
+            shortest_path_options,
+            &Default::default(),
+        )
+        .map(|mut paths| {
+            paths
+                .remove(&origin_cell)
+                .map(|mut paths| {
+                    if paths.is_empty() {
+                        None
+                    } else {
+                        Some(paths.remove(0))
+                    }
+                })
+                .flatten()
+        })
     }
 }

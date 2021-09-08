@@ -7,7 +7,7 @@ use ordered_float::OrderedFloat;
 
 use h3ron::io::deserialize_from;
 use h3ron::{H3Cell, HasH3Resolution};
-use h3ron_graph::algo::shortest_path::{ManyToManyOptions, ShortestPath};
+use h3ron_graph::algorithm::shortest_path::{ManyToManyOptions, ShortestPathManyToMany};
 use h3ron_graph::graph::H3EdgeGraph;
 use h3ron_graph::routing::RoutingH3EdgeGraph;
 
@@ -43,13 +43,17 @@ fn route_across_germany(routing_graph: &RoutingH3EdgeGraph<OrderedFloat<f64>>) {
         .unwrap(),
     ];
 
-    let options = ManyToManyOptions {
+    let many_to_many_options = ManyToManyOptions {
         num_destinations_to_reach: Some(destination_cells.len()),
-        ..Default::default()
     };
 
     let routes_map = routing_graph
-        .shortest_path_many_to_many(vec![origin_cell], destination_cells, &options)
+        .shortest_path_many_to_many(
+            vec![origin_cell],
+            destination_cells,
+            &Default::default(),
+            &many_to_many_options,
+        )
         .unwrap();
     assert_eq!(
         routes_map.get(&origin_cell).map(|routes| routes.len()),
