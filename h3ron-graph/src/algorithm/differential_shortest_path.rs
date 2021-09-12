@@ -150,7 +150,7 @@ where
                     // are reduced. The result is a larger number of full-resolution routing runs
                     // is performed.
                     !cell.k_ring(k_affected).iter().all(|ring_cell| {
-                        with_disturbance.get(ring_cell) == without_disturbance.get(ring_cell)
+                        with_disturbance.get(&ring_cell) == without_disturbance.get(&ring_cell)
                     })
                 })
                 .copied()

@@ -4,6 +4,7 @@ use std::ops::RangeInclusive;
 
 use serde::{Deserialize, Serialize};
 
+use crate::collections::indexvec::IndexVec;
 use crate::collections::H3CellSet;
 use crate::collections::HashSet;
 use crate::H3Cell;
@@ -175,7 +176,7 @@ impl<'a> CompactedCellVec {
             compacted_vec: self,
             current_resolution: H3_MIN_RESOLUTION as usize,
             current_pos: 0,
-            current_uncompacted: vec![],
+            current_uncompacted: Default::default(),
             iteration_resolution: resolution as usize,
         }
     }
@@ -219,7 +220,7 @@ impl<'a> CompactedCellVec {
             cells_to_compact.sort_unstable();
             cells_to_compact.dedup();
             let compacted = compact(&cells_to_compact);
-            for cell in compacted {
+            for cell in compacted.iter() {
                 let res = cell.resolution() as usize;
                 resolutions_touched.insert(res);
                 self.cells_by_resolution[res].push(cell);
@@ -313,7 +314,7 @@ pub struct CompactedCellVecUncompactedIterator<'a> {
     compacted_vec: &'a CompactedCellVec,
     current_resolution: usize,
     current_pos: usize,
-    current_uncompacted: Vec<H3Cell>,
+    current_uncompacted: IndexVec<H3Cell>,
     iteration_resolution: usize,
 }
 

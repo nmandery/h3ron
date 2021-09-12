@@ -14,8 +14,9 @@ pub use to_geo::{
     to_linked_polygons, ToAlignedLinkedPolygons, ToCoordinate, ToLinkedPolygons, ToPolygon,
 };
 
+use crate::collections::indexvec::IndexVec;
 use crate::error::check_same_resolution;
-use crate::util::{drain_h3indexes_to_indexes, linestring_to_geocoords};
+use crate::util::linestring_to_geocoords;
 pub use {
     error::Error, h3_cell::H3Cell, h3_direction::H3Direction, h3_edge::H3Edge,
     index::HasH3Resolution, index::Index, to_h3::ToH3Cells,
@@ -94,8 +95,8 @@ pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
     }
 }
 
-pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Cell> {
-    let h3_indexes = unsafe {
+pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> IndexVec<H3Cell> {
+    unsafe {
         let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(poly.exterior());
         let mut interiors: Vec<Vec<GeoCoord>> = poly
             .interiors()
@@ -114,29 +115,28 @@ pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> Vec<H3Cell> {
         let num_hexagons = h3ron_h3_sys::maxPolyfillSize(&gp, h3_resolution as c_int);
 
         // pre-allocate for the expected number of hexagons
-        let mut h3_indexes: Vec<H3Index> = vec![0; num_hexagons as usize];
+        let mut index_vec = IndexVec::with_length(num_hexagons as usize);
 
-        h3ron_h3_sys::polyfill(&gp, h3_resolution as c_int, h3_indexes.as_mut_ptr());
-        h3_indexes
-    };
-    drain_h3indexes_to_indexes(h3_indexes)
+        h3ron_h3_sys::polyfill(&gp, h3_resolution as c_int, index_vec.as_mut_ptr());
+        index_vec
+    }
 }
 
 ///
 /// the input vec must be deduplicated and all cells must be at the same resolution
-pub fn compact(cells: &[H3Cell]) -> Vec<H3Cell> {
-    let mut h3_indexes_out: Vec<H3Index> = vec![0; cells.len()];
+pub fn compact(cells: &[H3Cell]) -> IndexVec<H3Cell> {
+    let mut index_vec = IndexVec::with_length(cells.len());
     unsafe {
         // the following requires `repr(transparent)` on H3Cell
         let h3index_slice =
             std::slice::from_raw_parts(cells.as_ptr() as *const H3Index, cells.len());
         h3ron_h3_sys::compact(
             h3index_slice.as_ptr(),
-            h3_indexes_out.as_mut_ptr(),
+            index_vec.as_mut_ptr(),
             cells.len() as c_int,
         );
     }
-    drain_h3indexes_to_indexes(h3_indexes_out)
+    index_vec
 }
 
 /// maximum number of cells needed for the k_ring
@@ -160,30 +160,29 @@ fn line_size_not_checked(start: H3Cell, end: H3Cell) -> Result<usize, Error> {
     }
 }
 
-fn line_between_cells_not_checked(start: H3Cell, end: H3Cell) -> Result<Vec<H3Cell>, Error> {
+fn line_between_cells_not_checked(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>, Error> {
     let num_indexes = line_size_not_checked(start, end)?;
-    let mut h3_indexes_out: Vec<H3Index> = vec![0; num_indexes];
-    let retval = unsafe {
-        h3ron_h3_sys::h3Line(start.h3index(), end.h3index(), h3_indexes_out.as_mut_ptr())
-    };
+    let mut index_vec = IndexVec::with_length(num_indexes);
+    let retval =
+        unsafe { h3ron_h3_sys::h3Line(start.h3index(), end.h3index(), index_vec.as_mut_ptr()) };
     if retval != 0 {
         return Err(Error::LineNotComputable);
     }
-    Ok(drain_h3indexes_to_indexes(h3_indexes_out))
+    Ok(index_vec)
 }
 
 /// Line of h3 indexes connecting two indexes
-pub fn line_between_cells(start: H3Cell, end: H3Cell) -> Result<Vec<H3Cell>, Error> {
+pub fn line_between_cells(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>, Error> {
     check_same_resolution(start, end)?;
     line_between_cells_not_checked(start, end)
 }
 
 /// Generate h3 cells along the given linestring
 ///
-/// The returned cells are ordered sequentially, there may
-/// be duplicates caused by the start and endpoints of multiple line segments.
-pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Cell>, Error> {
-    let mut cells_out = vec![];
+/// The returned cells are ordered sequentially, there are no
+/// duplicates caused by the start and endpoints of multiple line segments.
+pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
+    let mut cells_out = IndexVec::new();
     for coords in linestring.0.windows(2) {
         let start_index = H3Cell::from_coordinate(&coords[0], h3_resolution)?;
         let end_index = H3Cell::from_coordinate(&coords[1], h3_resolution)?;
@@ -192,11 +191,9 @@ pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<Vec<H3Cel
         if segment_indexes.is_empty() {
             continue;
         }
-        if !cells_out.is_empty() && cells_out[cells_out.len() - 1] == segment_indexes[0] {
-            cells_out.remove(cells_out.len() - 1);
-        }
         cells_out.append(&mut segment_indexes);
     }
+    cells_out.dedup();
     Ok(cells_out)
 }
 
@@ -227,6 +224,6 @@ mod tests {
             Coordinate::from((-20.74, 34.88)),
             Coordinate::from((-23.55, 48.92)),
         ]);
-        assert!(line(&ls, 5).unwrap().len() > 200)
+        assert!(line(&ls, 5).unwrap().count() > 200)
     }
 }

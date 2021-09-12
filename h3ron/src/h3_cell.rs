@@ -9,9 +9,10 @@ use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::{GeoCoord, H3Index};
 
+use crate::collections::indexvec::IndexVec;
 use crate::error::Error;
 use crate::index::{HasH3Resolution, Index};
-use crate::util::{coordinate_to_geocoord, drain_h3indexes_to_indexes, point_to_geocoord};
+use crate::util::{coordinate_to_geocoord, point_to_geocoord};
 use crate::{max_k_ring_size, AreaUnits, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
 use std::fmt::{self, Debug, Formatter};
 
@@ -130,27 +131,24 @@ impl H3Cell {
     /// # Note
     ///
     /// For repeated building of k-rings, there is also [`super::iter::KRingBuilder`].
-    pub fn k_ring(&self, k: u32) -> Vec<H3Cell> {
-        let max_size = unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize };
-        let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
-
+    pub fn k_ring(&self, k: u32) -> IndexVec<H3Cell> {
+        let mut index_vec =
+            IndexVec::with_length(unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize });
         unsafe {
-            h3ron_h3_sys::kRing(self.0, k as c_int, h3_indexes_out.as_mut_ptr());
+            h3ron_h3_sys::kRing(self.0, k as c_int, index_vec.as_mut_ptr());
         }
-        drain_h3indexes_to_indexes(h3_indexes_out)
+        index_vec
     }
 
-    pub fn hex_ring(&self, k: u32) -> Result<Vec<H3Cell>, Error> {
+    pub fn hex_ring(&self, k: u32) -> Result<IndexVec<H3Cell>, Error> {
         // calculation of max_size taken from
         // https://github.com/uber/h3-py/blob/dd08189b378429291c342d0af3d3cc1e38a659d5/src/h3/_cy/cells.pyx#L111
-        let max_size = if k > 0 { 6 * k as usize } else { 1 };
-        let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
+        let mut index_vec = IndexVec::with_length(if k > 0 { 6 * k as usize } else { 1 });
 
-        let res = unsafe {
-            h3ron_h3_sys::hexRing(self.0, k as c_int, h3_indexes_out.as_mut_ptr()) as c_int
-        };
+        let res =
+            unsafe { h3ron_h3_sys::hexRing(self.0, k as c_int, index_vec.as_mut_ptr()) as c_int };
         if res == 0 {
-            Ok(drain_h3indexes_to_indexes(h3_indexes_out))
+            Ok(index_vec)
         } else {
             Err(Error::PentagonalDistortion)
         }
@@ -269,16 +267,18 @@ impl H3Cell {
     }
 
     /// Retrieves all unidirectional H3 edges around `self`
-    pub fn unidirectional_edges(&self) -> Vec<H3Edge> {
-        let mut h3_edges_out: Vec<H3Index> = vec![0; 6];
-
+    ///
+    /// For repeated creation of [`H3Edges`] around a [`H3Cell`] also
+    /// see [`H3EdgeBuilder`], which is more efficient.
+    pub fn unidirectional_edges(&self) -> IndexVec<H3Edge> {
+        let mut index_vec = IndexVec::with_length(6);
         unsafe {
             h3ron_h3_sys::getH3UnidirectionalEdgesFromHexagon(
                 self.h3index(),
-                h3_edges_out.as_mut_ptr(),
+                index_vec.as_mut_ptr(),
             )
         };
-        drain_h3indexes_to_indexes(h3_edges_out)
+        index_vec
     }
 }
 
@@ -380,7 +380,7 @@ mod tests {
     fn test_hex_ring_1() {
         let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
         let ring = idx.hex_ring(1).unwrap();
-        assert_eq!(ring.len(), 6);
+        assert_eq!(ring.iter().count(), 6);
         assert!(ring.iter().all(|index| index.is_valid()));
     }
 
@@ -388,7 +388,7 @@ mod tests {
     fn test_hex_ring_0() {
         let idx = H3Cell::new(0x89283080ddbffff_u64);
         let ring = idx.hex_ring(0).unwrap();
-        assert_eq!(ring.len(), 1);
+        assert_eq!(ring.iter().count(), 1);
         assert!(ring.iter().all(|index| index.is_valid()));
     }
 
@@ -467,7 +467,7 @@ mod tests {
         let idx: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
-        assert!(idx.is_neighbor_to(neighbor));
+        assert!(idx.is_neighbor_to(&neighbor));
         let wrong_neighbor = 0x8a2a1072b59ffff_u64.try_into().unwrap();
         assert!(!idx.is_neighbor_to(&wrong_neighbor));
         // Self
@@ -480,10 +480,10 @@ mod tests {
         assert_eq!(idx.distance_to(&idx), 0);
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(neighbor), 1);
+        assert_eq!(idx.distance_to(&neighbor), 1);
         let ring = idx.hex_ring(3).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(neighbor), 3);
+        assert_eq!(idx.distance_to(&neighbor), 3);
     }
 
     mod edges {
@@ -524,7 +524,7 @@ mod tests {
         fn can_find_edge_to() {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let ring = index.hex_ring(1).unwrap();
-            let neighbor = *ring.first().unwrap();
+            let neighbor = ring.first().unwrap();
             let edge_to = index.unidirectional_edge_to(&neighbor).unwrap();
             let edge_from = neighbor.unidirectional_edge_to(&index).unwrap();
             assert_ne!(edge_to.h3index(), 0);

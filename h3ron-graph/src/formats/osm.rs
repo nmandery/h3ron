@@ -69,8 +69,9 @@ where
                             .filter_map(|node_id| nodeid_coordinates.get(node_id).cloned())
                             .collect();
                         if coordinates.len() >= 2 {
-                            let mut h3indexes =
-                                h3ron::line(&LineString::from(coordinates), self.h3_resolution)?;
+                            let mut h3indexes: Vec<_> =
+                                h3ron::line(&LineString::from(coordinates), self.h3_resolution)?
+                                    .into();
                             h3indexes.dedup();
 
                             for window in h3indexes.windows(2) {

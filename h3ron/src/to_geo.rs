@@ -7,6 +7,7 @@ use geo_types::{Coordinate, LineString, Point, Polygon};
 use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, radsToDegs, H3Index, LinkedGeoPolygon};
 
 use crate::algorithm::smoothen_h3_linked_polygon;
+use crate::collections::indexvec::IndexVec;
 use crate::collections::CompactedCellVec;
 use crate::{Error, H3Cell, Index};
 
@@ -31,6 +32,15 @@ pub trait ToLinkedPolygons {
 impl ToLinkedPolygons for Vec<H3Cell> {
     fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
         let mut cells = self.clone();
+        cells.sort_unstable();
+        cells.dedup();
+        to_linked_polygons(&cells, smoothen)
+    }
+}
+
+impl ToLinkedPolygons for IndexVec<H3Cell> {
+    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
+        let mut cells = self.iter().collect::<Vec<_>>();
         cells.sort_unstable();
         cells.dedup();
         to_linked_polygons(&cells, smoothen)

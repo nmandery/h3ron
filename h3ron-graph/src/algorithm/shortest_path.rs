@@ -6,8 +6,8 @@ use num_traits::Zero;
 use rayon::prelude::*;
 
 use h3ron::collections::{H3CellMap, H3CellSet, HashMap};
-use h3ron::iter::change_cell_resolution;
-use h3ron::{H3Cell, H3Edge, HasH3Resolution, Index};
+use h3ron::iter::{change_cell_resolution, H3EdgesBuilder};
+use h3ron::{H3Cell, HasH3Resolution};
 
 use crate::algorithm::dijkstra::{
     build_path_with_cost, dijkstra_partial, DijkstraSuccessorsGenerator,
@@ -351,7 +351,7 @@ fn is_excluded(cell: H3Cell, shortest_path_options: &ShortestPathOptions) -> boo
 struct SuccessorsGenerator<'a, T: Send + Sync> {
     routing_edge_graph: &'a RoutingH3EdgeGraph<T>,
     shortest_path_options: &'a ShortestPathOptions,
-    out_edges: [u64; 6],
+    edges_builder: H3EdgesBuilder,
     // TODO: figure out the correct lifetimes to avoid having to use Rc and RefCell
     #[allow(clippy::type_complexity)]
     out_cells: Rc<RefCell<[Option<(H3Cell, T)>; 6]>>,
@@ -368,7 +368,7 @@ where
         Self {
             routing_edge_graph,
             shortest_path_options,
-            out_edges: [0; 6],
+            edges_builder: Default::default(),
             out_cells: Rc::new(RefCell::new([None; 6])),
         }
     }
@@ -381,29 +381,23 @@ where
     type IntoIter = SuccessorsGeneratorIter<T>;
 
     fn successors_iter(&mut self, node: &H3Cell) -> Self::IntoIter {
-        unsafe {
-            h3ron_h3_sys::getH3UnidirectionalEdgesFromHexagon(
-                node.h3index(),
-                self.out_edges.as_mut_ptr(),
-            )
-        };
+        let mut edges_iter = self.edges_builder.from_origin_cell(node);
 
-        for (idx, edge_h3index) in self.out_edges.iter().enumerate() {
-            (*self.out_cells).borrow_mut()[idx] = if *edge_h3index != 0 {
-                let edge = H3Edge::new(*edge_h3index);
-
-                if let Some(weight) = self.routing_edge_graph.graph.edges.get(&edge) {
-                    let destination_cell = edge.destination_index_unchecked();
-                    if !is_excluded(destination_cell, self.shortest_path_options) {
-                        Some((destination_cell, *weight))
+        for out_cell in (*self.out_cells).borrow_mut().iter_mut() {
+            *out_cell = match edges_iter.next() {
+                Some(edge) => {
+                    if let Some(weight) = self.routing_edge_graph.graph.edges.get(&edge) {
+                        let destination_cell = edge.destination_index_unchecked();
+                        if !is_excluded(destination_cell, self.shortest_path_options) {
+                            Some((destination_cell, *weight))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }
-                } else {
-                    None
                 }
-            } else {
-                None
+                None => None,
             }
         }
         Self::IntoIter {

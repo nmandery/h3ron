@@ -11,6 +11,7 @@
 //! `hashbrown` is used as it supports some APIs which are still unstable on `std::collections::HashMap`.
 //!
 pub mod compactedcellvec;
+pub mod indexvec;
 
 #[cfg(feature = "use-rayon")]
 pub mod partitioned;

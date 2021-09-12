@@ -10,7 +10,12 @@ done without github actions and without having to coordinate the release process
 python extension.
 
 ## h3ron [Unreleased]
+
+- Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.
+
 ### Added
+- `IndexVec<T>` to interface between libh3 and rust.
+- `H3EdgesBuilder`:Creates H3Edges from cells while only requiring a single memory allocation when the struct is created.
 - `KRingBuilder` for repeated creation of small k-rings while avoiding allocations for each cell.
 - `neighbors_within_distance_window_or_default` iterator including a few simplified wrapper functions.
 - add `CompactedCellVec::shrink_to_fit`

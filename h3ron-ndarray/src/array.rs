@@ -286,7 +286,7 @@ where
                 let window_box = self.transform * &array_window;
 
                 let mut chunk_h3_map = HashMap::<&T, CompactedCellVec>::new();
-                for cell in polyfill(&window_box.to_polygon(), h3_resolution) {
+                for cell in polyfill(&window_box.to_polygon(), h3_resolution).drain() {
                     // find the array element for the coordinate of the h3ron index
                     let arr_coord = {
                         let transformed = &inverse_transform * &cell.to_coordinate();

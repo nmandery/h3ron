@@ -53,19 +53,19 @@ where
     pub fn edges_from_cell(&self, cell: &H3Cell) -> Vec<(&H3Edge, &T)> {
         cell.unidirectional_edges()
             .iter()
-            .filter_map(|edge| self.edges.get_key_value(edge))
+            .filter_map(|edge| self.edges.get_key_value(&edge))
             .collect()
     }
 
     /// get all edges in the graph leading to this cell from its neighbors
     pub fn edges_to_cell(&self, cell: &H3Cell) -> Vec<(&H3Edge, &T)> {
         cell.k_ring(1)
-            .drain(..)
+            .drain()
             .filter(|ring_cell| ring_cell != cell)
             .flat_map(|ring_cell| {
                 ring_cell
                     .unidirectional_edges()
-                    .drain(..)
+                    .drain()
                     .filter_map(|edge| self.edges.get_key_value(&edge))
                     .collect::<Vec<_>>()
             })
@@ -332,14 +332,15 @@ mod tests {
     #[test]
     fn test_downsample() {
         let full_h3_res = 8;
-        let cells = h3ron::line(
+        let cells: Vec<_> = h3ron::line(
             &LineString::from(vec![
                 Coordinate::from((23.3, 12.3)),
                 Coordinate::from((24.2, 12.2)),
             ]),
             full_h3_res,
         )
-        .unwrap();
+        .unwrap()
+        .into();
         assert!(cells.len() > 100);
 
         let mut graph = H3EdgeGraph::new(full_h3_res);
@@ -399,7 +400,7 @@ mod tests {
         let origin = H3Cell::from_coordinate(&Coordinate::from((23.3, 12.3)), res).unwrap();
         let edges: Vec<_> = origin
             .unidirectional_edges()
-            .drain(0..2)
+            .drain()
             .map(|edge| (edge, edge.destination_index_unchecked()))
             .collect();
 
@@ -410,7 +411,7 @@ mod tests {
         let edges2: Vec<_> = edges[1]
             .1
             .unidirectional_edges()
-            .drain(0..1)
+            .drain()
             .map(|edge| (edge, edge.destination_index_unchecked()))
             .collect();
         graph.add_edge(edges2[0].0, 1).unwrap();
