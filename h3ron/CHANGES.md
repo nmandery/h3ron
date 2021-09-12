@@ -11,8 +11,6 @@ python extension.
 
 ## h3ron [Unreleased]
 
-- Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.
-
 ### Added
 - `IndexVec<T>` to interface between libh3 and rust.
 - `H3EdgesBuilder`:Creates H3Edges from cells while only requiring a single memory allocation when the struct is created.
@@ -22,6 +20,9 @@ python extension.
 - added specialized collections based on `hashbrown` with `ahash` hashing. Added
   `ThreadPartionedMap` behind `use-rayon` feature.
 - `HasH3Resolution` trait
+
+### Changed
+- Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.
 
 ## h3ron [0.12.0] - 2021-08-10
 ### Added
