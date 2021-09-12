@@ -3,7 +3,8 @@
 //!
 //!
 //! Parts of this file have been taken from the excellent `pathfinding` crate and has been modified
-//! to use `ahash` for the reasons detailed in the introduction of this crates docs.
+//! to use `ahash` for the reasons detailed in the introduction of this crates docs, and
+//! to use the `DijkstraSuccessorsGenerator` trait.
 
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -17,13 +18,23 @@ use num_traits::Zero;
 
 use h3ron::collections::{HashMap, RandomState};
 
+pub trait DijkstraSuccessorsGenerator<'a, N, C>
+where
+    N: Eq + Hash + Clone,
+    C: Zero + Ord + Copy,
+{
+    type IntoIter: IntoIterator<Item = (N, C)>;
+
+    /// return an iterator visiting the successors of thie given `node`
+    fn successors_iter(&mut self, node: &N) -> Self::IntoIter;
+}
+
 /// Determine some reachable nodes from a starting point as well as the minimum cost to
 /// reach them and a possible optimal parent node
 /// using the [Dijkstra search algorithm](https://en.wikipedia.org/wiki/Dijkstra's_algorithm).
 ///
 /// - `start` is the starting node.
-/// - `successors` returns a list of successors for a given node, along with the cost for moving
-/// from the node to the successor.
+/// - `successors_generator` implements the generator trait to create an iterator of successors from the node.
 /// - `stop` is a function which is called every time a node is examined (including `start`).
 ///   A `true` return value will stop the algorithm.
 ///
@@ -33,19 +44,18 @@ use h3ron::collections::{HashMap, RandomState};
 ///
 /// The [`build_path_with_cost`] function can be used to build a full path from the starting point to one
 /// of the reachable targets.
-pub fn dijkstra_partial<N, C, FN, IN, FS>(
+pub fn dijkstra_partial<'a, N, C, G, FS>(
     start: &N,
-    mut successors: FN,
+    successors_generator: &mut G,
     mut stop: FS,
 ) -> (HashMap<N, (N, C)>, Option<N>)
 where
     N: Eq + Hash + Clone,
     C: Zero + Ord + Copy,
-    FN: FnMut(&N) -> IN,
-    IN: IntoIterator<Item = (N, C)>,
+    G: DijkstraSuccessorsGenerator<'a, N, C>,
     FS: FnMut(&N) -> bool,
 {
-    let (parents, reached) = run_dijkstra(start, &mut successors, &mut stop);
+    let (parents, reached) = run_dijkstra(start, successors_generator, &mut stop);
     (
         parents
             .iter()
@@ -56,16 +66,15 @@ where
     )
 }
 
-fn run_dijkstra<N, C, FN, IN, FS>(
+fn run_dijkstra<'a, N, C, G, FS>(
     start: &N,
-    successors: &mut FN,
+    successors_generator: &mut G,
     stop: &mut FS,
 ) -> (IndexMap<N, (usize, C), RandomState>, Option<usize>)
 where
     N: Eq + Hash + Clone,
     C: Zero + Ord + Copy,
-    FN: FnMut(&N) -> IN,
-    IN: IntoIterator<Item = (N, C)>,
+    G: DijkstraSuccessorsGenerator<'a, N, C>,
     FS: FnMut(&N) -> bool,
 {
     let mut to_see = BinaryHeap::new();
@@ -89,7 +98,7 @@ where
             if cost > c {
                 continue;
             }
-            successors(node)
+            successors_generator.successors_iter(node)
         };
         for (successor, move_cost) in successors {
             let new_cost = cost + move_cost;

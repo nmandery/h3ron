@@ -24,6 +24,10 @@ thiserror = "1.0"
 indexmap = "1.7"
 num-traits = "0.2"
 
+[dependencies.h3ron-h3-sys]
+path = "../h3ron-h3-sys"
+version = "0.12.0" # for publishing on crates.io
+
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.12.0" # for publishing on crates.io
