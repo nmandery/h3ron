@@ -133,6 +133,10 @@ impl<T: FromH3Index + Index> IndexVec<T> {
     pub fn count(&self) -> usize {
         self.iter_unchecked().count()
     }
+
+    pub fn push(&mut self, item: T) {
+        self.inner_vec.push(item.h3index())
+    }
 }
 
 impl<'a, T: FromH3Index + Index> IntoIterator for &'a IndexVec<T> {
