@@ -126,6 +126,10 @@ impl<T: FromH3Index + Index> IndexVec<T> {
         self.inner_vec.dedup()
     }
 
+    pub fn sort_unstable(&mut self) {
+        self.inner_vec.sort_unstable()
+    }
+
     pub fn count(&self) -> usize {
         self.iter_unchecked().count()
     }
