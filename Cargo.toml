@@ -10,3 +10,6 @@ members = [
 #debug = true # for flamegraph
 debug = false
 lto = "fat"
+
+[profile.bench]
+debug = true
