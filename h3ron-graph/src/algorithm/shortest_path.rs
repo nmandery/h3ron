@@ -57,7 +57,7 @@ impl DefaultShortestPathOptions {
     }
 }
 
-pub trait ShortestPath<T: Ord + Send + Clone> {
+pub trait ShortestPath<T> {
     fn shortest_path<OPT: ShortestPathOptions>(
         &self,
         origin_cell: H3Cell,
