@@ -18,49 +18,54 @@ use crate::routing::RoutingH3EdgeGraph;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-#[derive(Clone, Debug)]
-pub struct ShortestPathOptions {
+pub trait ShortestPathOptions {
     /// cells which are not allowed to be used for routing
-    pub exclude_cells: Option<H3CellSet>,
+    fn exclude_cells(&self) -> Option<H3CellSet> {
+        None
+    }
 
     /// Number of cells to be allowed to be missing between
     /// a cell and the graph while the cell is still counted as being connected
     /// to the graph
-    pub num_gap_cells_to_graph: u32,
+    fn num_gap_cells_to_graph(&self) -> u32 {
+        0
+    }
+
+    /// number of destinations to reach.
+    /// Routing for the origin cell will stop when this number of destinations are reached. When not set,
+    /// routing will continue until all destinations are reached
+    fn num_destinations_to_reach(&self) -> Option<usize> {
+        None
+    }
 }
 
-impl Default for ShortestPathOptions {
+/// Default implementation of a type implementing the `ShortestPathOptions`
+/// trait.
+pub struct DefaultShortestPathOptions {}
+
+impl ShortestPathOptions for DefaultShortestPathOptions {}
+
+impl Default for DefaultShortestPathOptions {
     fn default() -> Self {
-        Self {
-            exclude_cells: None,
-            num_gap_cells_to_graph: 0,
-        }
+        Self {}
+    }
+}
+
+impl DefaultShortestPathOptions {
+    pub fn new() -> Self {
+        Default::default()
     }
 }
 
 pub trait ShortestPath<T: Ord + Send + Clone> {
-    fn shortest_path(
+    fn shortest_path<OPT: ShortestPathOptions>(
         &self,
         origin_cell: H3Cell,
         destination_cell: H3Cell,
-        options: &ShortestPathOptions,
-    ) -> Result<Option<Path<T>>, Error>;
-}
-
-#[derive(Clone, Debug)]
-pub struct ManyToManyOptions {
-    /// number of destinations to reach.
-    /// Routing for the origin cell will stop when this number of destinations are reached. When not set,
-    /// routing will continue until all destinations are reached
-    pub num_destinations_to_reach: Option<usize>,
-}
-
-impl Default for ManyToManyOptions {
-    fn default() -> Self {
-        Self {
-            num_destinations_to_reach: None,
-        }
-    }
+        options: &OPT,
+    ) -> Result<Option<Path<T>>, Error>
+    where
+        OPT: ShortestPathOptions;
 }
 
 pub trait ShortestPathManyToMany<T: Ord + Send + Clone> {
@@ -68,24 +73,18 @@ pub trait ShortestPathManyToMany<T: Ord + Send + Clone> {
     ///
     /// All cells must be in the h3 resolution of the graph.
     #[inline]
-    fn shortest_path_many_to_many<I>(
+    fn shortest_path_many_to_many<I, OPT>(
         &self,
         origin_cells: I,
         destination_cells: I,
-        shortest_path_options: &ShortestPathOptions,
-        many_to_many_options: &ManyToManyOptions,
+        options: &OPT,
     ) -> Result<H3CellMap<Vec<Path<T>>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
+        OPT: ShortestPathOptions + Send + Sync,
     {
-        self.shortest_path_many_to_many_map(
-            origin_cells,
-            destination_cells,
-            shortest_path_options,
-            many_to_many_options,
-            |path| path,
-        )
+        self.shortest_path_many_to_many_map(origin_cells, destination_cells, options, |path| path)
     }
 
     /// Returns found paths, transformed by the `path_map_fn` and keyed by the
@@ -95,18 +94,18 @@ pub trait ShortestPathManyToMany<T: Ord + Send + Clone> {
     /// type.
     ///
     /// All cells must be in the h3 resolution of the graph.
-    fn shortest_path_many_to_many_map<I, F, O>(
+    fn shortest_path_many_to_many_map<I, OPT, PM, O>(
         &self,
         origin_cells: I,
         destination_cells: I,
-        shortest_path_options: &ShortestPathOptions,
-        many_to_many_options: &ManyToManyOptions,
-        path_map_fn: F,
+        options: &OPT,
+        path_map_fn: PM,
     ) -> Result<H3CellMap<Vec<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        F: Fn(Path<T>) -> O + Send + Sync,
+        OPT: ShortestPathOptions + Send + Sync,
+        PM: Fn(Path<T>) -> O + Send + Sync,
         O: Send + Ord + Clone;
 }
 
@@ -114,41 +113,43 @@ impl<T> ShortestPathManyToMany<T> for RoutingH3EdgeGraph<T>
 where
     T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
-    fn shortest_path_many_to_many_map<I, F, O>(
+    fn shortest_path_many_to_many_map<I, OPT, PM, O>(
         &self,
         origin_cells: I,
         destination_cells: I,
-        shortest_path_options: &ShortestPathOptions,
-        many_to_many_options: &ManyToManyOptions,
-        path_map_fn: F,
+        options: &OPT,
+        path_map_fn: PM,
     ) -> Result<H3CellMap<Vec<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        F: Fn(Path<T>) -> O + Send + Sync,
+        OPT: ShortestPathOptions + Send + Sync,
+        PM: Fn(Path<T>) -> O + Send + Sync,
         O: Send + Ord + Clone,
     {
-        let filtered_origin_cells = self.filtered_origin_cells(shortest_path_options, origin_cells);
+        let filtered_origin_cells =
+            self.filtered_origin_cells(options.num_gap_cells_to_graph(), origin_cells);
         if filtered_origin_cells.is_empty() {
             return Ok(Default::default());
         }
 
         let filtered_destination_cells =
-            self.filtered_destination_cells(shortest_path_options, destination_cells)?;
+            self.filtered_destination_cells(options.num_gap_cells_to_graph(), destination_cells)?;
 
         log::debug!(
             "shortest_path many-to-many: from {} cells to {} cells at resolution {} with num_gap_cells_to_graph = {}",
             filtered_origin_cells.len(),
             filtered_destination_cells.len(),
             self.h3_resolution(),
-            shortest_path_options.num_gap_cells_to_graph
+            options.num_gap_cells_to_graph()
         );
+        let exclude_cells = options.exclude_cells();
         let paths = filtered_origin_cells
             .par_iter()
             .map(|(origin_cell, output_origin_cells)| {
                 let mut destination_cells_reached = H3CellSet::default();
 
-                let mut successors_gen = SuccessorsGenerator::new(self, shortest_path_options);
+                let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells);
 
                 // Possible improvement: add timeout to avoid continuing routing forever
                 let (routemap, _) = dijkstra_partial(
@@ -163,8 +164,8 @@ where
 
                             // stop when enough destination cells are reached
                             destination_cells_reached.len()
-                                >= many_to_many_options
-                                    .num_destinations_to_reach
+                                >= options
+                                    .num_destinations_to_reach()
                                     .unwrap_or_else(|| filtered_destination_cells.len())
                         } else {
                             false
@@ -208,14 +209,19 @@ impl<T> ShortestPath<T> for RoutingH3EdgeGraph<T>
 where
     T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
-    fn shortest_path(
+    fn shortest_path<OPT>(
         &self,
         origin_cell: H3Cell,
         destination_cell: H3Cell,
-        shortest_path_options: &ShortestPathOptions,
-    ) -> Result<Option<Path<T>>, Error> {
-        let filtered_origin_cells =
-            self.filtered_origin_cells(shortest_path_options, std::iter::once(origin_cell));
+        options: &OPT,
+    ) -> Result<Option<Path<T>>, Error>
+    where
+        OPT: ShortestPathOptions,
+    {
+        let filtered_origin_cells = self.filtered_origin_cells(
+            options.num_gap_cells_to_graph(),
+            std::iter::once(origin_cell),
+        );
         let filtered_origin_cell = if let Some(first_fo) = filtered_origin_cells.first() {
             first_fo.0
         } else {
@@ -223,12 +229,16 @@ where
         };
 
         let (_, graph_destination_cell) = self
-            .filtered_destination_cells(shortest_path_options, std::iter::once(destination_cell))?
+            .filtered_destination_cells(
+                options.num_gap_cells_to_graph(),
+                std::iter::once(destination_cell),
+            )?
             .drain()
             .next()
             .unwrap();
 
-        let mut successors_gen = SuccessorsGenerator::new(self, shortest_path_options);
+        let exclude_cells = options.exclude_cells();
+        let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells);
 
         // Possible improvement: add timeout to avoid continuing routing forever
         let (routemap, _) = dijkstra_partial(
@@ -268,7 +278,7 @@ where
     /// the complete graph would be traversed.
     fn filtered_destination_cells<I>(
         &self,
-        shortest_path_options: &ShortestPathOptions,
+        num_gap_cells_to_graph: u32,
         destination_cells: I,
     ) -> Result<HashMap<H3Cell, H3Cell>, Error>
     where
@@ -279,7 +289,7 @@ where
             .filtered_graph_membership::<Vec<_>, _>(
                 change_cell_resolution(destination_cells, self.h3_resolution()).collect(),
                 |node_type| node_type.is_destination(),
-                shortest_path_options.num_gap_cells_to_graph,
+                num_gap_cells_to_graph,
             )
             .drain(..)
             .filter_map(|graph_membership| {
@@ -306,7 +316,7 @@ where
     /// The cell resolution is changed to the resolution of the graph.
     fn filtered_origin_cells<I>(
         &self,
-        shortest_path_options: &ShortestPathOptions,
+        num_gap_cells_to_graph: u32,
         origin_cells: I,
     ) -> Vec<(H3Cell, Vec<H3Cell>)>
     where
@@ -319,7 +329,7 @@ where
             .filtered_graph_membership::<Vec<_>, _>(
                 change_cell_resolution(origin_cells, self.h3_resolution()).collect(),
                 |node_type| node_type.is_origin(),
-                shortest_path_options.num_gap_cells_to_graph,
+                num_gap_cells_to_graph,
             )
             .drain(..)
         {
@@ -334,15 +344,6 @@ where
     }
 }
 
-#[inline(always)]
-fn is_excluded(cell: H3Cell, shortest_path_options: &ShortestPathOptions) -> bool {
-    shortest_path_options
-        .exclude_cells
-        .as_ref()
-        .map(|exclude| exclude.contains(&cell))
-        .unwrap_or(false)
-}
-
 /// generates all successors of a cell for the shortest_path algorithm
 ///
 /// This struct allocates the memory only once for all repeated calls. This
@@ -350,7 +351,7 @@ fn is_excluded(cell: H3Cell, shortest_path_options: &ShortestPathOptions) -> boo
 /// repeated allocations and deallocations during a benchmark
 struct SuccessorsGenerator<'a, T: Send + Sync> {
     routing_edge_graph: &'a RoutingH3EdgeGraph<T>,
-    shortest_path_options: &'a ShortestPathOptions,
+    exclude_cells: &'a Option<H3CellSet>,
     edges_builder: H3EdgesBuilder,
     // TODO: figure out the correct lifetimes to avoid having to use Rc and RefCell
     #[allow(clippy::type_complexity)]
@@ -363,11 +364,11 @@ where
 {
     pub fn new(
         routing_edge_graph: &'a RoutingH3EdgeGraph<T>,
-        shortest_path_options: &'a ShortestPathOptions,
+        exclude_cells: &'a Option<H3CellSet>,
     ) -> Self {
         Self {
             routing_edge_graph,
-            shortest_path_options,
+            exclude_cells,
             edges_builder: Default::default(),
             out_cells: Rc::new(RefCell::new([None; 6])),
         }
@@ -388,7 +389,12 @@ where
                 Some(edge) => {
                     if let Some(weight) = self.routing_edge_graph.graph.edges.get(&edge) {
                         let destination_cell = edge.destination_index_unchecked();
-                        if !is_excluded(destination_cell, self.shortest_path_options) {
+                        let is_excluded = self
+                            .exclude_cells
+                            .as_ref()
+                            .map(|exclude| exclude.contains(&destination_cell))
+                            .unwrap_or(false);
+                        if !is_excluded {
                             Some((destination_cell, *weight))
                         } else {
                             None
