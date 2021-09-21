@@ -18,14 +18,14 @@ pub struct GraphStats {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct H3EdgeGraph<T: Send + Sync> {
-    pub edges: ThreadPartitionedMap<H3Edge, T>,
+pub struct H3EdgeGraph<W: Send + Sync> {
+    pub edges: ThreadPartitionedMap<H3Edge, W>,
     pub h3_resolution: u8,
 }
 
-impl<T> H3EdgeGraph<T>
+impl<W> H3EdgeGraph<W>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Sync,
 {
     pub fn new(h3_resolution: u8) -> Self {
         Self {
@@ -45,12 +45,12 @@ where
         self.edges.len()
     }
 
-    pub fn edge_weight(&self, edge: &H3Edge) -> Option<&T> {
+    pub fn edge_weight(&self, edge: &H3Edge) -> Option<&W> {
         self.edges.get(edge)
     }
 
     /// get all edges in the graph leading from this edge to neighbors
-    pub fn edges_from_cell(&self, cell: &H3Cell) -> Vec<(&H3Edge, &T)> {
+    pub fn edges_from_cell(&self, cell: &H3Cell) -> Vec<(&H3Edge, &W)> {
         cell.unidirectional_edges()
             .iter()
             .filter_map(|edge| self.edges.get_key_value(&edge))
@@ -58,7 +58,7 @@ where
     }
 
     /// get all edges in the graph leading to this cell from its neighbors
-    pub fn edges_to_cell(&self, cell: &H3Cell) -> Vec<(&H3Edge, &T)> {
+    pub fn edges_to_cell(&self, cell: &H3Cell) -> Vec<(&H3Edge, &W)> {
         cell.k_ring(1)
             .drain()
             .filter(|ring_cell| ring_cell != cell)
@@ -76,7 +76,7 @@ where
         &mut self,
         cell_from: H3Cell,
         cell_to: H3Cell,
-        weight: T,
+        weight: W,
     ) -> Result<(), Error> {
         let edge = cell_from.unidirectional_edge_to(&cell_to)?;
         self.add_edge(edge, weight)
@@ -86,19 +86,19 @@ where
         &mut self,
         cell_from: H3Cell,
         cell_to: H3Cell,
-        weight: T,
+        weight: W,
     ) -> Result<(), Error> {
         self.add_edge_using_cells(cell_from, cell_to, weight)?;
         self.add_edge_using_cells(cell_to, cell_from, weight)
     }
 
-    pub fn add_edge(&mut self, edge: H3Edge, weight: T) -> Result<(), Error> {
+    pub fn add_edge(&mut self, edge: H3Edge, weight: W) -> Result<(), Error> {
         self.edges
             .insert_or_modify(edge, weight, edge_weight_selector);
         Ok(())
     }
 
-    pub fn try_add(&mut self, mut other: H3EdgeGraph<T>) -> Result<(), Error> {
+    pub fn try_add(&mut self, mut other: H3EdgeGraph<W>) -> Result<(), Error> {
         if self.h3_resolution != other.h3_resolution {
             return Err(Error::MixedH3Resolutions(
                 self.h3_resolution,
@@ -183,9 +183,9 @@ where
     }
 }
 
-impl<T> HasH3Resolution for H3EdgeGraph<T>
+impl<W> HasH3Resolution for H3EdgeGraph<W>
 where
-    T: Send + Sync,
+    W: Send + Sync,
 {
     fn h3_resolution(&self) -> u8 {
         self.h3_resolution
@@ -238,7 +238,7 @@ impl AddAssign<NodeType> for NodeType {
 }
 
 #[inline]
-fn edge_weight_selector<T: PartialOrd + Copy>(old: &T, new: T) -> T {
+fn edge_weight_selector<W: PartialOrd + Copy>(old: &W, new: W) -> W {
     // lower weight takes precedence
     if *old < new {
         *old
@@ -255,14 +255,14 @@ fn edge_weight_selector<T: PartialOrd + Copy>(old: &T, new: T) -> T {
 /// This has the potential to change the graphs topology as multiple edges get condensed into one.
 /// So for example routing results may differ in parts, but the computation time will be reduced by
 /// the reduced number of nodes and edges.
-pub fn downsample_graph<T, F>(
-    graph: &H3EdgeGraph<T>,
+pub fn downsample_graph<W, F>(
+    graph: &H3EdgeGraph<W>,
     target_h3_resolution: u8,
     weight_selector_fn: F,
-) -> Result<H3EdgeGraph<T>, Error>
+) -> Result<H3EdgeGraph<W>, Error>
 where
-    T: Sync + Send + Copy,
-    F: Fn(T, T) -> T + Sync + Send,
+    W: Sync + Send + Copy,
+    F: Fn(W, W) -> W + Sync + Send,
 {
     if target_h3_resolution >= graph.h3_resolution {
         return Err(Error::TooHighH3Resolution(target_h3_resolution));
@@ -312,11 +312,11 @@ where
     })
 }
 
-pub trait H3EdgeGraphBuilder<T>
+pub trait H3EdgeGraphBuilder<W>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Sync,
 {
-    fn build_graph(self) -> Result<H3EdgeGraph<T>, Error>;
+    fn build_graph(self) -> Result<H3EdgeGraph<W>, Error>;
 }
 
 #[cfg(test)]

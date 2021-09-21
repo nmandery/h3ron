@@ -10,20 +10,21 @@ use crate::graph::{H3EdgeGraph, NodeType};
 use h3ron::collections::ThreadPartitionedMap;
 use h3ron::{H3Cell, HasH3Resolution};
 
-pub struct RoutingH3EdgeGraph<T: Send + Sync> {
-    pub graph: H3EdgeGraph<T>,
+pub struct RoutingH3EdgeGraph<W: Send + Sync> {
+    pub graph: H3EdgeGraph<W>,
     graph_nodes: ThreadPartitionedMap<H3Cell, NodeType>,
 }
 
-impl<T> HasH3Resolution for RoutingH3EdgeGraph<T>
+impl<W> HasH3Resolution for RoutingH3EdgeGraph<W>
 where
-    T: Send + Sync,
+    W: Send + Sync,
 {
     fn h3_resolution(&self) -> u8 {
         self.graph.h3_resolution()
     }
 }
 
+// TODO: move to graph.rs, make public
 pub(crate) enum CellGraphMembership {
     /// the cell is connected to the graph
     DirectConnection(H3Cell),
@@ -57,9 +58,9 @@ impl CellGraphMembership {
 ///
 /// All routing methods will silently ignore origin and destination cells which are not
 /// part of the graph.
-impl<T> RoutingH3EdgeGraph<T>
+impl<W> RoutingH3EdgeGraph<W>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
     pub(crate) fn filtered_graph_membership<B, F>(
         &self,
@@ -114,13 +115,13 @@ where
     }
 }
 
-impl<T> TryFrom<H3EdgeGraph<T>> for RoutingH3EdgeGraph<T>
+impl<W> TryFrom<H3EdgeGraph<W>> for RoutingH3EdgeGraph<W>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     type Error = Error;
 
-    fn try_from(graph: H3EdgeGraph<T>) -> std::result::Result<Self, Self::Error> {
+    fn try_from(graph: H3EdgeGraph<W>) -> std::result::Result<Self, Self::Error> {
         let graph_nodes = graph.nodes();
         Ok(Self { graph, graph_nodes })
     }

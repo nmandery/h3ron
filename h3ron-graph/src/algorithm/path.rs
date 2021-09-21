@@ -8,16 +8,15 @@ use h3ron::{H3Cell, H3Edge, Index, ToCoordinate};
 use crate::error::Error;
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Path<T> {
+pub struct Path<W> {
     /// cells of the route in the order origin -> destination
     pub cells: Vec<H3Cell>,
 
-    /// the total cost of the route.
-    /// Sum of all edge weights
-    pub cost: T,
+    /// the total cost of the route (= sum of all edge weights).
+    pub cost: W,
 }
 
-impl<T> Path<T> {
+impl<W> Path<W> {
     pub fn is_empty(&self) -> bool {
         self.cells.is_empty()
     }
@@ -57,9 +56,9 @@ impl<T> Path<T> {
 ///
 /// This ordering can used to bring `Vec`s of routes in a deterministic order to make them
 /// comparable
-impl<T> Ord for Path<T>
+impl<W> Ord for Path<W>
 where
-    T: Ord,
+    W: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         let cmp_cost = self.cost.cmp(&other.cost);
@@ -77,9 +76,9 @@ where
     }
 }
 
-impl<T> PartialOrd for Path<T>
+impl<W> PartialOrd for Path<W>
 where
-    T: Ord,
+    W: Ord,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))

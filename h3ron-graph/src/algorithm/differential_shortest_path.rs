@@ -26,9 +26,9 @@ struct OverridingOptions<'a, OPT> {
     override_num_gap_cells_to_graph: Option<u32>,
 }
 
-impl<'a, OPT> ShortestPathOptions for OverridingOptions<'a, OPT>
+impl<'a, OPT, W> ShortestPathOptions<W> for OverridingOptions<'a, OPT>
 where
-    OPT: ShortestPathOptions,
+    OPT: ShortestPathOptions<W>,
 {
     fn exclude_cells(&self) -> Option<H3CellSet> {
         match self.override_exclude_cells.clone() {
@@ -47,6 +47,10 @@ where
     fn num_destinations_to_reach(&self) -> Option<usize> {
         self.inner_options.num_destinations_to_reach()
     }
+
+    fn adapt_weight(&self, edge: &H3Edge, edge_weight: W) -> W {
+        self.inner_options.adapt_weight(edge, edge_weight)
+    }
 }
 
 /// differential routing calculates the shortest path from (multiple) origin cells
@@ -61,19 +65,19 @@ where
 /// running time in most cases.
 /// The reduction should be no more than two resolutions.
 #[inline]
-pub fn differential_shortest_path<G, T, I, OPT>(
+pub fn differential_shortest_path<G, W, I, OPT>(
     graph: Arc<G>,
     origin_cells: I,
     destination_cells: I,
     downsampled_graph: Option<Arc<G>>,
     options: &OPT,
-) -> Result<Vec<DifferentialShortestPath<Path<T>>>, Error>
+) -> Result<Vec<DifferentialShortestPath<Path<W>>>, Error>
 where
-    T: PartialEq + Ord + Send + Copy + Sync,
+    W: PartialEq + Ord + Send + Copy + Sync,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
-    G: ShortestPathManyToMany<T> + HasH3Resolution,
-    OPT: ShortestPathOptions + Send + Sync,
+    G: ShortestPathManyToMany<W> + HasH3Resolution,
+    OPT: ShortestPathOptions<W> + Send + Sync,
 {
     differential_shortest_path_map(
         graph,
@@ -85,7 +89,7 @@ where
     )
 }
 
-pub fn differential_shortest_path_map<G, T, I, OPT, F, O>(
+pub fn differential_shortest_path_map<G, W, I, OPT, F, O>(
     graph: Arc<G>,
     origin_cells: I,
     destination_cells: I,
@@ -94,12 +98,12 @@ pub fn differential_shortest_path_map<G, T, I, OPT, F, O>(
     path_map_fn: F,
 ) -> Result<Vec<DifferentialShortestPath<O>>, Error>
 where
-    T: PartialEq + Ord + Send + Copy + Sync,
+    W: PartialEq + Ord + Send + Copy + Sync,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
-    G: ShortestPathManyToMany<T> + HasH3Resolution,
-    OPT: ShortestPathOptions + Send + Sync,
-    F: Fn(Path<T>) -> O + Send + Sync + Clone,
+    G: ShortestPathManyToMany<W> + HasH3Resolution,
+    OPT: ShortestPathOptions<W> + Send + Sync,
+    F: Fn(Path<W>) -> O + Send + Sync + Clone,
     O: Send + Ord + Clone + Sync,
 {
     let exclude_cells = if let Some(ex) = options.exclude_cells() {

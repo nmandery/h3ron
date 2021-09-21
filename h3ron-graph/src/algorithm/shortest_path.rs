@@ -7,7 +7,7 @@ use rayon::prelude::*;
 
 use h3ron::collections::{H3CellMap, H3CellSet, HashMap};
 use h3ron::iter::{change_cell_resolution, H3EdgesBuilder};
-use h3ron::{H3Cell, HasH3Resolution};
+use h3ron::{H3Cell, H3Edge, HasH3Resolution};
 
 use crate::algorithm::dijkstra::{
     build_path_with_cost, dijkstra_partial, DijkstraSuccessorsGenerator,
@@ -16,9 +16,13 @@ use crate::algorithm::path::Path;
 use crate::error::Error;
 use crate::routing::RoutingH3EdgeGraph;
 use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::rc::Rc;
 
-pub trait ShortestPathOptions {
+///
+/// Generic type parameters:
+/// * `W`: The weight used in the graph.
+pub trait ShortestPathOptions<W> {
     /// cells which are not allowed to be used for routing
     fn exclude_cells(&self) -> Option<H3CellSet> {
         None
@@ -37,38 +41,58 @@ pub trait ShortestPathOptions {
     fn num_destinations_to_reach(&self) -> Option<usize> {
         None
     }
+
+    /// transform or change the weight of an edge before it is fed into
+    /// the shortest path algorithm.
+    ///
+    /// This may be used to bring in external state or routing constraints.
+    ///
+    /// As this function will be used during graph traversal, it should
+    /// be somewhat fast and inlined.
+    #[allow(unused_variables)]
+    #[inline(always)]
+    fn adapt_weight(&self, edge: &H3Edge, edge_weight: W) -> W {
+        edge_weight
+    }
 }
 
 /// Default implementation of a type implementing the `ShortestPathOptions`
 /// trait.
-pub struct DefaultShortestPathOptions {}
+pub struct DefaultShortestPathOptions<W> {
+    phantom_weight: PhantomData<W>,
+}
 
-impl ShortestPathOptions for DefaultShortestPathOptions {}
+impl<W> ShortestPathOptions<W> for DefaultShortestPathOptions<W> {}
 
-impl Default for DefaultShortestPathOptions {
+impl<W> Default for DefaultShortestPathOptions<W> {
     fn default() -> Self {
-        Self {}
+        Self {
+            phantom_weight: Default::default(),
+        }
     }
 }
 
-impl DefaultShortestPathOptions {
+impl<W> DefaultShortestPathOptions<W> {
     pub fn new() -> Self {
         Default::default()
     }
 }
 
-pub trait ShortestPath<T> {
-    fn shortest_path<OPT: ShortestPathOptions>(
+pub trait ShortestPath<W> {
+    fn shortest_path<OPT: ShortestPathOptions<W>>(
         &self,
         origin_cell: H3Cell,
         destination_cell: H3Cell,
         options: &OPT,
-    ) -> Result<Option<Path<T>>, Error>
+    ) -> Result<Option<Path<W>>, Error>
     where
-        OPT: ShortestPathOptions;
+        OPT: ShortestPathOptions<W>;
 }
 
-pub trait ShortestPathManyToMany<T: Ord + Send + Clone> {
+pub trait ShortestPathManyToMany<W>
+where
+    W: Send + Sync + Ord + Copy,
+{
     /// Returns found paths keyed by the origin cell.
     ///
     /// All cells must be in the h3 resolution of the graph.
@@ -78,11 +102,11 @@ pub trait ShortestPathManyToMany<T: Ord + Send + Clone> {
         origin_cells: I,
         destination_cells: I,
         options: &OPT,
-    ) -> Result<H3CellMap<Vec<Path<T>>>, Error>
+    ) -> Result<H3CellMap<Vec<Path<W>>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        OPT: ShortestPathOptions + Send + Sync,
+        OPT: ShortestPathOptions<W> + Send + Sync,
     {
         self.shortest_path_many_to_many_map(origin_cells, destination_cells, options, |path| path)
     }
@@ -104,14 +128,14 @@ pub trait ShortestPathManyToMany<T: Ord + Send + Clone> {
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        OPT: ShortestPathOptions + Send + Sync,
-        PM: Fn(Path<T>) -> O + Send + Sync,
+        OPT: ShortestPathOptions<W> + Send + Sync,
+        PM: Fn(Path<W>) -> O + Send + Sync,
         O: Send + Ord + Clone;
 }
 
-impl<T> ShortestPathManyToMany<T> for RoutingH3EdgeGraph<T>
+impl<W> ShortestPathManyToMany<W> for RoutingH3EdgeGraph<W>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
     fn shortest_path_many_to_many_map<I, OPT, PM, O>(
         &self,
@@ -123,8 +147,8 @@ where
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        OPT: ShortestPathOptions + Send + Sync,
-        PM: Fn(Path<T>) -> O + Send + Sync,
+        OPT: ShortestPathOptions<W> + Send + Sync,
+        PM: Fn(Path<W>) -> O + Send + Sync,
         O: Send + Ord + Clone,
     {
         let filtered_origin_cells =
@@ -149,7 +173,7 @@ where
             .map(|(origin_cell, output_origin_cells)| {
                 let mut destination_cells_reached = H3CellSet::default();
 
-                let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells);
+                let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells, options);
 
                 // Possible improvement: add timeout to avoid continuing routing forever
                 let (routemap, _) = dijkstra_partial(
@@ -205,18 +229,18 @@ where
     }
 }
 
-impl<T> ShortestPath<T> for RoutingH3EdgeGraph<T>
+impl<W> ShortestPath<W> for RoutingH3EdgeGraph<W>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
     fn shortest_path<OPT>(
         &self,
         origin_cell: H3Cell,
         destination_cell: H3Cell,
         options: &OPT,
-    ) -> Result<Option<Path<T>>, Error>
+    ) -> Result<Option<Path<W>>, Error>
     where
-        OPT: ShortestPathOptions,
+        OPT: ShortestPathOptions<W>,
     {
         let filtered_origin_cells = self.filtered_origin_cells(
             options.num_gap_cells_to_graph(),
@@ -238,7 +262,7 @@ where
             .unwrap();
 
         let exclude_cells = options.exclude_cells();
-        let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells);
+        let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells, options);
 
         // Possible improvement: add timeout to avoid continuing routing forever
         let (routemap, _) = dijkstra_partial(
@@ -262,9 +286,9 @@ where
     }
 }
 
-impl<T> RoutingH3EdgeGraph<T>
+impl<W> RoutingH3EdgeGraph<W>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
     /// maps the requested cells to the directly to the graph connected cells in
     /// graph where theses are used as a substitute. For direct graph members
@@ -349,37 +373,41 @@ where
 /// This struct allocates the memory only once for all repeated calls. This
 /// results in in runtime improvement of approx. -25% by avoiding
 /// repeated allocations and deallocations during a benchmark
-struct SuccessorsGenerator<'a, T: Send + Sync> {
-    routing_edge_graph: &'a RoutingH3EdgeGraph<T>,
+struct SuccessorsGenerator<'a, W: Send + Sync, OPT: ShortestPathOptions<W>> {
+    routing_edge_graph: &'a RoutingH3EdgeGraph<W>,
     exclude_cells: &'a Option<H3CellSet>,
     edges_builder: H3EdgesBuilder,
+    options: &'a OPT,
     // TODO: figure out the correct lifetimes to avoid having to use Rc and RefCell
     #[allow(clippy::type_complexity)]
-    out_cells: Rc<RefCell<[Option<(H3Cell, T)>; 6]>>,
+    out_cells: Rc<RefCell<[Option<(H3Cell, W)>; 6]>>,
 }
 
-impl<'a, T: Send + Sync> SuccessorsGenerator<'a, T>
+impl<'a, W: Send + Sync, OPT: ShortestPathOptions<W>> SuccessorsGenerator<'a, W, OPT>
 where
-    T: Copy,
+    W: Copy,
 {
     pub fn new(
-        routing_edge_graph: &'a RoutingH3EdgeGraph<T>,
+        routing_edge_graph: &'a RoutingH3EdgeGraph<W>,
         exclude_cells: &'a Option<H3CellSet>,
+        options: &'a OPT,
     ) -> Self {
         Self {
             routing_edge_graph,
             exclude_cells,
             edges_builder: Default::default(),
+            options,
             out_cells: Rc::new(RefCell::new([None; 6])),
         }
     }
 }
 
-impl<'a, T: Send + Sync> DijkstraSuccessorsGenerator<'a, H3Cell, T> for SuccessorsGenerator<'a, T>
+impl<'a, W: Send + Sync, OPT: ShortestPathOptions<W>> DijkstraSuccessorsGenerator<'a, H3Cell, W>
+    for SuccessorsGenerator<'a, W, OPT>
 where
-    T: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
 {
-    type IntoIter = SuccessorsGeneratorIter<T>;
+    type IntoIter = SuccessorsGeneratorIter<W>;
 
     fn successors_iter(&mut self, node: &H3Cell) -> Self::IntoIter {
         let mut edges_iter = self.edges_builder.from_origin_cell(node);
@@ -395,7 +423,10 @@ where
                             .map(|exclude| exclude.contains(&destination_cell))
                             .unwrap_or(false);
                         if !is_excluded {
-                            Some((destination_cell, *weight))
+                            // this allows external state to modify graph weights during the algorithm run.
+                            let adapted_weight = self.options.adapt_weight(&edge, *weight);
+
+                            Some((destination_cell, adapted_weight))
                         } else {
                             None
                         }
@@ -413,17 +444,17 @@ where
     }
 }
 
-struct SuccessorsGeneratorIter<T: Send + Sync> {
+struct SuccessorsGeneratorIter<W: Send + Sync> {
     #[allow(clippy::type_complexity)]
-    out_cells: Rc<RefCell<[Option<(H3Cell, T)>; 6]>>,
+    out_cells: Rc<RefCell<[Option<(H3Cell, W)>; 6]>>,
     current_pos: usize,
 }
 
-impl<T: Send + Sync> Iterator for SuccessorsGeneratorIter<T>
+impl<W: Send + Sync> Iterator for SuccessorsGeneratorIter<W>
 where
-    T: Copy,
+    W: Copy,
 {
-    type Item = (H3Cell, T);
+    type Item = (H3Cell, W);
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.current_pos < (*self.out_cells).borrow().len() {
