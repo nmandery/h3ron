@@ -8,4 +8,5 @@ pub mod error;
 pub mod formats;
 pub mod graph;
 pub mod io;
+pub mod node;
 pub mod routing;

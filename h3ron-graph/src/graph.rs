@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign};
+use std::ops::Add;
 
 use geo::algorithm::simplify::Simplify;
 use geo_types::{MultiPolygon, Polygon};
@@ -9,6 +9,7 @@ use h3ron::collections::{H3CellMap, H3CellSet, ThreadPartitionedMap};
 use h3ron::{H3Cell, H3Edge, HasH3Resolution, Index, ToLinkedPolygons};
 
 use crate::error::Error;
+use crate::node::NodeType;
 
 #[derive(Serialize)]
 pub struct GraphStats {
@@ -192,51 +193,6 @@ where
     }
 }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub enum NodeType {
-    Origin,
-    Destination,
-    OriginAndDestination,
-}
-
-impl NodeType {
-    pub fn is_origin(&self) -> bool {
-        match self {
-            NodeType::Origin => true,
-            NodeType::Destination => false,
-            NodeType::OriginAndDestination => true,
-        }
-    }
-
-    pub fn is_destination(&self) -> bool {
-        match self {
-            NodeType::Origin => false,
-            NodeType::Destination => true,
-            NodeType::OriginAndDestination => true,
-        }
-    }
-}
-
-impl Add<NodeType> for NodeType {
-    type Output = NodeType;
-
-    fn add(self, rhs: NodeType) -> Self::Output {
-        if rhs == self {
-            self
-        } else {
-            Self::OriginAndDestination
-        }
-    }
-}
-
-impl AddAssign<NodeType> for NodeType {
-    fn add_assign(&mut self, rhs: NodeType) {
-        if self != &rhs {
-            *self = Self::OriginAndDestination
-        }
-    }
-}
-
 #[inline]
 fn edge_weight_selector<W: PartialOrd + Copy>(old: &W, new: W) -> W {
     // lower weight takes precedence
@@ -352,46 +308,6 @@ mod tests {
             downsample_graph(&graph, full_h3_res.saturating_sub(3), min).unwrap();
         assert!(downsampled_graph.num_edges() > 0);
         assert!(downsampled_graph.num_edges() < 20);
-    }
-
-    #[test]
-    fn test_nodetype_add() {
-        assert_eq!(NodeType::Origin, NodeType::Origin + NodeType::Origin);
-        assert_eq!(
-            NodeType::Destination,
-            NodeType::Destination + NodeType::Destination
-        );
-        assert_eq!(
-            NodeType::OriginAndDestination,
-            NodeType::Origin + NodeType::Destination
-        );
-        assert_eq!(
-            NodeType::OriginAndDestination,
-            NodeType::OriginAndDestination + NodeType::Destination
-        );
-        assert_eq!(
-            NodeType::OriginAndDestination,
-            NodeType::Destination + NodeType::Origin
-        );
-    }
-
-    #[test]
-    fn test_nodetype_addassign() {
-        let mut n1 = NodeType::Origin;
-        n1 += NodeType::Origin;
-        assert_eq!(n1, NodeType::Origin);
-
-        let mut n2 = NodeType::Origin;
-        n2 += NodeType::OriginAndDestination;
-        assert_eq!(n2, NodeType::OriginAndDestination);
-
-        let mut n3 = NodeType::Destination;
-        n3 += NodeType::OriginAndDestination;
-        assert_eq!(n3, NodeType::OriginAndDestination);
-
-        let mut n4 = NodeType::Destination;
-        n4 += NodeType::Origin;
-        assert_eq!(n4, NodeType::OriginAndDestination);
     }
 
     #[test]

@@ -14,6 +14,7 @@ use crate::algorithm::dijkstra::{
 };
 use crate::algorithm::path::Path;
 use crate::error::Error;
+use crate::node::GetGapBridgedCellNodes;
 use crate::routing::RoutingH3EdgeGraph;
 use std::cell::RefCell;
 use std::marker::PhantomData;
@@ -310,7 +311,7 @@ where
         I::Item: Borrow<H3Cell>,
     {
         let destinations: HashMap<H3Cell, H3Cell> = self
-            .filtered_graph_membership::<Vec<_>, _>(
+            .filtered_cell_nodes::<Vec<_>, _>(
                 change_cell_resolution(destination_cells, self.h3_resolution()).collect(),
                 |node_type| node_type.is_destination(),
                 num_gap_cells_to_graph,
@@ -350,7 +351,7 @@ where
         // maps cells to their closest found neighbors in the graph
         let mut origin_cell_map = H3CellMap::default();
         for gm in self
-            .filtered_graph_membership::<Vec<_>, _>(
+            .filtered_cell_nodes::<Vec<_>, _>(
                 change_cell_resolution(origin_cells, self.h3_resolution()).collect(),
                 |node_type| node_type.is_origin(),
                 num_gap_cells_to_graph,
