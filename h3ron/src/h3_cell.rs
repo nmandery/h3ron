@@ -13,7 +13,7 @@ use crate::collections::indexvec::IndexVec;
 use crate::error::Error;
 use crate::index::{HasH3Resolution, Index};
 use crate::util::{coordinate_to_geocoord, point_to_geocoord};
-use crate::{max_k_ring_size, AreaUnits, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
+use crate::{max_k_ring_size, ExactArea, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
 use std::fmt::{self, Debug, Formatter};
 
 /// H3 Index representing a H3 Cell (hexagon)
@@ -225,15 +225,6 @@ impl H3Cell {
             .collect()
     }
 
-    /// exact area for a specific cell (hexagon or pentagon)
-    pub fn area(&self, area_units: AreaUnits) -> f64 {
-        match area_units {
-            AreaUnits::M2 => unsafe { h3ron_h3_sys::cellAreaM2(self.0) },
-            AreaUnits::Km2 => unsafe { h3ron_h3_sys::cellAreaKm2(self.0) },
-            AreaUnits::Radians2 => unsafe { h3ron_h3_sys::cellAreaRads2(self.0) },
-        }
-    }
-
     /// determines if an H3 cell is a pentagon
     pub fn is_pentagon(&self) -> bool {
         unsafe { h3ron_h3_sys::h3IsPentagon(self.0) == 1 }
@@ -279,6 +270,30 @@ impl H3Cell {
             )
         };
         index_vec
+    }
+
+    /// get the average cell area at `resolution` in square meters.
+    pub fn area_m2(resolution: u8) -> f64 {
+        unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) }
+    }
+
+    /// get the average cell area at `resolution` in square kilometers.
+    pub fn area_km2(resolution: u8) -> f64 {
+        unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) }
+    }
+}
+
+impl ExactArea for H3Cell {
+    fn exact_area_m2(&self) -> f64 {
+        unsafe { h3ron_h3_sys::cellAreaM2(self.0) }
+    }
+
+    fn exact_area_km2(&self) -> f64 {
+        unsafe { h3ron_h3_sys::cellAreaKm2(self.0) }
+    }
+
+    fn exact_area_rads2(&self) -> f64 {
+        unsafe { h3ron_h3_sys::cellAreaRads2(self.0) }
     }
 }
 

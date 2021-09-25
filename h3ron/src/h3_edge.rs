@@ -11,7 +11,7 @@ use h3ron_h3_sys::H3Index;
 
 use crate::index::{HasH3Resolution, Index};
 use crate::to_geo::ToLineString;
-use crate::{Error, FromH3Index, H3Cell, ToCoordinate};
+use crate::{Error, ExactLength, FromH3Index, H3Cell, ToCoordinate};
 
 /// H3 Index representing an Unidirectional H3 edge
 #[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
@@ -48,21 +48,6 @@ impl H3Edge {
     /// Gets the average length of an edge in meters at `resolution`
     pub fn edge_length_m(resolution: u8) -> f64 {
         unsafe { h3ron_h3_sys::edgeLengthM(resolution as c_int) }
-    }
-
-    /// Retrieves the exact length of `self` in kilometers
-    pub fn exact_length_km(&self) -> f64 {
-        unsafe { h3ron_h3_sys::exactEdgeLengthKm(self.h3index()) }
-    }
-
-    /// Retrieves the exact length of `self` in meters
-    pub fn exact_length_m(&self) -> f64 {
-        unsafe { h3ron_h3_sys::exactEdgeLengthM(self.h3index()) }
-    }
-
-    /// Retrieves the exact length of `self` in radians
-    pub fn exact_length_rads(&self) -> f64 {
-        unsafe { h3ron_h3_sys::exactEdgeLengthRads(self.h3index()) }
     }
 
     /// Retrieves the destination H3 Cell of `self`
@@ -106,6 +91,23 @@ impl H3Edge {
         let res = self.origin_index_unchecked();
         res.validate()?;
         Ok(res)
+    }
+}
+
+impl ExactLength for H3Edge {
+    /// Retrieves the exact length of `self` in meters
+    fn exact_length_m(&self) -> f64 {
+        unsafe { h3ron_h3_sys::exactEdgeLengthM(self.h3index()) }
+    }
+
+    /// Retrieves the exact length of `self` in kilometers
+    fn exact_length_km(&self) -> f64 {
+        unsafe { h3ron_h3_sys::exactEdgeLengthKm(self.h3index()) }
+    }
+
+    /// Retrieves the exact length of `self` in radians
+    fn exact_length_rads(&self) -> f64 {
+        unsafe { h3ron_h3_sys::exactEdgeLengthRads(self.h3index()) }
     }
 }
 

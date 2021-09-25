@@ -23,6 +23,9 @@ python extension.
 
 ### Changed
 - Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.
+- Clean up measurement functions. Create `ExactArea` and `ExactLength` traits and move the measurement functions from `H3Cell` and `H3Edge`
+  to these traits. Remove `AreaUnits` and move average-area functions to `H3Cell`.
+
 
 ## h3ron [0.12.0] - 2021-08-10
 ### Added

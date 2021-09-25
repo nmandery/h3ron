@@ -13,14 +13,14 @@ use h3ron_h3_sys::{GeoCoord, GeoPolygon, Geofence, H3Index};
 pub use to_geo::{
     to_linked_polygons, ToAlignedLinkedPolygons, ToCoordinate, ToLinkedPolygons, ToPolygon,
 };
-
-use crate::collections::indexvec::IndexVec;
-use crate::error::check_same_resolution;
-use crate::util::linestring_to_geocoords;
 pub use {
     error::Error, h3_cell::H3Cell, h3_direction::H3Direction, h3_edge::H3Edge,
     index::HasH3Resolution, index::Index, to_h3::ToH3Cells,
 };
+
+use crate::collections::indexvec::IndexVec;
+use crate::error::check_same_resolution;
+use crate::util::linestring_to_geocoords;
 
 #[macro_use]
 mod util;
@@ -41,6 +41,7 @@ mod to_h3;
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
 
+/// trait for types which can be created from an H3Index
 pub trait FromH3Index {
     fn from_h3index(h3index: H3Index) -> Self;
 }
@@ -51,20 +52,28 @@ impl FromH3Index for H3Index {
     }
 }
 
-pub enum AreaUnits {
-    M2,
-    Km2,
-    Radians2,
+/// trait for types with a measurable area
+pub trait ExactArea {
+    /// Retrieves the exact area of `self` in square meters
+    fn exact_area_m2(&self) -> f64;
+
+    /// Retrieves the exact area of `self` in square kilometers
+    fn exact_area_km2(&self) -> f64;
+
+    /// Retrieves the exact area of `self` in square radians
+    fn exact_area_rads2(&self) -> f64;
 }
 
-impl AreaUnits {
-    pub fn hex_area_at_resolution(&self, resolution: u8) -> Result<f64, Error> {
-        match self {
-            AreaUnits::M2 => Ok(unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) }),
-            AreaUnits::Km2 => Ok(unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) }),
-            _ => Err(Error::UnsupportedOperation),
-        }
-    }
+/// trait for types with a measurable length
+pub trait ExactLength {
+    /// Retrieves the exact length of `self` in meters
+    fn exact_length_m(&self) -> f64;
+
+    /// Retrieves the exact length of `self` in kilometers
+    fn exact_length_km(&self) -> f64;
+
+    /// Retrieves the exact length of `self` in radians
+    fn exact_length_rads(&self) -> f64;
 }
 
 unsafe fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
@@ -199,11 +208,12 @@ pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<IndexVec<
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryFrom;
+
     use geo::Coordinate;
     use geo_types::LineString;
 
     use crate::{line, line_between_cells, H3Cell};
-    use std::convert::TryFrom;
 
     #[test]
     fn line_across_multiple_faces() {
