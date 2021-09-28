@@ -20,6 +20,8 @@ python extension.
 - added specialized collections based on `hashbrown` with `ahash` hashing. Added
   `ThreadPartionedMap` behind `use-rayon` feature.
 - `HasH3Resolution` trait
+- `H3Edge::cell_indexes` and `H3Edge::cell_indexes_unchecked` to get the origin and destination cell of an edge in one call.
+- `H3Edge::reversed` and `H3Edge::reversed_unchecked` to get the edge in the reverse direction.
 
 ### Changed
 - Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.

@@ -92,6 +92,52 @@ impl H3Edge {
         res.validate()?;
         Ok(res)
     }
+
+    /// Retrieves a `H3EdgeCells` of the origin and destination cell of the
+    /// edge.
+    pub fn cell_indexes_unchecked(&self) -> H3EdgeCells {
+        let mut out: [H3Index; 2] = [0, 0];
+        unsafe {
+            h3ron_h3_sys::getH3IndexesFromUnidirectionalEdge(self.h3index(), out.as_mut_ptr())
+        }
+        H3EdgeCells {
+            origin: H3Cell::new(out[0]),
+            destination: H3Cell::new(out[1]),
+        }
+    }
+
+    /// Retrieves a `H3EdgeCells` struct of the origin and destination cell of the
+    /// edge.
+    ///
+    /// # Returns
+    /// If the built indexes are invalid, returns an Error.
+    /// Use the `cell_indexes_unchecked` to avoid error.
+    pub fn cell_indexes(&self) -> Result<H3EdgeCells, Error> {
+        let cells = self.cell_indexes_unchecked();
+        cells.origin.validate()?;
+        cells.destination.validate()?;
+        Ok(cells)
+    }
+
+    /// Retrieves the corresponding edge in the reversed direction.
+    pub fn reversed_unchecked(&self) -> H3Edge {
+        let edge_cells = self.cell_indexes_unchecked();
+        edge_cells
+            .destination
+            .unidirectional_edge_to_unchecked(&edge_cells.origin)
+    }
+
+    /// Retrieves the corresponding edge in the reversed direction.
+    ///
+    /// # Returns
+    /// If the built edge is invalid, returns an Error.
+    /// Use the `reversed_unchecked` to avoid error.
+    pub fn reversed(&self) -> Result<H3Edge, Error> {
+        let edge_cells = self.cell_indexes()?;
+        edge_cells
+            .destination
+            .unidirectional_edge_to(&edge_cells.origin)
+    }
 }
 
 impl ExactLength for H3Edge {
@@ -161,19 +207,29 @@ impl FromStr for H3Edge {
 impl ToLineString for H3Edge {
     /// create a linestring from the origin index to the destination index
     fn to_linestring(&self) -> Result<LineString<f64>, Error> {
+        let edge_cells = self.cell_indexes()?;
         Ok(LineString::from(vec![
-            self.origin_index()?.to_coordinate(),
-            self.destination_index()?.to_coordinate(),
+            edge_cells.origin.to_coordinate(),
+            edge_cells.destination.to_coordinate(),
         ]))
     }
 
     /// create a linestring from the origin index to the destination index
     fn to_linestring_unchecked(&self) -> LineString<f64> {
+        let edge_cells = self.cell_indexes_unchecked();
         LineString::from(vec![
-            self.origin_index_unchecked().to_coordinate(),
-            self.destination_index_unchecked().to_coordinate(),
+            edge_cells.origin.to_coordinate(),
+            edge_cells.destination.to_coordinate(),
         ])
     }
+}
+
+pub struct H3EdgeCells {
+    /// origin cell of the edge
+    pub origin: H3Cell,
+
+    /// destination cell of the edge
+    pub destination: H3Cell,
 }
 
 #[cfg(test)]
@@ -217,5 +273,20 @@ mod tests {
         assert_eq!(ls.0.len(), 2);
         assert_eq!(ls.0[0], edge.origin_index_unchecked().to_coordinate());
         assert_eq!(ls.0[1], edge.destination_index_unchecked().to_coordinate());
+    }
+
+    #[test]
+    fn reversed() {
+        let edge = H3Edge::new(0x149283080ddbffff);
+        let rev_edge = edge.reversed_unchecked();
+        assert_ne!(edge, rev_edge);
+        assert_eq!(
+            edge.origin_index_unchecked(),
+            rev_edge.destination_index_unchecked()
+        );
+        assert_eq!(
+            edge.destination_index_unchecked(),
+            rev_edge.origin_index_unchecked()
+        );
     }
 }

@@ -135,9 +135,10 @@ where
 
         for (edge, weight) in self.edges.iter() {
             let mut ft = Feature::new(&defn)?;
+            let edge_cells = edge.cell_indexes_unchecked();
             let coords = vec![
-                edge.origin_index_unchecked().to_coordinate(),
-                edge.destination_index_unchecked().to_coordinate(),
+                edge_cells.origin.to_coordinate(),
+                edge_cells.destination.to_coordinate(),
             ];
             ft.set_geometry(LineString::from(coords).to_gdal()?)?;
             weight.fill_weight_feature_fields(&mut ft)?;
