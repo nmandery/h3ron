@@ -259,8 +259,8 @@ impl H3Cell {
 
     /// Retrieves all unidirectional H3 edges around `self`
     ///
-    /// For repeated creation of [`H3Edges`] around a [`H3Cell`] also
-    /// see [`H3EdgeBuilder`], which is more efficient.
+    /// For repeated creation of [`H3Edge`] around a [`H3Cell`] also
+    /// see [`crate::iter::H3EdgesBuilder`], which is more efficient.
     pub fn unidirectional_edges(&self) -> IndexVec<H3Edge> {
         let mut index_vec = IndexVec::with_length(6);
         unsafe {
@@ -273,6 +273,12 @@ impl H3Cell {
     }
 
     /// get the average cell area at `resolution` in square meters.
+    ///
+    /// ```
+    /// use h3ron::H3Cell;
+    ///
+    /// assert_eq!(15047.5, H3Cell::area_m2(10));
+    /// ```
     pub fn area_m2(resolution: u8) -> f64 {
         unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) }
     }

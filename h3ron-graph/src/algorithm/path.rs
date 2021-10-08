@@ -11,7 +11,7 @@ use crate::error::Error;
 /// A path of continuous [`H3Edge`] values with an associated cost.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Path<W> {
-    /// [`H3Edges`] of the route in the order origin -> destination
+    /// Vec of [`H3Edge`] values of the route in the order origin -> destination
     pub edges: Vec<H3Edge>,
 
     /// the total cost of the route (= sum of all edge weights).

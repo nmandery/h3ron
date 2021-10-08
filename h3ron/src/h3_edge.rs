@@ -205,7 +205,18 @@ impl FromStr for H3Edge {
 }
 
 impl ToLineString for H3Edge {
-    /// create a linestring from the origin index to the destination index
+    /// Create a linestring from the origin index to the destination index
+    ///
+    /// ```
+    /// use h3ron::{H3Edge, Index};
+    /// use h3ron::to_geo::{ToLineString, ToCoordinate};
+    ///
+    /// let edge = H3Edge::new(0x149283080ddbffff);
+    /// let ls = edge.to_linestring().unwrap();
+    /// assert_eq!(ls.0.len(), 2);
+    /// assert_eq!(ls.0[0], edge.origin_index_unchecked().to_coordinate());
+    /// assert_eq!(ls.0[1], edge.destination_index_unchecked().to_coordinate());
+    /// ```
     fn to_linestring(&self) -> Result<LineString<f64>, Error> {
         let edge_cells = self.cell_indexes()?;
         Ok(LineString::from(vec![
@@ -214,7 +225,9 @@ impl ToLineString for H3Edge {
         ]))
     }
 
-    /// create a linestring from the origin index to the destination index
+    /// Create a linestring from the origin index to the destination index.
+    ///
+    /// Also see [`H3Edge::to_linestring`] for an related example.
     fn to_linestring_unchecked(&self) -> LineString<f64> {
         let edge_cells = self.cell_indexes_unchecked();
         LineString::from(vec![
@@ -330,15 +343,6 @@ mod tests {
             format!("{:?}", edge),
             "H3Edge(149283080ddbffff)".to_string()
         )
-    }
-
-    #[test]
-    fn to_linestring() {
-        let edge = H3Edge::new(0x149283080ddbffff);
-        let ls = edge.to_linestring().unwrap();
-        assert_eq!(ls.0.len(), 2);
-        assert_eq!(ls.0[0], edge.origin_index_unchecked().to_coordinate());
-        assert_eq!(ls.0[1], edge.destination_index_unchecked().to_coordinate());
     }
 
     #[test]
