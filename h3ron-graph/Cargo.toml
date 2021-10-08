@@ -13,7 +13,6 @@ repository = "https://github.com/nmandery/h3ron"
 [features]
 use-gdal = ["gdal", "ordered-float"]
 osm = ["osmpbfreader"]
-io = ["h3ron/io"] # required for benchmarks and examples to be able to enable h3ron/io when being started with '--all-features'
 
 [dependencies]
 geo = "0.18"
@@ -27,7 +26,7 @@ num-traits = "0.2"
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.12.0" # for publishing on crates.io
-features = ["use-rayon"]
+features = ["use-rayon", "io", "use-roaring"]
 
 [dependencies.osmpbfreader]
 version = "0.15"
@@ -49,6 +48,10 @@ optional = true
 
 [dev-dependencies]
 
+[dev-dependencies.geojson]
+version = "0.22"
+features = ["geo-types"]
+
 [dev-dependencies.criterion]
 version = "^0.3"
 features = ["html_reports"]
@@ -58,9 +61,9 @@ version = "^2.33"
 
 [[bench]]
 name = "route_germany"
-required-features = ["ordered-float", "h3ron/io"]
+required-features = ["ordered-float"]
 harness = false
 
 [[example]]
 name = "graph_from_osm"
-required-features = ["osm", "ordered-float", "h3ron/io"]
+required-features = ["osm", "ordered-float"]

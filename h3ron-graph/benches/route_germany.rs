@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::convert::TryInto;
 use std::fs::File;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -7,12 +7,13 @@ use ordered_float::OrderedFloat;
 
 use h3ron::io::deserialize_from;
 use h3ron::{H3Cell, HasH3Resolution};
-use h3ron_graph::algorithm::shortest_path::{DefaultShortestPathOptions, ShortestPathManyToMany};
-use h3ron_graph::graph::H3EdgeGraph;
-use h3ron_graph::routing::RoutingH3EdgeGraph;
+use h3ron_graph::algorithm::shortest_path::{DefaultShortestPathOptions, ShortestPath};
+use h3ron_graph::graph::prepared::PreparedH3EdgeGraph;
 
-fn load_bench_graph() -> RoutingH3EdgeGraph<OrderedFloat<f64>> {
-    let graph: H3EdgeGraph<OrderedFloat<f64>> = deserialize_from(
+//use std::io::Write;
+
+fn load_bench_graph() -> PreparedH3EdgeGraph<OrderedFloat<f64>> {
+    let graph: PreparedH3EdgeGraph<OrderedFloat<f64>> = deserialize_from(
         File::open(format!(
             "{}/../data/graph-germany_r7_f64.bincode.lz",
             env!("CARGO_MANIFEST_DIR")
@@ -20,10 +21,10 @@ fn load_bench_graph() -> RoutingH3EdgeGraph<OrderedFloat<f64>> {
         .unwrap(),
     )
     .unwrap();
-    RoutingH3EdgeGraph::try_from(graph).unwrap()
+    graph
 }
 
-fn route_across_germany(routing_graph: &RoutingH3EdgeGraph<OrderedFloat<f64>>) {
+fn route_across_germany(routing_graph: &PreparedH3EdgeGraph<OrderedFloat<f64>>) {
     let origin_cell = H3Cell::from_coordinate(
         &Coordinate::from((9.834909439086914, 47.68708804564653)), // Wangen im Allgäu
         routing_graph.h3_resolution(),
@@ -43,17 +44,39 @@ fn route_across_germany(routing_graph: &RoutingH3EdgeGraph<OrderedFloat<f64>>) {
         .unwrap(),
     ];
 
-    let routes_map = routing_graph
-        .shortest_path_many_to_many(
-            vec![origin_cell],
+    let paths = routing_graph
+        .shortest_path(
+            origin_cell,
             destination_cells,
             &DefaultShortestPathOptions::default(),
         )
         .unwrap();
-    assert_eq!(
-        routes_map.get(&origin_cell).map(|routes| routes.len()),
-        Some(2)
-    );
+    assert_eq!(paths.len(), 2);
+    let mut features = Vec::with_capacity(paths.len());
+    for path in paths.iter() {
+        // the following would fail if a non-consecutive path is generated
+        let linestring = geo_types::Geometry::from(path.to_linestring().unwrap());
+        let feature = geojson::Feature {
+            bbox: None,
+            geometry: (&linestring).try_into().ok(),
+            id: None,
+            properties: None,
+            foreign_members: None,
+        };
+        features.push(feature);
+    }
+    /*
+    let fc = geojson::FeatureCollection {
+        bbox: None,
+        features,
+        foreign_members: None,
+    };
+    let mut filename = std::env::temp_dir();
+    filename.push("route_germany.geojson");
+    let mut out_file = File::create(filename).unwrap();
+    write!(&mut out_file, "{}", fc.to_string()).unwrap();
+
+     */
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

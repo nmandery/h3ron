@@ -4,13 +4,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::os::raw::c_int;
 use std::str::FromStr;
 
-use geo::LineString;
+use geo::{LineString, MultiLineString};
 use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::H3Index;
 
 use crate::index::{HasH3Resolution, Index};
-use crate::to_geo::ToLineString;
+use crate::to_geo::{ToLineString, ToMultiLineString};
 use crate::{Error, ExactLength, FromH3Index, H3Cell, ToCoordinate};
 
 /// H3 Index representing an Unidirectional H3 edge
@@ -221,6 +221,72 @@ impl ToLineString for H3Edge {
             edge_cells.origin.to_coordinate(),
             edge_cells.destination.to_coordinate(),
         ])
+    }
+}
+
+/// converts `&[H3Edge]` slices to `MultiLineString` while attempting
+/// to combine consequent `H3Edge` values into a single `LineString<f64>`
+impl ToMultiLineString for &[H3Edge] {
+    fn to_multilinestring(&self) -> Result<MultiLineString<f64>, Error> {
+        let cell_tuples = self
+            .iter()
+            .map(
+                |edge| match (edge.origin_index(), edge.destination_index()) {
+                    (Ok(origin_cell), Ok(destination_cell)) => Ok((origin_cell, destination_cell)),
+                    (Err(e), _) => Err(e),
+                    (_, Err(e)) => Err(e),
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(celltuples_to_multlinestring(cell_tuples))
+    }
+
+    fn to_multilinestring_unchecked(&self) -> MultiLineString<f64> {
+        celltuples_to_multlinestring(self.iter().map(|edge| {
+            (
+                edge.origin_index_unchecked(),
+                edge.destination_index_unchecked(),
+            )
+        }))
+    }
+}
+
+/// convert an iterator of subsequent H3Cell-tuples `(origin_cell, destination_cell)` generated
+/// from `H3Edge` values to a multilinestring
+fn celltuples_to_multlinestring<I>(iter: I) -> MultiLineString<f64>
+where
+    I: IntoIterator<Item = (H3Cell, H3Cell)>,
+{
+    let mut linestrings = vec![];
+    let mut last_destination_cell: Option<H3Cell> = None;
+    let mut coordinates = vec![];
+    for (origin_cell, destination_cell) in iter {
+        if coordinates.is_empty() {
+            coordinates.push(origin_cell.to_coordinate());
+            coordinates.push(destination_cell.to_coordinate());
+        } else {
+            if last_destination_cell != Some(origin_cell) {
+                // create a new linestring
+                linestrings.push(LineString::from(std::mem::take(&mut coordinates)));
+                coordinates.push(origin_cell.to_coordinate());
+            }
+            coordinates.push(destination_cell.to_coordinate())
+        }
+        last_destination_cell = Some(destination_cell)
+    }
+    if !coordinates.is_empty() {
+        linestrings.push(LineString::from(coordinates));
+    }
+    MultiLineString(linestrings)
+}
+
+impl ToMultiLineString for Vec<H3Edge> {
+    fn to_multilinestring(&self) -> Result<MultiLineString<f64>, Error> {
+        self.as_slice().to_multilinestring()
+    }
+
+    fn to_multilinestring_unchecked(&self) -> MultiLineString<f64> {
+        self.as_slice().to_multilinestring_unchecked()
     }
 }
 

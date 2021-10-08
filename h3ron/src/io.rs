@@ -1,5 +1,7 @@
 //! Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
-//! during development.
+//! during development and for the compressed collections.
+//!
+//! The serialization aims to be fast and allows to apply a LZ4 compression.
 //!
 use std::io;
 
@@ -21,6 +23,8 @@ impl From<lz4_flex::frame::Error> for Error {
     }
 }
 
+///
+/// When `compress` is set to `true` LZ4 compression is applied.
 pub fn serialize_into<W, T: ?Sized>(writer: W, value: &T, compress: bool) -> Result<(), Error>
 where
     W: io::Write,
@@ -36,6 +40,8 @@ where
     Ok(())
 }
 
+/// deserialize. When the reader contains LZ4-compressed data, it
+/// is decompressed on-the-fly.
 pub fn deserialize_from<R, T>(reader: R) -> Result<T, Error>
 where
     R: io::Read + io::Seek,
@@ -48,6 +54,23 @@ where
             original_reader.seek(io::SeekFrom::Start(0))?;
             bincode::deserialize_from(original_reader)?
         }
+        Ok(des) => des,
+    };
+    Ok(deserialized)
+}
+
+/// deserialize. When the reader contains LZ4-compressed data, it
+/// is decompressed on-the-fly.
+///
+/// Has the benefit over `deserialize_from` of not requiring a wrapping `std::io::Cursor` to
+/// get support for `Seek`.
+pub fn deserialize_from_byte_slice<T>(byte_slice: &[u8]) -> Result<T, Error>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let mut decoder = FrameDecoder::new(byte_slice);
+    let deserialized = match bincode::deserialize_from(&mut decoder) {
+        Err(_) => bincode::deserialize_from(byte_slice)?,
         Ok(des) => des,
     };
     Ok(deserialized)

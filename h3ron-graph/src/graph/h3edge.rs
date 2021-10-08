@@ -9,14 +9,10 @@ use h3ron::collections::{H3CellMap, H3CellSet, ThreadPartitionedMap};
 use h3ron::{H3Cell, H3Edge, HasH3Resolution, Index, ToLinkedPolygons};
 
 use crate::error::Error;
-use crate::node::NodeType;
+use crate::graph::node::NodeType;
+use crate::graph::GetStats;
 
-#[derive(Serialize)]
-pub struct GraphStats {
-    pub h3_resolution: u8,
-    pub num_nodes: usize,
-    pub num_edges: usize,
-}
+use super::GraphStats;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct H3EdgeGraph<W: Send + Sync> {
@@ -115,14 +111,6 @@ where
         Ok(())
     }
 
-    pub fn stats(&self) -> GraphStats {
-        GraphStats {
-            h3_resolution: self.h3_resolution,
-            num_nodes: self.num_nodes(),
-            num_edges: self.num_edges(),
-        }
-    }
-
     /// generate a - simplified and overestimating - multipolygon of the area
     /// covered by the graph.
     pub fn covered_area(&self) -> Result<MultiPolygon<f64>, Error> {
@@ -190,6 +178,19 @@ where
 {
     fn h3_resolution(&self) -> u8 {
         self.h3_resolution
+    }
+}
+
+impl<W> GetStats for H3EdgeGraph<W>
+where
+    W: Send + Sync + PartialEq + PartialOrd + Add + Copy,
+{
+    fn get_stats(&self) -> GraphStats {
+        GraphStats {
+            h3_resolution: self.h3_resolution,
+            num_nodes: self.num_nodes(),
+            num_edges: self.num_edges(),
+        }
     }
 }
 
@@ -283,7 +284,7 @@ mod tests {
 
     use h3ron::H3Cell;
 
-    use crate::graph::{downsample_graph, H3EdgeGraph, NodeType};
+    use super::{downsample_graph, H3EdgeGraph, NodeType};
 
     #[test]
     fn test_downsample() {

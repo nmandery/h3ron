@@ -4,6 +4,8 @@ use std::hash::{BuildHasher, Hash, Hasher};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
 
+use crate::collections::ContainsIndex;
+use crate::Index;
 use rayon::prelude::*;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
@@ -176,6 +178,10 @@ where
 
     pub fn get(&self, key: &K) -> Option<&V> {
         self.get_key_value(key).map(|(_, v)| v)
+    }
+
+    pub fn contains(&self, key: &K) -> bool {
+        self.get_key_value(key).is_some()
     }
 
     pub fn keys(&self) -> TPMKeys<K, V, S> {
@@ -451,6 +457,14 @@ where
         deserializer.deserialize_map(ThreadPartitionedMapVisitor {
             marker: PhantomData,
         })
+    }
+}
+
+impl<I: Index + Hash + Eq + Send + Sync, V: Send + Sync> ContainsIndex<I>
+    for ThreadPartitionedMap<I, V>
+{
+    fn contains_index(&self, index: &I) -> bool {
+        self.contains(index)
     }
 }
 

@@ -2,8 +2,9 @@ use gdal::spatial_ref::SpatialRef;
 use gdal::vector::{Defn, Feature, FieldDefn, Layer, OGRFieldType, OGRwkbGeometryType, ToGdal};
 use gdal::{Driver, LayerOptions};
 use geo_types::LineString;
-use h3ron::ToCoordinate;
 use ordered_float::OrderedFloat;
+
+use h3ron::ToCoordinate;
 
 use crate::error::Error;
 use crate::graph::H3EdgeGraph;

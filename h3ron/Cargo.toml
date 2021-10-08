@@ -13,6 +13,7 @@ repository = "https://github.com/nmandery/h3ron"
 [features]
 use-rayon = ["rayon", "num_cpus"]
 io = ["bincode", "lz4_flex"]
+use-roaring = ["roaring"]
 
 [dependencies]
 geo = "^0.18"
@@ -48,8 +49,14 @@ optional = true
 version = "1"
 optional = true
 
+[dependencies.roaring]
+version = "0.7"
+optional = true
+
 [dependencies.lz4_flex]
 version = "0.9"
+default_features = false # disables the `safe-*code` features and uses a faster but unsafe algorithm
+features = ["frame"]
 optional = true
 
 [dev-dependencies]

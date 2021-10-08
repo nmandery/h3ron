@@ -1,34 +1,29 @@
+//! Dijkstra shortest-path routing.
+//!
 use std::borrow::Borrow;
-use std::fmt::Debug;
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 use std::ops::Add;
 
+use indexmap::map::Entry::{Occupied, Vacant};
+use indexmap::map::IndexMap;
 use num_traits::Zero;
 use rayon::prelude::*;
 
-use h3ron::collections::{H3CellMap, H3CellSet, HashMap};
+use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::{change_cell_resolution, H3EdgesBuilder};
 use h3ron::{H3Cell, H3Edge, HasH3Resolution};
 
-use crate::algorithm::dijkstra::{
-    build_path_with_cost, dijkstra_partial, DijkstraSuccessorsGenerator,
-};
 use crate::algorithm::path::Path;
 use crate::error::Error;
-use crate::node::GetGapBridgedCellNodes;
-use crate::routing::RoutingH3EdgeGraph;
-use std::cell::RefCell;
-use std::marker::PhantomData;
-use std::rc::Rc;
+use crate::graph::longedge::LongEdge;
+use crate::graph::node::GetGapBridgedCellNodes;
+use crate::graph::{GetEdge, GetNode};
 
 ///
 /// Generic type parameters:
 /// * `W`: The weight used in the graph.
-pub trait ShortestPathOptions<W> {
-    /// cells which are not allowed to be used for routing
-    fn exclude_cells(&self) -> Option<H3CellSet> {
-        None
-    }
-
+pub trait ShortestPathOptions {
     /// Number of cells to be allowed to be missing between
     /// a cell and the graph while the cell is still counted as being connected
     /// to the graph
@@ -42,54 +37,46 @@ pub trait ShortestPathOptions<W> {
     fn num_destinations_to_reach(&self) -> Option<usize> {
         None
     }
-
-    /// transform or change the weight of an edge before it is fed into
-    /// the shortest path algorithm.
-    ///
-    /// This may be used to bring in external state or routing constraints.
-    ///
-    /// As this function will be used during graph traversal, it should
-    /// be somewhat fast and inlined.
-    #[allow(unused_variables)]
-    #[inline(always)]
-    fn adapt_weight(&self, edge: &H3Edge, edge_weight: W) -> W {
-        edge_weight
-    }
 }
 
 /// Default implementation of a type implementing the `ShortestPathOptions`
 /// trait.
-pub struct DefaultShortestPathOptions<W> {
-    phantom_weight: PhantomData<W>,
-}
+pub struct DefaultShortestPathOptions {}
 
-impl<W> ShortestPathOptions<W> for DefaultShortestPathOptions<W> {}
+impl ShortestPathOptions for DefaultShortestPathOptions {}
 
-impl<W> Default for DefaultShortestPathOptions<W> {
+impl Default for DefaultShortestPathOptions {
     fn default() -> Self {
-        Self {
-            phantom_weight: Default::default(),
-        }
+        Self {}
     }
 }
 
-impl<W> DefaultShortestPathOptions<W> {
+impl DefaultShortestPathOptions {
     pub fn new() -> Self {
         Default::default()
     }
 }
 
+/// Implements a simple Dijkstra shortest path route finding.
+///
+/// While this is not the most efficient routing algorithm, it has the
+/// benefit of finding the nearest destinations first. So it can be used
+/// to answer questions like "which are the N nearest destinations" using a
+/// large amount of possible destinations.
 pub trait ShortestPath<W> {
-    fn shortest_path<OPT: ShortestPathOptions<W>>(
+    fn shortest_path<I, OPT: ShortestPathOptions>(
         &self,
         origin_cell: H3Cell,
-        destination_cell: H3Cell,
+        destination_cells: I,
         options: &OPT,
-    ) -> Result<Option<Path<W>>, Error>
+    ) -> Result<Vec<Path<W>>, Error>
     where
-        OPT: ShortestPathOptions<W>;
+        I: IntoIterator,
+        I::Item: Borrow<H3Cell>;
 }
 
+/// Variant of the [`ShortestPath`] trait routing from multiple
+/// origins in parallel.
 pub trait ShortestPathManyToMany<W>
 where
     W: Send + Sync + Ord + Copy,
@@ -107,7 +94,7 @@ where
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        OPT: ShortestPathOptions<W> + Send + Sync,
+        OPT: ShortestPathOptions + Send + Sync,
     {
         self.shortest_path_many_to_many_map(origin_cells, destination_cells, options, |path| path)
     }
@@ -129,14 +116,15 @@ where
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        OPT: ShortestPathOptions<W> + Send + Sync,
+        OPT: ShortestPathOptions + Send + Sync,
         PM: Fn(Path<W>) -> O + Send + Sync,
         O: Send + Ord + Clone;
 }
 
-impl<W> ShortestPathManyToMany<W> for RoutingH3EdgeGraph<W>
+impl<W, G> ShortestPathManyToMany<W> for G
 where
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    G: GetEdge<WeightType = W> + GetNode + HasH3Resolution + GetGapBridgedCellNodes + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn shortest_path_many_to_many_map<I, OPT, PM, O>(
         &self,
@@ -148,18 +136,20 @@ where
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
-        OPT: ShortestPathOptions<W> + Send + Sync,
+        OPT: ShortestPathOptions + Send + Sync,
         PM: Fn(Path<W>) -> O + Send + Sync,
         O: Send + Ord + Clone,
     {
         let filtered_origin_cells =
-            self.filtered_origin_cells(options.num_gap_cells_to_graph(), origin_cells);
+            filtered_origin_cells(self, options.num_gap_cells_to_graph(), origin_cells);
         if filtered_origin_cells.is_empty() {
             return Ok(Default::default());
         }
 
         let filtered_destination_cells =
-            self.filtered_destination_cells(options.num_gap_cells_to_graph(), destination_cells)?;
+            filtered_destination_cells(self, options.num_gap_cells_to_graph(), destination_cells)?;
+
+        let destinations_treemap = filtered_destination_cells.keys().collect::<H3Treemap<_>>();
 
         log::debug!(
             "shortest_path many-to-many: from {} cells to {} cells at resolution {} with num_gap_cells_to_graph = {}",
@@ -168,56 +158,16 @@ where
             self.h3_resolution(),
             options.num_gap_cells_to_graph()
         );
-        let exclude_cells = options.exclude_cells();
         let paths = filtered_origin_cells
             .par_iter()
-            .map(|(origin_cell, output_origin_cells)| {
-                let mut destination_cells_reached = H3CellSet::default();
-
-                let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells, options);
-
-                // Possible improvement: add timeout to avoid continuing routing forever
-                let (routemap, _) = dijkstra_partial(
-                    // start cell
-                    origin_cell,
-                    // successor cells
-                    &mut successors_gen,
-                    // stop condition
-                    |graph_cell| {
-                        if let Some(cell) = filtered_destination_cells.get(graph_cell) {
-                            destination_cells_reached.insert(*cell);
-
-                            // stop when enough destination cells are reached
-                            destination_cells_reached.len()
-                                >= options
-                                    .num_destinations_to_reach()
-                                    .unwrap_or_else(|| filtered_destination_cells.len())
-                        } else {
-                            false
-                        }
-                    },
+            .map(|(graph_connected_origin_cell, output_origin_cells)| {
+                let paths = edge_dijkstra(
+                    self,
+                    graph_connected_origin_cell,
+                    &destinations_treemap,
+                    options.num_destinations_to_reach(),
+                    &path_map_fn,
                 );
-
-                // build the paths
-                let paths: Vec<_> = {
-                    let mut paths = Vec::with_capacity(destination_cells_reached.len());
-
-                    for dest in destination_cells_reached.iter() {
-                        let (path_cells, cost) = build_path_with_cost(dest, &routemap);
-                        paths.push(Path {
-                            cells: path_cells,
-                            cost,
-                        })
-                    }
-
-                    // return sorted from lowest to highest cost, use destination cell as second criteria
-                    // to make path vecs directly comparable using this deterministic order
-                    paths.sort_unstable();
-
-                    // ensure the sorted order is correct by sorting path instances before applying
-                    // the `path_map_fn`.
-                    paths.drain(..).map(|p| path_map_fn(p)).collect()
-                };
 
                 output_origin_cells
                     .iter()
@@ -230,246 +180,370 @@ where
     }
 }
 
-impl<W> ShortestPath<W> for RoutingH3EdgeGraph<W>
+impl<W, G> ShortestPath<W> for G
 where
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    G: GetEdge<WeightType = W> + GetNode + HasH3Resolution + GetGapBridgedCellNodes,
+    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
-    fn shortest_path<OPT>(
+    fn shortest_path<I, OPT>(
         &self,
         origin_cell: H3Cell,
-        destination_cell: H3Cell,
+        destination_cells: I,
         options: &OPT,
-    ) -> Result<Option<Path<W>>, Error>
+    ) -> Result<Vec<Path<W>>, Error>
     where
-        OPT: ShortestPathOptions<W>,
+        I: IntoIterator,
+        I::Item: Borrow<H3Cell>,
+        OPT: ShortestPathOptions,
     {
-        let filtered_origin_cells = self.filtered_origin_cells(
+        let filtered_origin_cells = filtered_origin_cells(
+            self,
             options.num_gap_cells_to_graph(),
             std::iter::once(origin_cell),
         );
-        let filtered_origin_cell = if let Some(first_fo) = filtered_origin_cells.first() {
+        let graph_connected_origin_cell = if let Some(first_fo) = filtered_origin_cells.first() {
             first_fo.0
         } else {
-            return Ok(None);
+            return Ok(Default::default());
         };
 
-        let (_, graph_destination_cell) = self
-            .filtered_destination_cells(
-                options.num_gap_cells_to_graph(),
-                std::iter::once(destination_cell),
-            )?
-            .drain()
-            .next()
-            .unwrap();
+        let destination_treemap =
+            filtered_destination_cells(self, options.num_gap_cells_to_graph(), destination_cells)?
+                .keys()
+                .copied()
+                .collect::<H3Treemap<_>>();
 
-        let exclude_cells = options.exclude_cells();
-        let mut successors_gen = SuccessorsGenerator::new(self, &exclude_cells, options);
-
-        // Possible improvement: add timeout to avoid continuing routing forever
-        let (routemap, _) = dijkstra_partial(
-            // start cell
-            &filtered_origin_cell,
-            // successor cells
-            &mut successors_gen,
-            // stop condition
-            |graph_cell| *graph_cell == graph_destination_cell,
+        if destination_treemap.is_empty() {
+            return Ok(Default::default());
+        }
+        let paths = edge_dijkstra(
+            self,
+            &graph_connected_origin_cell,
+            &destination_treemap,
+            options.num_destinations_to_reach(),
+            &(|path| path),
         );
+        Ok(paths)
+    }
+}
 
-        let (path_cells, cost) = build_path_with_cost(&graph_destination_cell, &routemap);
-        if path_cells.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(Path {
-                cells: path_cells,
-                cost,
-            }))
+/// maps the graph-connected cells to the requested cells.
+/// For direct graph members both cells are the same
+///
+/// TODO: this should be a 1:n relationship in case multiple cells map to
+///      the same cell in the graph
+///
+/// The cell resolution is changed to the resolution of the graph.
+///
+/// There must be at least one destination to get Result::Ok, otherwise
+/// the complete graph would be traversed.
+fn filtered_destination_cells<G, I>(
+    graph: &G,
+    num_gap_cells_to_graph: u32,
+    destination_cells: I,
+) -> Result<HashMap<H3Cell, H3Cell>, Error>
+where
+    G: GetNode + GetGapBridgedCellNodes + HasH3Resolution,
+    I: IntoIterator,
+    I::Item: Borrow<H3Cell>,
+{
+    let destinations: HashMap<H3Cell, H3Cell> = graph
+        .gap_bridged_cell_nodes::<Vec<_>, _>(
+            change_cell_resolution(destination_cells, graph.h3_resolution()).collect(),
+            |node_type| node_type.is_destination(),
+            num_gap_cells_to_graph,
+        )
+        .drain(..)
+        .filter_map(|graph_membership| {
+            // ignore all non-connected destinations
+            graph_membership
+                .corresponding_cell_in_graph()
+                .map(|graph_cell| (graph_cell, graph_membership.cell()))
+        })
+        .collect();
+
+    if destinations.is_empty() {
+        return Err(Error::DestinationsNotInGraph);
+    }
+    Ok(destinations)
+}
+
+/// Locates the corresponding cells for the given ones in the graph.
+///
+/// The returned hashmap maps cells, which are members of the graph to all
+/// surrounding cells which are not directly part of the graph. This depends
+/// on the gap-bridging in the options. With no gap bridging, cells are only mapped
+/// to themselves.
+///
+/// The cell resolution is changed to the resolution of the graph.
+fn filtered_origin_cells<G, I>(
+    graph: &G,
+    num_gap_cells_to_graph: u32,
+    origin_cells: I,
+) -> Vec<(H3Cell, Vec<H3Cell>)>
+where
+    G: GetNode + GetGapBridgedCellNodes + HasH3Resolution,
+    I: IntoIterator,
+    I::Item: Borrow<H3Cell>,
+{
+    // maps cells to their closest found neighbors in the graph
+    let mut origin_cell_map = H3CellMap::default();
+    for gm in graph
+        .gap_bridged_cell_nodes::<Vec<_>, _>(
+            change_cell_resolution(origin_cells, graph.h3_resolution()).collect(),
+            |node_type| node_type.is_origin(),
+            num_gap_cells_to_graph,
+        )
+        .drain(..)
+    {
+        if let Some(corr_cell) = gm.corresponding_cell_in_graph() {
+            origin_cell_map
+                .entry(corr_cell)
+                .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(gm.cell()))
+                .or_insert_with(|| vec![gm.cell()]);
+        }
+    }
+    origin_cell_map.drain().collect()
+}
+
+#[derive(Clone)]
+enum DijkstraEdge<'a> {
+    Single(H3Edge),
+    Long(&'a LongEdge),
+}
+
+impl<'a> DijkstraEdge<'a> {
+    #[allow(dead_code)]
+    fn origin_cell(&self) -> H3Cell {
+        match self {
+            Self::Single(h3edge) => h3edge.origin_index_unchecked(),
+            Self::Long(longedge) => longedge.origin_cell(),
+        }
+    }
+
+    fn destination_cell(&self) -> H3Cell {
+        match self {
+            Self::Single(h3edge) => h3edge.destination_index_unchecked(),
+            Self::Long(longedge) => longedge.destination_cell(),
+        }
+    }
+
+    #[allow(dead_code)]
+    fn last_edge(&self) -> H3Edge {
+        match self {
+            Self::Single(h3edge) => *h3edge,
+            Self::Long(longedge) => longedge.out_edge,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn first_edge(&self) -> H3Edge {
+        match self {
+            Self::Single(h3edge) => *h3edge,
+            Self::Long(longedge) => longedge.in_edge,
         }
     }
 }
 
-impl<W> RoutingH3EdgeGraph<W>
+struct DijkstraEntry<'a, W> {
+    weight: W,
+    index: usize,
+
+    /// the edge which lead to that cell.
+    /// using an option here as the start_cell will not have an edge
+    edge: Option<DijkstraEdge<'a>>,
+}
+
+/// Dijkstra shortest path using h3 edges
+///
+/// Adapted from the `run_dijkstra` function of the `pathfinding` crate.
+fn edge_dijkstra<'a, G, W, PM, O>(
+    graph: &'a G,
+    start_cell: &H3Cell,
+    destinations: &H3Treemap<H3Cell>,
+    num_destinations_to_reach: Option<usize>,
+    path_map_fn: &PM,
+) -> Vec<O>
 where
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
+    G: GetEdge<WeightType = W>,
+    W: Zero + Ord + Copy,
+    PM: Fn(Path<W>) -> O,
 {
-    /// maps the requested cells to the directly to the graph connected cells in
-    /// graph where theses are used as a substitute. For direct graph members
-    /// both cells are the same
-    /// TODO: this should be a 1:n relationship in case multiple cells map to
-    ///      the same cell in the graph
-    ///
-    /// The cell resolution is changed to the resolution of the graph.
-    ///
-    /// There must be at least one destination to get Result::Ok, otherwise
-    /// the complete graph would be traversed.
-    fn filtered_destination_cells<I>(
-        &self,
-        num_gap_cells_to_graph: u32,
-        destination_cells: I,
-    ) -> Result<HashMap<H3Cell, H3Cell>, Error>
-    where
-        I: IntoIterator,
-        I::Item: Borrow<H3Cell>,
-    {
-        let destinations: HashMap<H3Cell, H3Cell> = self
-            .filtered_cell_nodes::<Vec<_>, _>(
-                change_cell_resolution(destination_cells, self.h3_resolution()).collect(),
-                |node_type| node_type.is_destination(),
-                num_gap_cells_to_graph,
-            )
-            .drain(..)
-            .filter_map(|graph_membership| {
-                // ignore all non-connected destinations
-                graph_membership
-                    .corresponding_cell_in_graph()
-                    .map(|graph_cell| (graph_cell, graph_membership.cell()))
-            })
-            .collect();
+    // this is the main exit condition. Stop after this many destinations have been reached or
+    // the complete graph has been traversed.
+    let num_destinations_to_reach = num_destinations_to_reach
+        .unwrap_or_else(|| destinations.len())
+        .min(destinations.len());
 
-        if destinations.is_empty() {
-            return Err(Error::DestinationsNotInGraph);
-        }
-        Ok(destinations)
-    }
+    let mut edge_builder = H3EdgesBuilder::new();
+    let mut to_see = BinaryHeap::new();
+    let mut parents: IndexMap<H3Cell, DijkstraEntry<W>, RandomState> = IndexMap::default();
+    let mut destinations_reached = H3CellSet::default();
 
-    /// Locates the corresponding cells for the given ones in the graph.
-    ///
-    /// The returned hashmap maps cells, which are members of the graph to all
-    /// surrounding cells which are not directly part of the graph. This depends
-    /// on the gap-bridging in the options. With no gap bridging, cells are only mapped
-    /// to themselves.
-    ///
-    /// The cell resolution is changed to the resolution of the graph.
-    fn filtered_origin_cells<I>(
-        &self,
-        num_gap_cells_to_graph: u32,
-        origin_cells: I,
-    ) -> Vec<(H3Cell, Vec<H3Cell>)>
-    where
-        I: IntoIterator,
-        I::Item: Borrow<H3Cell>,
-    {
-        // maps cells to their closest found neighbors in the graph
-        let mut origin_cell_map = H3CellMap::default();
-        for gm in self
-            .filtered_cell_nodes::<Vec<_>, _>(
-                change_cell_resolution(origin_cells, self.h3_resolution()).collect(),
-                |node_type| node_type.is_origin(),
-                num_gap_cells_to_graph,
-            )
-            .drain(..)
-        {
-            if let Some(corr_cell) = gm.corresponding_cell_in_graph() {
-                origin_cell_map
-                    .entry(corr_cell)
-                    .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(gm.cell()))
-                    .or_insert_with(|| vec![gm.cell()]);
+    to_see.push(SmallestHolder {
+        weight: W::zero(),
+        index: 0,
+    });
+    parents.insert(
+        *start_cell,
+        DijkstraEntry {
+            weight: W::zero(),
+            index: usize::MAX,
+            edge: None,
+        },
+    );
+    while let Some(SmallestHolder { weight, index }) = to_see.pop() {
+        let (cell, dijkstra_entry) = parents.get_index(index).unwrap();
+        if destinations.contains(cell) {
+            destinations_reached.insert(*cell);
+            if destinations_reached.len() >= num_destinations_to_reach {
+                break;
             }
         }
-        origin_cell_map.drain().collect()
-    }
-}
 
-/// generates all successors of a cell for the shortest_path algorithm
-///
-/// This struct allocates the memory only once for all repeated calls. This
-/// results in in runtime improvement of approx. -25% by avoiding
-/// repeated allocations and deallocations during a benchmark
-struct SuccessorsGenerator<'a, W: Send + Sync, OPT: ShortestPathOptions<W>> {
-    routing_edge_graph: &'a RoutingH3EdgeGraph<W>,
-    exclude_cells: &'a Option<H3CellSet>,
-    edges_builder: H3EdgesBuilder,
-    options: &'a OPT,
-    // TODO: figure out the correct lifetimes to avoid having to use Rc and RefCell
-    #[allow(clippy::type_complexity)]
-    out_cells: Rc<RefCell<[Option<(H3Cell, W)>; 6]>>,
-}
-
-impl<'a, W: Send + Sync, OPT: ShortestPathOptions<W>> SuccessorsGenerator<'a, W, OPT>
-where
-    W: Copy,
-{
-    pub fn new(
-        routing_edge_graph: &'a RoutingH3EdgeGraph<W>,
-        exclude_cells: &'a Option<H3CellSet>,
-        options: &'a OPT,
-    ) -> Self {
-        Self {
-            routing_edge_graph,
-            exclude_cells,
-            edges_builder: Default::default(),
-            options,
-            out_cells: Rc::new(RefCell::new([None; 6])),
+        // We may have inserted a node several time into the binary heap if we found
+        // a better way to access it. Ensure that we are currently dealing with the
+        // best path and discard the others.
+        if weight > dijkstra_entry.weight {
+            continue;
         }
-    }
-}
 
-impl<'a, W: Send + Sync, OPT: ShortestPathOptions<W>> DijkstraSuccessorsGenerator<'a, H3Cell, W>
-    for SuccessorsGenerator<'a, W, OPT>
-where
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync + Debug,
-{
-    type IntoIter = SuccessorsGeneratorIter<W>;
-
-    fn successors_iter(&mut self, node: &H3Cell) -> Self::IntoIter {
-        let mut edges_iter = self.edges_builder.from_origin_cell(node);
-
-        for out_cell in (*self.out_cells).borrow_mut().iter_mut() {
-            *out_cell = match edges_iter.next() {
-                Some(edge) => {
-                    if let Some(weight) = self.routing_edge_graph.graph.edges.get(&edge) {
-                        let destination_cell = edge.destination_index_unchecked();
-                        let is_excluded = self
-                            .exclude_cells
-                            .as_ref()
-                            .map(|exclude| exclude.contains(&destination_cell))
-                            .unwrap_or(false);
-                        if !is_excluded {
-                            // this allows external state to modify graph weights during the algorithm run.
-                            let adapted_weight = self.options.adapt_weight(&edge, *weight);
-
-                            Some((destination_cell, adapted_weight))
+        for succeeding_edge in edge_builder.from_origin_cell(cell) {
+            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge) {
+                // use the longedge if it does not contain any destination. If it would
+                // contain a destination we would "jump over" it when we would use the longedge.
+                let (dijkstra_edge, new_weight) =
+                    if let Some((longedge, longedge_weight)) = succeeding_edge_value.longedge {
+                        if longedge.is_disjoint(destinations) {
+                            (DijkstraEdge::Long(longedge), longedge_weight + weight)
                         } else {
-                            None
+                            (
+                                DijkstraEdge::Single(succeeding_edge),
+                                succeeding_edge_value.weight + weight,
+                            )
                         }
                     } else {
-                        None
+                        (
+                            DijkstraEdge::Single(succeeding_edge),
+                            succeeding_edge_value.weight + weight,
+                        )
+                    };
+
+                let n;
+                match parents.entry(dijkstra_edge.destination_cell()) {
+                    Vacant(e) => {
+                        n = e.index();
+                        e.insert(DijkstraEntry {
+                            weight: new_weight,
+                            index,
+                            edge: Some(dijkstra_edge),
+                        });
+                    }
+                    Occupied(mut e) => {
+                        if e.get().weight > new_weight {
+                            n = e.index();
+                            e.insert(DijkstraEntry {
+                                weight: new_weight,
+                                index,
+                                edge: Some(dijkstra_edge),
+                            });
+                        } else {
+                            continue;
+                        }
                     }
                 }
-                None => None,
+                to_see.push(SmallestHolder {
+                    weight: new_weight,
+                    index: n,
+                });
             }
         }
-        Self::IntoIter {
-            out_cells: self.out_cells.clone(),
-            current_pos: 0,
+    }
+
+    let parents_map: HashMap<_, _> = parents
+        .iter()
+        .skip(1)
+        .map(|(cell, dijkstra_entry)| {
+            (
+                *cell,
+                (
+                    parents.get_index(dijkstra_entry.index).unwrap().0,
+                    dijkstra_entry,
+                ),
+            )
+        })
+        .collect();
+
+    // assemble the paths
+    let mut paths = Vec::with_capacity(destinations_reached.len());
+    for destination_cell in destinations_reached {
+        // start from the destination and collect all edges up to the origin
+
+        let mut rev_dijkstra_edges: Vec<&DijkstraEdge> = vec![];
+        let mut next = destination_cell;
+        let mut total_weight: Option<W> = None;
+        while let Some((parent_cell, parent_edge_value)) = parents_map.get(&next) {
+            if total_weight.is_none() {
+                total_weight = Some(parent_edge_value.weight);
+            }
+            if let Some(dijkstra_edge) = parent_edge_value.edge.as_ref() {
+                rev_dijkstra_edges.push(dijkstra_edge);
+            }
+            next = **parent_cell;
         }
+
+        // reverse order to go from origin to destination
+        rev_dijkstra_edges.reverse();
+
+        let mut h3edges = vec![];
+        for dijkstra_edge in rev_dijkstra_edges.drain(..) {
+            // dijkstra_edge is already in the correct order in itself and
+            // does not need to be reversed
+            match dijkstra_edge {
+                DijkstraEdge::Single(h3edge) => h3edges.push(*h3edge),
+                DijkstraEdge::Long(longedge) => {
+                    for h3edge in longedge.h3edge_path().drain(..) {
+                        h3edges.push(h3edge);
+                    }
+                }
+            }
+        }
+        paths.push(Path {
+            edges: h3edges,
+            cost: total_weight.unwrap_or_else(W::zero),
+        })
+    }
+
+    // return sorted from lowest to highest cost, use destination cell as second criteria
+    // to make path vecs directly comparable using this deterministic order
+    paths.sort_unstable();
+
+    // ensure the sorted order is correct by sorting path instances before applying
+    // the `path_map_fn`.
+    paths.drain(..).map(path_map_fn).collect()
+}
+
+struct SmallestHolder<W> {
+    weight: W,
+    index: usize,
+}
+
+impl<W: PartialEq> PartialEq for SmallestHolder<W> {
+    fn eq(&self, other: &Self) -> bool {
+        self.weight == other.weight
     }
 }
 
-struct SuccessorsGeneratorIter<W: Send + Sync> {
-    #[allow(clippy::type_complexity)]
-    out_cells: Rc<RefCell<[Option<(H3Cell, W)>; 6]>>,
-    current_pos: usize,
+impl<W: PartialEq> Eq for SmallestHolder<W> {}
+
+impl<W: Ord> PartialOrd for SmallestHolder<W> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
 }
 
-impl<W: Send + Sync> Iterator for SuccessorsGeneratorIter<W>
-where
-    W: Copy,
-{
-    type Item = (H3Cell, W);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        while self.current_pos < (*self.out_cells).borrow().len() {
-            if let Some(next) = (*self.out_cells).borrow()[self.current_pos] {
-                self.current_pos += 1;
-                return Some(next);
-            } else {
-                self.current_pos += 1;
-            }
-        }
-        None
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        ((*self.out_cells).borrow().len(), None)
+impl<W: Ord> Ord for SmallestHolder<W> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        other.weight.cmp(&self.weight)
     }
 }

@@ -2,7 +2,7 @@ use crate::collections::H3CellMap;
 use std::os::raw::c_int;
 
 use geo::algorithm::euclidean_distance::EuclideanDistance;
-use geo_types::{Coordinate, LineString, Point, Polygon};
+use geo_types::{Coordinate, LineString, MultiLineString, Point, Polygon};
 
 use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, radsToDegs, H3Index, LinkedGeoPolygon};
 
@@ -22,6 +22,11 @@ pub trait ToCoordinate {
 pub trait ToLineString {
     fn to_linestring(&self) -> Result<LineString<f64>, Error>;
     fn to_linestring_unchecked(&self) -> LineString<f64>;
+}
+
+pub trait ToMultiLineString {
+    fn to_multilinestring(&self) -> Result<MultiLineString<f64>, Error>;
+    fn to_multilinestring_unchecked(&self) -> MultiLineString<f64>;
 }
 
 /// join hexagon polygons to larger polygons where hexagons are touching each other

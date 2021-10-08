@@ -22,6 +22,8 @@ python extension.
 - `HasH3Resolution` trait
 - `H3Edge::cell_indexes` and `H3Edge::cell_indexes_unchecked` to get the origin and destination cell of an edge in one call.
 - `H3Edge::reversed` and `H3Edge::reversed_unchecked` to get the edge in the reverse direction.
+- `ContainsIndex` trait for collections.
+- `ToMultiLineString` trait for `&[H3Edge]` and `Vec<H3Edge>`.
 
 ### Changed
 - Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.

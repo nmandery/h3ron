@@ -1,8 +1,13 @@
-use h3ron::H3Cell;
-use rayon::prelude::*;
 use std::ops::{Add, AddAssign};
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
+
+use h3ron::H3Cell;
+
+use crate::graph::GetNode;
+
+#[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum NodeType {
     Origin,
     Destination,
@@ -47,10 +52,6 @@ impl AddAssign<NodeType> for NodeType {
     }
 }
 
-pub trait GetCellNode {
-    fn get_node(&self, cell: &H3Cell) -> Option<&NodeType>;
-}
-
 /// the type of membershipt a cell has within a graph
 pub enum GapBridgedCellNode {
     /// the cell is connected to the graph
@@ -83,7 +84,7 @@ impl GapBridgedCellNode {
 
 pub trait GetGapBridgedCellNodes {
     /// TODO: This function should probably take an iterator instead of a vec
-    fn filtered_cell_nodes<B, F>(
+    fn gap_bridged_cell_nodes<B, F>(
         &self,
         cells: Vec<H3Cell>,
         nodetype_filter_fn: F,
@@ -96,9 +97,9 @@ pub trait GetGapBridgedCellNodes {
 
 impl<G> GetGapBridgedCellNodes for G
 where
-    G: GetCellNode + Sync,
+    G: GetNode + Sync,
 {
-    fn filtered_cell_nodes<B, F>(
+    fn gap_bridged_cell_nodes<B, F>(
         &self,
         mut cells: Vec<H3Cell>,
         nodetype_filter_fn: F,
@@ -146,7 +147,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::node::NodeType;
+    use crate::graph::node::NodeType;
 
     #[test]
     fn test_nodetype_add() {

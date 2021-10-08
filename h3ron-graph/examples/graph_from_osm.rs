@@ -1,5 +1,6 @@
 // This example can also be used to build the benchmark data for `route_germany`.
 
+use std::convert::TryFrom;
 use std::fs::File;
 use std::path::Path;
 
@@ -9,7 +10,7 @@ use ordered_float::OrderedFloat;
 use h3ron::io::serialize_into;
 use h3ron_graph::formats::osm::osmpbfreader::Tags;
 use h3ron_graph::formats::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder};
-use h3ron_graph::graph::H3EdgeGraphBuilder;
+use h3ron_graph::graph::{GetStats, H3EdgeGraphBuilder, PreparedH3EdgeGraph};
 
 pub fn way_properties(tags: &Tags) -> Option<EdgeProperties<OrderedFloat<f64>>> {
     // https://wiki.openstreetmap.org/wiki/Key:highway or https://wiki.openstreetmap.org/wiki/DE:Key:highway
@@ -79,12 +80,16 @@ fn main() {
             .expect("reading pbf failed");
     }
     let graph = builder.build_graph().expect("building graph failed");
+    println!("Preparing graph");
+    let prepared_graph = PreparedH3EdgeGraph::try_from(graph).expect("preparing the graph failed");
 
+    let stats = prepared_graph.get_stats();
     println!(
-        "Created graph ({} nodes, {} edges)",
-        graph.num_nodes(),
-        graph.num_edges()
+        "Created a prepared graph ({} nodes, {} edges, {} long-edges)",
+        stats.num_nodes,
+        stats.num_edges,
+        prepared_graph.num_long_edges()
     );
     let mut out_file = File::create(graph_output).expect("creating output file failed");
-    serialize_into(&mut out_file, &graph, true).expect("writing graph failed");
+    serialize_into(&mut out_file, &prepared_graph, true).expect("writing graph failed");
 }

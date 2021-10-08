@@ -22,4 +22,10 @@ pub enum Error {
 
     #[error("other error: {0}")]
     Other(String),
+
+    #[error("insufficient number of edges")]
+    InsufficientNumberOfEdges,
+
+    #[error("path is segmented into multiple parts")]
+    SegmentedPath,
 }

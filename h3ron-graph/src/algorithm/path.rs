@@ -1,16 +1,18 @@
 use std::cmp::Ordering;
 
-use geo_types::{Geometry, LineString, Point};
+use geo_types::LineString;
 use serde::{Deserialize, Serialize};
 
-use h3ron::{H3Cell, H3Edge, Index, ToCoordinate};
+use h3ron::to_geo::{ToLineString, ToMultiLineString};
+use h3ron::{H3Cell, H3Edge, Index};
 
 use crate::error::Error;
 
+/// A path of continuous [`H3Edge`] values with an associated cost.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Path<W> {
-    /// cells of the route in the order origin -> destination
-    pub cells: Vec<H3Cell>,
+    /// [`H3Edges`] of the route in the order origin -> destination
+    pub edges: Vec<H3Edge>,
 
     /// the total cost of the route (= sum of all edge weights).
     pub cost: W,
@@ -18,37 +20,40 @@ pub struct Path<W> {
 
 impl<W> Path<W> {
     pub fn is_empty(&self) -> bool {
-        self.cells.is_empty()
-    }
-    pub fn len(&self) -> usize {
-        self.cells.len()
-    }
-    pub fn origin_cell(&self) -> Result<H3Cell, Error> {
-        self.cells.first().cloned().ok_or(Error::EmptyPath)
-    }
-    pub fn destination_cell(&self) -> Result<H3Cell, Error> {
-        self.cells.last().cloned().ok_or(Error::EmptyPath)
-    }
-    pub fn geometry(&self) -> Geometry<f64> {
-        match self.cells.len() {
-            0 => unreachable!(),
-            1 => Point::from(self.cells[0].to_coordinate()).into(),
-            _ => LineString::from(
-                self.cells
-                    .iter()
-                    .map(|cell| cell.to_coordinate())
-                    .collect::<Vec<_>>(),
-            )
-            .into(),
-        }
+        self.edges.is_empty()
     }
 
-    pub fn to_h3_edges(&self) -> Result<Vec<H3Edge>, Error> {
-        self.cells
-            .windows(2)
-            .map(|wdow| wdow[0].unidirectional_edge_to(&wdow[1]))
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| e.into())
+    pub fn len(&self) -> usize {
+        self.edges.len()
+    }
+
+    pub fn origin_cell(&self) -> Result<H3Cell, Error> {
+        self.edges
+            .first()
+            .map(|edge| edge.origin_index_unchecked())
+            .ok_or(Error::EmptyPath)
+    }
+
+    pub fn destination_cell(&self) -> Result<H3Cell, Error> {
+        self.edges
+            .last()
+            .map(|edge| edge.destination_index_unchecked())
+            .ok_or(Error::EmptyPath)
+    }
+
+    pub fn to_linestring(&self) -> Result<LineString<f64>, Error> {
+        match self.edges.len() {
+            0 => Err(Error::InsufficientNumberOfEdges),
+            1 => Ok(self.edges[0].to_linestring()?),
+            _ => {
+                let mut multilinesstring = self.edges.to_multilinestring()?;
+                match multilinesstring.0.len() {
+                    0 => Err(Error::InsufficientNumberOfEdges),
+                    1 => Ok(multilinesstring.0.remove(0)),
+                    _ => Err(Error::SegmentedPath),
+                }
+            }
+        }
     }
 }
 
@@ -92,23 +97,22 @@ fn index_or_zero(cell: Result<H3Cell, Error>) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use h3ron::H3Cell;
-    use h3ron::Index;
+    use h3ron::{H3Edge, Index};
 
     use super::Path;
 
     #[test]
     fn path_deterministic_ordering() {
         let r1 = Path {
-            cells: vec![H3Cell::new(0), H3Cell::new(5)],
+            edges: vec![H3Edge::new(0x1176b49474ffffff)],
             cost: 1,
         };
         let r2 = Path {
-            cells: vec![H3Cell::new(1), H3Cell::new(2)],
+            edges: vec![H3Edge::new(0x1476b49474ffffff)],
             cost: 3,
         };
         let r3 = Path {
-            cells: vec![H3Cell::new(1), H3Cell::new(3)],
+            edges: vec![H3Edge::new(0x1476b4b2c2ffffff)],
             cost: 3,
         };
         let mut paths = vec![r3.clone(), r1.clone(), r2.clone()];

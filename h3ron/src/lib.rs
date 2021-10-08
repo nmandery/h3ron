@@ -2,8 +2,9 @@
 //! # Features
 //!
 //! * **io**: Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
-//! during development.
+//! during development. Also enables the `h3ron::collections::compressed` module.
 //! * **use-rayon**: Enables [`collections::ThreadPartitionedMap`].
+//! * **use-roaring**: Enables [`collections::H3Treemap`] based on the `roaring` crate.
 use std::iter::Iterator;
 use std::os::raw::c_int;
 
@@ -35,8 +36,8 @@ mod index;
 #[cfg(feature = "io")]
 pub mod io;
 pub mod iter;
-mod to_geo;
-mod to_h3;
+pub mod to_geo;
+pub mod to_h3;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
