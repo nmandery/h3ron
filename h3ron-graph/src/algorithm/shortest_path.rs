@@ -501,11 +501,7 @@ where
             // does not need to be reversed
             match dijkstra_edge {
                 DijkstraEdge::Single(h3edge) => h3edges.push(*h3edge),
-                DijkstraEdge::Long(longedge) => {
-                    for h3edge in longedge.h3edge_path().drain(..) {
-                        h3edges.push(h3edge);
-                    }
-                }
+                DijkstraEdge::Long(longedge) => h3edges.append(&mut longedge.h3edge_path()),
             }
         }
         paths.push(Path {
