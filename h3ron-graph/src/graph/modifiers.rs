@@ -7,7 +7,7 @@ use h3ron::collections::H3Treemap;
 use h3ron::{H3Cell, H3Edge, HasH3Resolution};
 
 use crate::graph::node::NodeType;
-use crate::graph::{EdgeValue, GetEdge, GetNode};
+use crate::graph::{EdgeValue, GetEdge, GetNodeType};
 
 /// wrapper to exclude cells from traversal during routing
 pub struct ExcludeCells<'a, G, W> {
@@ -18,7 +18,7 @@ pub struct ExcludeCells<'a, G, W> {
 
 impl<'a, G, W> ExcludeCells<'a, G, W>
 where
-    G: GetNode + GetEdge<WeightType = W> + HasH3Resolution,
+    G: GetNodeType + GetEdge<WeightType = W> + HasH3Resolution,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     pub fn new(inner_graph: &'a G, cells_to_exclude: &'a H3Treemap<H3Cell>) -> Self {
@@ -30,23 +30,23 @@ where
     }
 }
 
-impl<'a, G, W> GetNode for ExcludeCells<'a, G, W>
+impl<'a, G, W> GetNodeType for ExcludeCells<'a, G, W>
 where
-    G: GetNode + GetEdge<WeightType = W> + HasH3Resolution,
+    G: GetNodeType + GetEdge<WeightType = W> + HasH3Resolution,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
-    fn get_node(&self, cell: &H3Cell) -> Option<&NodeType> {
+    fn get_node_type(&self, cell: &H3Cell) -> Option<&NodeType> {
         if self.cells_to_exclude.contains(cell) {
             None
         } else {
-            self.inner_graph.get_node(cell)
+            self.inner_graph.get_node_type(cell)
         }
     }
 }
 
 impl<'a, G, W> GetEdge for ExcludeCells<'a, G, W>
 where
-    G: GetNode + GetEdge<WeightType = W> + HasH3Resolution,
+    G: GetNodeType + GetEdge<WeightType = W> + HasH3Resolution,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     type WeightType = G::WeightType;
@@ -82,7 +82,7 @@ where
 
 impl<'a, G, W> HasH3Resolution for ExcludeCells<'a, G, W>
 where
-    G: GetNode + GetEdge<WeightType = W> + HasH3Resolution,
+    G: GetNodeType + GetEdge<WeightType = W> + HasH3Resolution,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn h3_resolution(&self) -> u8 {

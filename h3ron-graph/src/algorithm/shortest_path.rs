@@ -18,7 +18,7 @@ use crate::algorithm::path::Path;
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::node::GetGapBridgedCellNodes;
-use crate::graph::{GetEdge, GetNode};
+use crate::graph::{GetEdge, GetNodeType};
 
 ///
 /// Generic type parameters:
@@ -123,7 +123,7 @@ where
 
 impl<W, G> ShortestPathManyToMany<W> for G
 where
-    G: GetEdge<WeightType = W> + GetNode + HasH3Resolution + GetGapBridgedCellNodes + Sync,
+    G: GetEdge<WeightType = W> + GetNodeType + HasH3Resolution + GetGapBridgedCellNodes + Sync,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn shortest_path_many_to_many_map<I, OPT, PM, O>(
@@ -182,7 +182,7 @@ where
 
 impl<W, G> ShortestPath<W> for G
 where
-    G: GetEdge<WeightType = W> + GetNode + HasH3Resolution + GetGapBridgedCellNodes,
+    G: GetEdge<WeightType = W> + GetNodeType + HasH3Resolution + GetGapBridgedCellNodes,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn shortest_path<I, OPT>(
@@ -243,7 +243,7 @@ fn filtered_destination_cells<G, I>(
     destination_cells: I,
 ) -> Result<HashMap<H3Cell, H3Cell>, Error>
 where
-    G: GetNode + GetGapBridgedCellNodes + HasH3Resolution,
+    G: GetNodeType + GetGapBridgedCellNodes + HasH3Resolution,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {
@@ -282,7 +282,7 @@ fn filtered_origin_cells<G, I>(
     origin_cells: I,
 ) -> Vec<(H3Cell, Vec<H3Cell>)>
 where
-    G: GetNode + GetGapBridgedCellNodes + HasH3Resolution,
+    G: GetNodeType + GetGapBridgedCellNodes + HasH3Resolution,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {

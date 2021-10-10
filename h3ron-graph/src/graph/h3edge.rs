@@ -1,12 +1,12 @@
 use std::ops::Add;
 
-use geo::algorithm::simplify::Simplify;
-use geo_types::{MultiPolygon, Polygon};
+use geo_types::MultiPolygon;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use h3ron::collections::{H3CellMap, H3CellSet, ThreadPartitionedMap};
-use h3ron::{H3Cell, H3Edge, HasH3Resolution, Index, ToLinkedPolygons};
+use crate::algorithm::covered_area::{cells_covered_area, CoveredArea};
+use h3ron::collections::{H3CellMap, ThreadPartitionedMap};
+use h3ron::{H3Cell, H3Edge, HasH3Resolution, Index};
 
 use crate::error::Error;
 use crate::graph::node::NodeType;
@@ -111,27 +111,6 @@ where
         Ok(())
     }
 
-    /// generate a - simplified and overestimating - multipolygon of the area
-    /// covered by the graph.
-    pub fn covered_area(&self) -> Result<MultiPolygon<f64>, Error> {
-        let t_res = self.h3_resolution.saturating_sub(3);
-        let mut cells = H3CellSet::default();
-        for cell in self.nodes().keys() {
-            cells.insert(cell.get_parent(t_res)?);
-        }
-        let cell_vec: Vec<_> = cells.drain().collect();
-        let mp = MultiPolygon::from(
-            cell_vec
-                // remove the number of vertices by smoothing
-                .to_linked_polygons(true)
-                .drain(..)
-                // reduce the number of vertices again and discard all holes
-                .map(|p| Polygon::new(p.exterior().simplify(&0.000001), vec![]))
-                .collect::<Vec<_>>(),
-        );
-        Ok(mp)
-    }
-
     /// cells which are valid targets to route to
     ///
     /// This is a rather expensive operation as nodes are not stored anywhere
@@ -191,6 +170,19 @@ where
             num_nodes: self.num_nodes(),
             num_edges: self.num_edges(),
         }
+    }
+}
+
+impl<W> CoveredArea for H3EdgeGraph<W>
+where
+    W: PartialOrd + PartialEq + Add + Copy + Send + Sync,
+{
+    fn covered_area(&self, reduce_resolution_by: u8) -> Result<MultiPolygon<f64>, Error> {
+        cells_covered_area(
+            self.nodes().iter().map(|(cell, _)| cell),
+            self.h3_resolution(),
+            reduce_resolution_by,
+        )
     }
 }
 

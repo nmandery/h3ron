@@ -24,8 +24,8 @@ pub trait GetStats {
     fn get_stats(&self) -> GraphStats;
 }
 
-pub trait GetNode {
-    fn get_node(&self, cell: &H3Cell) -> Option<&NodeType>;
+pub trait GetNodeType {
+    fn get_node_type(&self, cell: &H3Cell) -> Option<&NodeType>;
 }
 
 #[derive(Clone)]

@@ -11,7 +11,7 @@ use crate::algorithm::shortest_path::{ShortestPathManyToMany, ShortestPathOption
 use crate::error::Error;
 use crate::graph::modifiers::ExcludeCells;
 use crate::graph::node::GetGapBridgedCellNodes;
-use crate::graph::{GetEdge, GetNode};
+use crate::graph::{GetEdge, GetNodeType};
 
 pub struct Diff<T> {
     pub with_excluded_cells: Vec<T>,
@@ -67,7 +67,7 @@ impl<G, W> DifferentialShortestPath<W> for G
 where
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
     G: GetEdge<WeightType = W>
-        + GetNode
+        + GetNodeType
         + HasH3Resolution
         + GetGapBridgedCellNodes
         + Sync

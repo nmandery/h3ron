@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::ops::Add;
 
+use geo::MultiPolygon;
 use num_traits::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -9,10 +10,11 @@ use h3ron::collections::ThreadPartitionedMap;
 use h3ron::iter::H3EdgesBuilder;
 use h3ron::{H3Cell, H3Edge, HasH3Resolution};
 
+use crate::algorithm::covered_area::{cells_covered_area, CoveredArea};
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::node::NodeType;
-use crate::graph::{EdgeValue, GetEdge, GetNode, GetStats, GraphStats, H3EdgeGraph};
+use crate::graph::{EdgeValue, GetEdge, GetNodeType, GetStats, GraphStats, H3EdgeGraph};
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct OwnedEdgeValue<W: Send + Sync> {
@@ -153,8 +155,8 @@ where
     }
 }
 
-impl<W: Send + Sync> GetNode for PreparedH3EdgeGraph<W> {
-    fn get_node(&self, cell: &H3Cell) -> Option<&NodeType> {
+impl<W: Send + Sync> GetNodeType for PreparedH3EdgeGraph<W> {
+    fn get_node_type(&self, cell: &H3Cell) -> Option<&NodeType> {
         self.graph_nodes.get(cell)
     }
 }
@@ -208,5 +210,18 @@ where
                 .collect(),
             h3_resolution: prepared_graph.h3_resolution,
         }
+    }
+}
+
+impl<W> CoveredArea for PreparedH3EdgeGraph<W>
+where
+    W: Send + Sync,
+{
+    fn covered_area(&self, reduce_resolution_by: u8) -> Result<MultiPolygon<f64>, Error> {
+        cells_covered_area(
+            self.graph_nodes.iter().map(|(cell, _)| cell),
+            self.h3_resolution(),
+            reduce_resolution_by,
+        )
     }
 }
