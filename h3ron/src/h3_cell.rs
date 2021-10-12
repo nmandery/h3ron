@@ -15,6 +15,7 @@ use crate::index::{HasH3Resolution, Index};
 use crate::util::{coordinate_to_geocoord, point_to_geocoord};
 use crate::{max_k_ring_size, ExactArea, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 
 /// H3 Index representing a H3 Cell (hexagon)
 #[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
@@ -356,6 +357,14 @@ impl ToCoordinate for H3Cell {
     }
 }
 
+impl Deref for H3Cell {
+    type Target = H3Index;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -395,6 +404,14 @@ mod tests {
         assert!(H3Cell::try_from(0x89283080ddbffff_u64).unwrap().is_valid());
         assert!(!H3Cell::new(0_u64).is_valid());
         assert!(H3Cell::try_from(0_u64).is_err());
+    }
+
+    #[test]
+    fn test_eq() {
+        assert_eq!(
+            H3Cell::try_from(0x89283080ddbffff_u64).unwrap(),
+            H3Cell::try_from(0x89283080ddbffff_u64).unwrap()
+        );
     }
 
     #[test]

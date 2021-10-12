@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 use std::os::raw::c_int;
 use std::str::FromStr;
 
@@ -261,6 +262,14 @@ impl ToMultiLineString for &[H3Edge] {
                 edge.destination_index_unchecked(),
             )
         }))
+    }
+}
+
+impl Deref for H3Edge {
+    type Target = H3Index;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

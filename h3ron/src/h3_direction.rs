@@ -1,4 +1,4 @@
-use crate::{Error, H3Cell, Index, H3_MAX_RESOLUTION};
+use crate::{Error, Index, H3_MAX_RESOLUTION};
 use std::convert::TryFrom;
 
 const H3_PER_DIGIT_OFFSET: u8 = 3;
@@ -62,32 +62,44 @@ impl TryFrom<u8> for H3Direction {
     }
 }
 
-impl H3Cell {
-    /// Retrieves the H3 Direction of the `self` cell relative to its direct parent
-    pub fn direction_to_parent(&self) -> H3Direction {
-        self.direction_to_parent_resolution(self.resolution().saturating_sub(1))
-            .unwrap()
+impl H3Direction {
+    /// Retrieves the H3 Direction of the `index` relative to its direct parent
+    pub fn direction_to_parent<I: Index>(index: &I) -> Self {
+        Self::direction_to_parent_resolution(index, index.resolution().saturating_sub(1)).unwrap()
     }
 
-    /// Retrieves the H3 Direction of the `self`cell relative to its parent at `resolution`.
+    /// Retrieves the H3 Direction of the `index`
+    pub fn direction<I: Index>(index: &I) -> Self {
+        Self::direction_to_parent_resolution(index, index.resolution()).unwrap()
+    }
+
+    /// Retrieves the H3 Direction of the `index` relative to its parent at `target_resolution`.
     ///
-    /// The function may fail if `resolution` is higher than `self` resolution
-    pub fn direction_to_parent_resolution(&self, resolution: u8) -> Result<H3Direction, Error> {
-        if resolution > self.resolution() {
-            return Err(Error::MixedResolutions(self.resolution(), resolution));
+    /// The function may fail if `target_resolution` is higher than `index` resolution
+    pub fn direction_to_parent_resolution<I: Index>(
+        index: &I,
+        target_resolution: u8,
+    ) -> Result<Self, Error> {
+        if target_resolution > index.resolution() {
+            return Err(Error::MixedResolutions(
+                index.resolution(),
+                target_resolution,
+            ));
         }
-        let ptr = self.h3index() as *const u64;
+        let ptr = index.h3index() as *const u64;
         let ptr = ptr as u64;
-        let offset = ((H3_MAX_RESOLUTION - resolution) * H3_PER_DIGIT_OFFSET) as u64;
+        let offset =
+            (H3_MAX_RESOLUTION.saturating_sub(target_resolution) * H3_PER_DIGIT_OFFSET) as u64;
         let mask = H3_DIGIT_MASK as u64;
         let dir = (ptr >> offset) & mask;
-        H3Direction::try_from(dir as u8)
+        Self::try_from(dir as u8)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::H3Cell;
     use std::convert::TryFrom;
 
     #[test]
@@ -111,17 +123,19 @@ mod tests {
     fn can_be_created_from_index() {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
         assert_eq!(cell.resolution(), 5);
-        let direction = cell.direction_to_parent_resolution(4).unwrap();
+        let direction = H3Direction::direction_to_parent_resolution(&cell, 4).unwrap();
         assert_eq!(direction, H3Direction::JkAxesDigit);
-        let direction = cell.direction_to_parent();
+        let direction = H3Direction::direction_to_parent(&cell);
         assert_eq!(direction, H3Direction::JkAxesDigit);
+        let direction = H3Direction::direction(&cell);
+        assert_eq!(direction, H3Direction::IjAxesDigit);
     }
 
     #[test]
     fn can_be_created_from_index_to_low_res() {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
         assert_eq!(cell.resolution(), 5);
-        let direction = cell.direction_to_parent_resolution(1).unwrap();
+        let direction = H3Direction::direction_to_parent_resolution(&cell, 1).unwrap();
         assert_eq!(direction, H3Direction::KAxesDigit);
     }
 
@@ -130,7 +144,7 @@ mod tests {
     fn can_fail_from_wrong_resolution() {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
         assert_eq!(cell.resolution(), 5);
-        cell.direction_to_parent_resolution(6).unwrap();
+        H3Direction::direction_to_parent_resolution(&cell, 6).unwrap();
     }
 
     #[test]
@@ -138,7 +152,32 @@ mod tests {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
         let cell = cell.get_parent(0).unwrap();
         assert_eq!(cell.resolution(), 0);
-        let direction = cell.direction_to_parent();
+        let direction = H3Direction::direction_to_parent(&cell);
         assert_eq!(direction, H3Direction::IAxesDigit);
+    }
+
+    #[test]
+    fn children_directions() {
+        let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
+        let children = cell.get_children(cell.resolution() + 1);
+        for (i, child) in children.iter().enumerate() {
+            let direction = H3Direction::direction(&child);
+            assert_eq!(direction as usize, i);
+        }
+    }
+
+    #[test]
+    fn children_edge_directions() {
+        let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
+        let children = cell.get_children(cell.resolution() + 1);
+        let center_child = children.first().unwrap();
+        for (i, child) in children.iter().enumerate() {
+            if child == center_child {
+                continue;
+            }
+            let edge = child.unidirectional_edge_to(&center_child).unwrap();
+            let direction = H3Direction::direction(&edge);
+            assert_eq!(direction as usize, i);
+        }
     }
 }
