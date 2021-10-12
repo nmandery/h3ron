@@ -24,11 +24,14 @@ python extension.
 - `H3Edge::reversed` and `H3Edge::reversed_unchecked` to get the edge in the reverse direction.
 - `ContainsIndex` trait for collections.
 - `ToMultiLineString` trait for `&[H3Edge]` and `Vec<H3Edge>`.
+- Implemented `Deref` for `H3Cell` and `H3Edge` [#23](https://github.com/nmandery/h3ron/pull/23).
+- All types implementing `Index` can have directions [#23](https://github.com/nmandery/h3ron/pull/23).
 
 ### Changed
 - Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.
 - Clean up measurement functions. Create `ExactArea` and `ExactLength` traits and move the measurement functions from `H3Cell` and `H3Edge`
   to these traits. Remove `AreaUnits` and move average-area functions to `H3Cell`.
+- Fixed overflow in `H3Direction` [#23](https://github.com/nmandery/h3ron/pull/23).
 
 
 ## h3ron [0.12.0] - 2021-08-10
