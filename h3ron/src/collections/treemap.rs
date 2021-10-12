@@ -99,9 +99,17 @@ impl<T> H3Treemap<T>
 where
     T: Index,
 {
+    /// Pushes value in the treemap only if it is greater than the current maximum value.
+    /// Returns whether the value was inserted.
     #[inline]
     pub fn push(&mut self, index: T) -> bool {
         self.treemap.push(index.h3index())
+    }
+
+    /// Adds a value to the set. Returns true if the value was not already present in the set.
+    #[inline]
+    pub fn insert(&mut self, index: T) -> bool {
+        self.treemap.insert(index.h3index())
     }
 
     #[inline]
@@ -133,11 +141,38 @@ where
     pub fn is_superset(&self, rhs: &Self) -> bool {
         self.treemap.is_superset(&rhs.treemap)
     }
+
+    pub fn iter(&self) -> Iter<T> {
+        Iter {
+            inner_iter: self.treemap.iter(),
+            phantom_data: Default::default(),
+        }
+    }
 }
 
 impl<I: Index> ContainsIndex<I> for H3Treemap<I> {
     fn contains_index(&self, index: &I) -> bool {
         self.contains(index)
+    }
+}
+
+pub struct Iter<'a, T> {
+    inner_iter: roaring::treemap::Iter<'a>,
+    phantom_data: PhantomData<T>,
+}
+
+impl<'a, T> Iterator for Iter<'a, T>
+where
+    T: Index,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner_iter.next().map(|index| T::new(index))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner_iter.size_hint()
     }
 }
 
@@ -154,7 +189,7 @@ mod tests {
     fn serde_roundtrip() {
         let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
         let mut treemap = H3Treemap::default();
-        treemap.push(idx);
+        treemap.insert(idx);
 
         let mut serialized_bytes = vec![];
         serialize_into(&mut serialized_bytes, &treemap, false).unwrap();
@@ -164,5 +199,15 @@ mod tests {
             deserialize_from_byte_slice(&serialized_bytes).unwrap();
         assert_eq!(deserialized.len(), 1);
         assert!(deserialized.contains(&idx));
+    }
+
+    #[test]
+    fn iter() {
+        let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
+        let mut treemap = H3Treemap::default();
+        for cell in idx.k_ring(1).iter() {
+            treemap.insert(cell);
+        }
+        assert_eq!(treemap.iter().count(), 7);
     }
 }
