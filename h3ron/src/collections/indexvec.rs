@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 /// The struct does not provide a `len()` method as this would create the impression that accessing
 /// this method is cheap. As a count of the contained elements requires checking each for `0`, that
 /// functionality is provided by [`IndexVec::count()`]
+#[derive(Debug)]
 pub struct IndexVec<T: FromH3Index + Index> {
     inner_vec: Vec<H3Index>,
     phantom: PhantomData<T>,

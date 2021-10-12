@@ -1,5 +1,5 @@
 use crate::collections::indexvec::IndexVec;
-use crate::{Error, FromH3Index};
+use crate::{Error, FromH3Index, H3Direction};
 use h3ron_h3_sys::H3Index;
 use std::os::raw::c_int;
 
@@ -79,6 +79,16 @@ pub trait Index: Sized + PartialEq + FromH3Index {
             );
         }
         index_vec
+    }
+
+    /// Retrieves the direction of the current index
+    fn direction(&self) -> H3Direction {
+        H3Direction::direction(self)
+    }
+
+    /// Retrieves the direction of the current index relative to a parent at `target_resolution`
+    fn direction_to_parent_resolution(&self, target_resolution: u8) -> Result<H3Direction, Error> {
+        H3Direction::direction_to_parent_resolution(self, target_resolution)
     }
 }
 
