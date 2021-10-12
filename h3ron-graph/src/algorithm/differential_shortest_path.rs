@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 use std::ops::Add;
 
 use num_traits::Zero;
+use serde::{Deserialize, Serialize};
 
 use h3ron::collections::{ContainsIndex, H3CellMap, H3Treemap, HashMap};
 use h3ron::{H3Cell, HasH3Resolution, Index};
@@ -13,6 +14,7 @@ use crate::graph::modifiers::ExcludeCells;
 use crate::graph::node::GetGapBridgedCellNodes;
 use crate::graph::{GetEdge, GetNodeType};
 
+#[derive(Serialize, Deserialize)]
 pub struct Diff<T> {
     pub with_excluded_cells: Vec<T>,
     pub without_excluded_cells: Vec<T>,
