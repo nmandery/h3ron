@@ -15,9 +15,14 @@ use crate::graph::node::GetGapBridgedCellNodes;
 use crate::graph::{GetEdge, GetNodeType};
 
 #[derive(Serialize, Deserialize)]
-pub struct Diff<T> {
-    pub with_excluded_cells: Vec<T>,
-    pub without_excluded_cells: Vec<T>,
+pub struct ExclusionDiff<T> {
+    /// the results of the shortest-path calculation before the cells have been
+    /// excluded from the graph.
+    pub before_cell_exclusion: Vec<T>,
+
+    /// the results of the shortest-path calculation after the cells have been
+    /// excluded from the graph.
+    pub after_cell_exclusion: Vec<T>,
 }
 
 /// "Differential" routing calculates the shortest path from (multiple) origin cells
@@ -34,7 +39,7 @@ where
         destination_cells: I,
         exclude_cells: &H3Treemap<H3Cell>,
         options: &OPT,
-    ) -> Result<HashMap<H3Cell, Diff<Path<W>>>, Error>
+    ) -> Result<HashMap<H3Cell, ExclusionDiff<Path<W>>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
@@ -56,7 +61,7 @@ where
         exclude_cells: &H3Treemap<H3Cell>,
         options: &OPT,
         path_map_fn: PM,
-    ) -> Result<HashMap<H3Cell, Diff<O>>, Error>
+    ) -> Result<HashMap<H3Cell, ExclusionDiff<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
@@ -82,7 +87,7 @@ where
         exclude_cells: &H3Treemap<H3Cell>,
         options: &OPT,
         path_map_fn: PM,
-    ) -> Result<HashMap<H3Cell, Diff<O>>, Error>
+    ) -> Result<HashMap<H3Cell, ExclusionDiff<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
@@ -122,9 +127,9 @@ where
         for (cell, paths) in paths_before.drain() {
             out_diffs.insert(
                 cell,
-                Diff {
-                    with_excluded_cells: paths,
-                    without_excluded_cells: paths_after.remove(&cell).unwrap_or_default(),
+                ExclusionDiff {
+                    before_cell_exclusion: paths,
+                    after_cell_exclusion: paths_after.remove(&cell).unwrap_or_default(),
                 },
             );
         }
