@@ -32,6 +32,7 @@ python extension.
 - Clean up measurement functions. Create `ExactArea` and `ExactLength` traits and move the measurement functions from `H3Cell` and `H3Edge`
   to these traits. Remove `AreaUnits` and move average-area functions to `H3Cell`.
 - Fixed overflow in `H3Direction` [#23](https://github.com/nmandery/h3ron/pull/23).
+- Make serde support feature-gated behind `use-serde`.
 
 
 ## h3ron [0.12.0] - 2021-08-10

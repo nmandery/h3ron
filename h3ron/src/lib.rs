@@ -2,7 +2,8 @@
 //! # Features
 //!
 //! * **io**: Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
-//! during development. Also enables the `h3ron::collections::compressed` module.
+//! during development.
+//! * **use-serde**: serde support and also enables the `h3ron::collections::compressed` module.
 //! * **use-rayon**: Enables [`collections::ThreadPartitionedMap`].
 //! * **use-roaring**: Enables [`collections::H3Treemap`] based on the `roaring` crate.
 use std::iter::Iterator;

@@ -3,11 +3,12 @@ use std::iter::FromIterator;
 use std::marker::PhantomData;
 
 use roaring::RoaringTreemap;
-use serde::de::Visitor;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::collections::ContainsIndex;
 use crate::Index;
+
+#[cfg(feature = "use-serde")]
+pub mod serde;
 
 /// wrapper around [`roaring::RoaringTreemap`] to store h3 data.
 ///
@@ -20,54 +21,6 @@ use crate::Index;
 pub struct H3Treemap<T> {
     treemap: RoaringTreemap,
     phantom_data: PhantomData<T>,
-}
-
-impl<T> Serialize for H3Treemap<T> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut buffer = Vec::with_capacity(self.treemap.serialized_size());
-        self.treemap
-            .serialize_into(&mut buffer)
-            .map_err(serde::ser::Error::custom)?;
-        serializer.serialize_bytes(&buffer)
-    }
-}
-
-struct H3TreemapVisitor<T> {
-    phantom_data: PhantomData<T>,
-}
-
-impl<'de, T> Visitor<'de> for H3TreemapVisitor<T> {
-    type Value = H3Treemap<T>;
-
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("serialized roaring treemap")
-    }
-
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-    where
-        E: serde::de::Error,
-    {
-        let treemap = RoaringTreemap::deserialize_from(v).map_err(E::custom)?;
-        Ok(H3Treemap {
-            treemap,
-            phantom_data: PhantomData::<T>::default(),
-        })
-    }
-}
-
-// TODO: deserialization does not ensure the data contained in the treemap are valid indexes.
-impl<'de, T> Deserialize<'de> for H3Treemap<T> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        deserializer.deserialize_bytes(H3TreemapVisitor {
-            phantom_data: PhantomData::<T>::default(),
-        })
-    }
 }
 
 impl<T, Q> FromIterator<Q> for H3Treemap<T>
@@ -180,26 +133,9 @@ where
 mod tests {
     use std::convert::TryFrom;
 
-    use crate::io::{deserialize_from_byte_slice, serialize_into};
     use crate::H3Cell;
 
     use super::H3Treemap;
-
-    #[test]
-    fn serde_roundtrip() {
-        let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
-        let mut treemap = H3Treemap::default();
-        treemap.insert(idx);
-
-        let mut serialized_bytes = vec![];
-        serialize_into(&mut serialized_bytes, &treemap, false).unwrap();
-        // dbg!(serialized_bytes.len());
-
-        let deserialized: H3Treemap<H3Cell> =
-            deserialize_from_byte_slice(&serialized_bytes).unwrap();
-        assert_eq!(deserialized.len(), 1);
-        assert!(deserialized.contains(&idx));
-    }
 
     #[test]
     fn iter() {

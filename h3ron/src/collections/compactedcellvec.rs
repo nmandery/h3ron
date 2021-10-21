@@ -2,6 +2,7 @@ use std::borrow::Borrow;
 use std::iter::FromIterator;
 use std::ops::RangeInclusive;
 
+#[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::collections::indexvec::IndexVec;
@@ -15,7 +16,8 @@ const H3_RESOLUTION_RANGE_USIZE: RangeInclusive<usize> =
 
 /// structure to keep compacted h3ron cells to allow more or less efficient
 /// adding of further cells
-#[derive(PartialEq, Serialize, Deserialize, Debug)]
+#[derive(PartialEq, Debug)]
+#[cfg_attr(feature = "use-serde", derive(Serialize, Deserialize))]
 pub struct CompactedCellVec {
     /// cells by their resolution. The index of the array is the resolution for the referenced vec
     cells_by_resolution: [Vec<H3Cell>; H3_MAX_RESOLUTION as usize + 1],
@@ -351,6 +353,7 @@ impl<'a> Iterator for CompactedCellVecUncompactedIterator<'a> {
 mod tests {
     use std::convert::TryInto;
 
+    #[cfg(feature = "use-serde")]
     use bincode::{deserialize, serialize};
 
     use crate::collections::CompactedCellVec;
@@ -365,6 +368,7 @@ mod tests {
         assert_eq!(cv.len(), 1);
     }
 
+    #[cfg(feature = "use-serde")]
     #[test]
     fn compactedvec_serde_roundtrip() {
         let mut cv = CompactedCellVec::new();

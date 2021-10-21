@@ -6,6 +6,7 @@ use std::os::raw::c_int;
 use std::str::FromStr;
 
 use geo::{LineString, MultiLineString};
+#[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::H3Index;
@@ -15,7 +16,8 @@ use crate::to_geo::{ToLineString, ToMultiLineString};
 use crate::{Error, ExactLength, FromH3Index, H3Cell, ToCoordinate};
 
 /// H3 Index representing an Unidirectional H3 edge
-#[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
+#[derive(PartialOrd, PartialEq, Clone, Hash, Eq, Ord, Copy)]
+#[cfg_attr(feature = "use-serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct H3Edge(H3Index);
 

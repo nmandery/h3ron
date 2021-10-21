@@ -26,7 +26,7 @@ num-traits = "0.2"
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.12.0" # for publishing on crates.io
-features = ["use-rayon", "io", "use-roaring"]
+features = ["use-rayon", "io", "use-roaring", "use-serde"]
 
 [dependencies.osmpbfreader]
 version = "0.15"

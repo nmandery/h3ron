@@ -5,6 +5,8 @@ use std::os::raw::c_int;
 use std::str::FromStr;
 
 use geo_types::{Coordinate, LineString, Point, Polygon};
+
+#[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
 use h3ron_h3_sys::{GeoCoord, H3Index};
@@ -18,7 +20,8 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 
 /// H3 Index representing a H3 Cell (hexagon)
-#[derive(PartialOrd, PartialEq, Clone, Serialize, Deserialize, Hash, Eq, Ord, Copy)]
+#[derive(PartialOrd, PartialEq, Clone, Hash, Eq, Ord, Copy)]
+#[cfg_attr(feature = "use-serde", derive(Serialize, Deserialize))]
 #[repr(transparent)]
 pub struct H3Cell(H3Index);
 
@@ -371,6 +374,7 @@ mod tests {
     use std::convert::{TryFrom, TryInto};
     use std::str::FromStr;
 
+    #[cfg(feature = "use-serde")]
     use bincode::{deserialize, serialize};
 
     use h3ron_h3_sys::H3Index;
@@ -481,6 +485,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "use-serde")]
     #[test]
     fn serde_index_roundtrip() {
         let idx = H3Cell::new(0x89283080ddbffff_u64);
@@ -492,6 +497,7 @@ mod tests {
 
     /// this test is not really a hard requirement, but it is nice to know
     /// Index is handled just like an u64
+    #[cfg(feature = "use-serde")]
     #[test]
     fn serde_index_from_h3index() {
         let idx: H3Index = 0x89283080ddbffff_u64;

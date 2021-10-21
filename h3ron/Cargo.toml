@@ -12,7 +12,8 @@ repository = "https://github.com/nmandery/h3ron"
 
 [features]
 use-rayon = ["rayon", "num_cpus"]
-io = ["bincode", "lz4_flex"]
+io = ["bincode", "lz4_flex", "serde"]
+use-serde = ["serde", "bincode"]
 use-roaring = ["roaring"]
 
 [dependencies]
@@ -32,6 +33,7 @@ version = "^0.7"
 [dependencies.serde]
 version = "^1.0"
 features = [ "derive" ]
+optional = true
 
 [dependencies.hashbrown]
 version = "0.11"
