@@ -121,7 +121,7 @@ where
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.inner_iter.next().map(|index| T::new(index))
+        self.inner_iter.next().map(T::new)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
