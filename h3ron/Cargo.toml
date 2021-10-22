@@ -52,7 +52,7 @@ version = "1"
 optional = true
 
 [dependencies.roaring]
-version = "0.7"
+version = "0.8"
 optional = true
 
 [dependencies.lz4_flex]
