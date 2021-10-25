@@ -1,5 +1,6 @@
 use std::cmp::min;
 
+use crate::{ExactLength, H3Edge};
 use geo::algorithm::area::Area;
 use geo::algorithm::simplifyvw::SimplifyVW;
 use geo_types::{Coordinate, LineString, Polygon, Triangle};
@@ -74,13 +75,41 @@ pub fn smoothen_h3_linked_polygon(in_poly: &Polygon<f64>) -> Polygon<f64> {
     )
 }
 
+/// The distance between the centroids of the cells described by the given `H3Edge`.
+///
+/// Based on the exact edge length. See [``] for a resolution based variant.
+///
+/// This function assumes all given edges pointing from hexagons to hexagons and
+/// will return slightly wrong distances for pentagons.
+pub fn cell_centroid_distance_m(edge: H3Edge) -> f64 {
+    cell_centroid_distance_m_by_edge_length(edge.exact_length_m())
+}
+
+/// The approximate distance between the centroids of two neighboring cells
+/// at the given `h3_resolution`.
+///
+/// Based on the approximate edge length. See [`cell_centroid_distance_m`] for a
+/// more exact variant of this function.
+///
+/// This function assumes all given edges pointing from hexagons to hexagons and
+/// will return slightly wrong distances for pentagons.
+pub fn cell_centroid_distance_m_at_resolution(h3_resolution: u8) -> f64 {
+    cell_centroid_distance_m_by_edge_length(H3Edge::edge_length_m(h3_resolution))
+}
+
+#[inline]
+fn cell_centroid_distance_m_by_edge_length(edge_length: f64) -> f64 {
+    // the height of two triangles
+    2.0 * (edge_length / 2.0) * 3.0_f64.sqrt()
+}
+
 #[cfg(test)]
 mod tests {
     use geo::algorithm::coords_iter::CoordsIter;
     use geo_types::Coordinate;
 
-    use crate::algorithm::smoothen_h3_linked_polygon;
-    use crate::{H3Cell, ToLinkedPolygons};
+    use crate::algorithm::{cell_centroid_distance_m, smoothen_h3_linked_polygon};
+    use crate::{ExactLength, H3Cell, H3Edge, Index, ToLinkedPolygons};
 
     #[test]
     fn smooth_donut_linked_polygon() {
@@ -102,5 +131,12 @@ mod tests {
         assert!(smoothed.exterior().coords_count() < 10);
         assert_eq!(smoothed.interiors().len(), 1);
         assert!(smoothed.interiors()[0].coords_count() < 10);
+    }
+
+    #[test]
+    fn test_cell_centroid_distance_m() {
+        let edge = H3Edge::new(0x149283080ddbffff);
+        assert!(edge.exact_length_m() < cell_centroid_distance_m(edge));
+        assert!((2.0 * edge.exact_length_m()) > cell_centroid_distance_m(edge));
     }
 }
