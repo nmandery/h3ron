@@ -1,6 +1,8 @@
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
+use std::iter::FromIterator;
+use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::os::raw::c_int;
 use std::str::FromStr;
@@ -13,6 +15,7 @@ use h3ron_h3_sys::H3Index;
 
 use crate::index::{HasH3Resolution, Index};
 use crate::to_geo::{ToLineString, ToMultiLineString};
+use crate::util::geoboundary_to_coordinates;
 use crate::{Error, ExactLength, FromH3Index, H3Cell, ToCoordinate};
 
 /// H3 Index representing an Unidirectional H3 edge
@@ -140,6 +143,18 @@ impl H3Edge {
         edge_cells
             .destination
             .unidirectional_edge_to(&edge_cells.origin)
+    }
+
+    /// Retrieves the [`LineString`] which forms the boundary between
+    /// two cells.
+    pub fn boundary_linestring(&self) -> LineString<f64> {
+        let gb = unsafe {
+            let mut mu = MaybeUninit::<h3ron_h3_sys::GeoBoundary>::uninit();
+            h3ron_h3_sys::getH3UnidirectionalEdgeBoundary(self.0, mu.as_mut_ptr());
+            mu.assume_init()
+        };
+
+        LineString::from_iter(geoboundary_to_coordinates(&gb).drain(0..(gb.numVerts as usize)))
     }
 }
 
@@ -369,5 +384,12 @@ mod tests {
             edge.destination_index_unchecked(),
             rev_edge.origin_index_unchecked()
         );
+    }
+
+    #[test]
+    fn boundary_linestring() {
+        let edge = H3Edge::new(0x149283080ddbffff);
+        dbg!(edge.boundary_linestring());
+        dbg!(edge.to_linestring().unwrap());
     }
 }

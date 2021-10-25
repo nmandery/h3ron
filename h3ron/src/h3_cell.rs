@@ -14,7 +14,7 @@ use h3ron_h3_sys::{GeoCoord, H3Index};
 use crate::collections::indexvec::IndexVec;
 use crate::error::Error;
 use crate::index::{HasH3Resolution, Index};
-use crate::util::{coordinate_to_geocoord, point_to_geocoord};
+use crate::util::{coordinate_to_geocoord, geoboundary_to_coordinates, point_to_geocoord};
 use crate::{max_k_ring_size, ExactArea, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
@@ -333,15 +333,9 @@ impl ToPolygon for H3Cell {
             mu.assume_init()
         };
 
-        let mut nodes = vec![];
-        for i in 0..gb.numVerts {
-            nodes.push((
-                unsafe { h3ron_h3_sys::radsToDegs(gb.verts[i as usize].lon) },
-                unsafe { h3ron_h3_sys::radsToDegs(gb.verts[i as usize].lat) },
-            ));
-        }
-        nodes.push(*nodes.first().unwrap());
-        Polygon::new(LineString::from(nodes), vec![])
+        let mut coordinates = geoboundary_to_coordinates(&gb);
+        coordinates.push(coordinates.first().copied().unwrap());
+        Polygon::new(LineString::from(coordinates), vec![])
     }
 }
 

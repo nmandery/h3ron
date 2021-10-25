@@ -26,6 +26,7 @@ python extension.
 - `ToMultiLineString` trait for `&[H3Edge]` and `Vec<H3Edge>`.
 - Implemented `Deref` for `H3Cell` and `H3Edge` [#23](https://github.com/nmandery/h3ron/pull/23).
 - All types implementing `Index` can have directions [#23](https://github.com/nmandery/h3ron/pull/23).
+- Add `H3Edge::boundary_linestring`
 
 ### Changed
 - Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.
