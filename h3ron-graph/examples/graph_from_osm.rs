@@ -5,41 +5,57 @@ use std::fs::File;
 use std::path::Path;
 
 use clap::{App, Arg};
+use h3ron::H3Edge;
 use ordered_float::OrderedFloat;
 
 use h3ron::io::serialize_into;
 use h3ron_graph::formats::osm::osmpbfreader::Tags;
-use h3ron_graph::formats::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder};
+use h3ron_graph::formats::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder, WayAnalyzer};
 use h3ron_graph::graph::{GetStats, H3EdgeGraphBuilder, PreparedH3EdgeGraph};
 
-pub fn way_properties(tags: &Tags) -> Option<EdgeProperties<OrderedFloat<f64>>> {
-    // https://wiki.openstreetmap.org/wiki/Key:highway or https://wiki.openstreetmap.org/wiki/DE:Key:highway
-    if let Some(highway_value) = tags.get("highway") {
-        match highway_value.to_lowercase().as_str() {
-            "motorway" | "motorway_link" | "trunk" | "trunk_link" | "primary" | "primary_link" => {
-                Some(3.0.into())
+struct MyWayAnalzer {}
+
+impl WayAnalyzer<OrderedFloat<f64>> for MyWayAnalzer {
+    type WayProperties = (OrderedFloat<f64>, bool);
+
+    fn analyze_way_tags(&self, tags: &Tags) -> Option<Self::WayProperties> {
+        // https://wiki.openstreetmap.org/wiki/Key:highway or https://wiki.openstreetmap.org/wiki/DE:Key:highway
+        if let Some(highway_value) = tags.get("highway") {
+            match highway_value.to_lowercase().as_str() {
+                "motorway" | "motorway_link" | "trunk" | "trunk_link" | "primary"
+                | "primary_link" => Some(3.0.into()),
+                "secondary" | "secondary_link" => Some(4.0.into()),
+                "tertiary" | "tertiary_link" => Some(5.0.into()),
+                "unclassified" | "residential" | "living_street" | "service" => Some(8.0.into()),
+                "road" => Some(9.0.into()),
+                "pedestrian" => Some(50.0.into()), // fussgängerzone
+                _ => None,
             }
-            "secondary" | "secondary_link" => Some(4.0.into()),
-            "tertiary" | "tertiary_link" => Some(5.0.into()),
-            "unclassified" | "residential" | "living_street" | "service" => Some(8.0.into()),
-            "road" => Some(9.0.into()),
-            "pedestrian" => Some(50.0.into()), // fussgängerzone
-            _ => None,
+            .map(|weight| {
+                // oneway streets (https://wiki.openstreetmap.org/wiki/Key:oneway)
+                // NOTE: reversed direction "oneway=-1" is not supported
+                let is_bidirectional = tags
+                    .get("oneway")
+                    .map(|v| v.to_lowercase() != "yes")
+                    .unwrap_or(true);
+                (weight, is_bidirectional)
+            })
+        } else {
+            None
         }
-        .map(|weight| {
-            // oneway streets (https://wiki.openstreetmap.org/wiki/Key:oneway)
-            // NOTE: reversed direction "oneway=-1" is not supported
-            let is_bidirectional = tags
-                .get("oneway")
-                .map(|v| v.to_lowercase() != "yes")
-                .unwrap_or(true);
-            EdgeProperties {
-                is_bidirectional,
-                weight,
-            }
-        })
-    } else {
-        None
+    }
+
+    fn way_edge_properties(
+        &self,
+        _edge: H3Edge,
+        way_properties: &Self::WayProperties,
+    ) -> EdgeProperties<OrderedFloat<f64>> {
+        // use the edge to make the WayProperties relative to the length of the edge (`cell_centroid_distance_m`)
+        // or whatever else is desired
+        EdgeProperties {
+            is_bidirectional: way_properties.1,
+            weight: way_properties.0,
+        }
     }
 }
 
@@ -73,7 +89,7 @@ fn main() {
         .expect("invalid h3 resolution");
     let graph_output = matches.value_of("OUTPUT-GRAPH").unwrap().to_string();
 
-    let mut builder = OsmPbfH3EdgeGraphBuilder::new(h3_resolution, way_properties);
+    let mut builder = OsmPbfH3EdgeGraphBuilder::new(h3_resolution, MyWayAnalzer {});
     for pbf_input in matches.values_of("OSM-PBF").unwrap() {
         builder
             .read_pbf(Path::new(&pbf_input))

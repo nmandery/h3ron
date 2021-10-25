@@ -8,6 +8,7 @@ pub use osmpbfreader;
 use osmpbfreader::{OsmPbfReader, Tags};
 
 use h3ron::collections::HashMap;
+use h3ron::H3Edge;
 
 use crate::error::Error;
 use crate::graph::{H3EdgeGraph, H3EdgeGraphBuilder};
@@ -24,25 +25,39 @@ pub struct EdgeProperties<T> {
     pub weight: T,
 }
 
+pub trait WayAnalyzer<T> {
+    type WayProperties;
+
+    /// analyze the tags of an Way and return `Some` when this way should be used
+    fn analyze_way_tags(&self, tags: &Tags) -> Option<Self::WayProperties>;
+
+    /// return the weight for a single `H3Edge`
+    fn way_edge_properties(
+        &self,
+        edge: H3Edge,
+        way_properties: &Self::WayProperties,
+    ) -> EdgeProperties<T>;
+}
+
 /// Builds [`H3EdgeGraph`] instances from .osm.pbf files.
 pub struct OsmPbfH3EdgeGraphBuilder<
     T: PartialOrd + PartialEq + Add + Copy + Sync + Send,
-    F: Fn(&Tags) -> Option<EdgeProperties<T>>,
+    WA: WayAnalyzer<T>,
 > {
     h3_resolution: u8,
-    edge_properties_fn: F,
+    way_analyzer: WA,
     graph: H3EdgeGraph<T>,
 }
 
-impl<T, F> OsmPbfH3EdgeGraphBuilder<T, F>
+impl<T, WA> OsmPbfH3EdgeGraphBuilder<T, WA>
 where
     T: PartialOrd + PartialEq + Add + Copy + Send + Sync,
-    F: Fn(&Tags) -> Option<EdgeProperties<T>>,
+    WA: WayAnalyzer<T>,
 {
-    pub fn new(h3_resolution: u8, edge_properties_fn: F) -> Self {
+    pub fn new(h3_resolution: u8, way_analyzer: WA) -> Self {
         Self {
             h3_resolution,
-            edge_properties_fn,
+            way_analyzer,
             graph: H3EdgeGraph::new(h3_resolution),
         }
     }
@@ -62,7 +77,7 @@ where
                     nodeid_coordinates.insert(node.id, coordinate);
                 }
                 osmpbfreader::OsmObj::Way(way) => {
-                    if let Some(edge_props) = (self.edge_properties_fn)(&way.tags) {
+                    if let Some(way_props) = self.way_analyzer.analyze_way_tags(&way.tags) {
                         let coordinates: Vec<_> = way
                             .nodes
                             .iter()
@@ -75,18 +90,13 @@ where
                             h3indexes.dedup();
 
                             for window in h3indexes.windows(2) {
+                                let edge = window[0].unidirectional_edge_to(&window[1])?;
+                                let edge_props =
+                                    self.way_analyzer.way_edge_properties(edge, &way_props);
+
+                                self.graph.add_edge(edge, edge_props.weight)?;
                                 if edge_props.is_bidirectional {
-                                    self.graph.add_edge_using_cells_bidirectional(
-                                        window[0],
-                                        window[1],
-                                        edge_props.weight,
-                                    )?;
-                                } else {
-                                    self.graph.add_edge_using_cells(
-                                        window[0],
-                                        window[1],
-                                        edge_props.weight,
-                                    )?;
+                                    self.graph.add_edge(edge.reversed()?, edge_props.weight)?;
                                 }
                             }
                         }
@@ -99,10 +109,10 @@ where
     }
 }
 
-impl<T, F> H3EdgeGraphBuilder<T> for OsmPbfH3EdgeGraphBuilder<T, F>
+impl<T, WA> H3EdgeGraphBuilder<T> for OsmPbfH3EdgeGraphBuilder<T, WA>
 where
     T: PartialOrd + PartialEq + Add + Copy + Send + Sync,
-    F: Fn(&Tags) -> Option<EdgeProperties<T>>,
+    WA: WayAnalyzer<T>,
 {
     fn build_graph(self) -> std::result::Result<H3EdgeGraph<T>, Error> {
         Ok(self.graph)
