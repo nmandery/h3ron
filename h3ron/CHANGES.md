@@ -27,7 +27,7 @@ python extension.
 - Implemented `Deref` for `H3Cell` and `H3Edge` [#23](https://github.com/nmandery/h3ron/pull/23).
 - All types implementing `Index` can have directions [#23](https://github.com/nmandery/h3ron/pull/23).
 - Add `H3Edge::boundary_linestring`.
-- Add `algorithm::cell_centroid_distance_m` and  `algorithm::cell_centroid_distance_m_at_resolution`.
+- Add `H3Edge::cell_centroid_distance_m` and  `H3Edge::cell_centroid_distance_m_at_resolution`.
 
 ### Changed
 - Changed many return values from `Vec` to `IndexVec` to reduce the number of allocations by doing less moving around of `H3Index` types.

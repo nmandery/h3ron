@@ -46,14 +46,34 @@ impl H3Edge {
         unsafe { h3ron_h3_sys::h3UnidirectionalEdgeIsValid(self.h3index()) != 0 }
     }
 
-    /// Gets the average length of an edge in kilometers at `resolution`
+    /// Gets the average length of an edge in kilometers at `resolution`.
+    /// This is the length of the cell boundary segment represented by the edge.
     pub fn edge_length_km(resolution: u8) -> f64 {
         unsafe { h3ron_h3_sys::edgeLengthKm(resolution as c_int) }
     }
 
-    /// Gets the average length of an edge in meters at `resolution`
+    /// Gets the average length of an edge in meters at `resolution`.
+    /// This is the length of the cell boundary segment represented by the edge.
     pub fn edge_length_m(resolution: u8) -> f64 {
         unsafe { h3ron_h3_sys::edgeLengthM(resolution as c_int) }
+    }
+
+    /// The approximate distance between the centroids of two neighboring cells
+    /// at the given `resolution`.
+    ///
+    /// Based on the approximate edge length. See [`cell_centroid_distance_m`] for a
+    /// more exact variant of this function.
+    pub fn cell_centroid_distance_m_at_resolution(resolution: u8) -> f64 {
+        cell_centroid_distance_m_by_edge_length(Self::edge_length_m(resolution))
+    }
+
+    /// The approximate distance between the centroids of two neighboring cells
+    /// at the given `resolution`.
+    ///
+    /// Based on the exact edge length. See [`cell_centroid_distance_at_resolution`]
+    /// for a resolution based variant.
+    pub fn cell_centroid_distance_m(&self) -> f64 {
+        cell_centroid_distance_m_by_edge_length(self.exact_length_m())
     }
 
     /// Retrieves the destination H3 Cell of `self`
@@ -158,18 +178,23 @@ impl H3Edge {
     }
 }
 
+/// Measures the length of a edge.
+/// This is the length of the cell boundary segment represented by the edge.
 impl ExactLength for H3Edge {
     /// Retrieves the exact length of `self` in meters
+    /// This is the length of the cell boundary segment represented by the edge.
     fn exact_length_m(&self) -> f64 {
         unsafe { h3ron_h3_sys::exactEdgeLengthM(self.h3index()) }
     }
 
     /// Retrieves the exact length of `self` in kilometers
+    /// This is the length of the cell boundary segment represented by the edge.
     fn exact_length_km(&self) -> f64 {
         unsafe { h3ron_h3_sys::exactEdgeLengthKm(self.h3index()) }
     }
 
     /// Retrieves the exact length of `self` in radians
+    /// This is the length of the cell boundary segment represented by the edge.
     fn exact_length_rads(&self) -> f64 {
         unsafe { h3ron_h3_sys::exactEdgeLengthRads(self.h3index()) }
     }
@@ -290,6 +315,12 @@ impl Deref for H3Edge {
     }
 }
 
+#[inline]
+fn cell_centroid_distance_m_by_edge_length(edge_length: f64) -> f64 {
+    // the height of two triangles
+    2.0 * (edge_length / 2.0) * 3.0_f64.sqrt()
+}
+
 /// convert an iterator of subsequent H3Cell-tuples `(origin_cell, destination_cell)` generated
 /// from `H3Edge` values to a multilinestring
 fn celltuples_to_multlinestring<I>(iter: I) -> MultiLineString<f64>
@@ -391,5 +422,12 @@ mod tests {
         let edge = H3Edge::new(0x149283080ddbffff);
         dbg!(edge.boundary_linestring());
         dbg!(edge.to_linestring().unwrap());
+    }
+
+    #[test]
+    fn test_cell_centroid_distance_m() {
+        let edge = H3Edge::new(0x149283080ddbffff);
+        assert!(edge.exact_length_m() < edge.cell_centroid_distance_m());
+        assert!((2.0 * edge.exact_length_m()) > edge.cell_centroid_distance_m());
     }
 }
