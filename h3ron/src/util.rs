@@ -22,10 +22,10 @@ pub(crate) unsafe fn point_to_geocoord(pt: &Point<f64>) -> GeoCoord {
 
 pub(crate) fn geoboundary_to_coordinates(gb: &GeoBoundary) -> Vec<Coordinate<f64>> {
     let mut nodes = Vec::with_capacity(gb.numVerts as usize);
-    for i in 0..gb.numVerts {
+    for i in 0..(gb.numVerts as usize) {
         nodes.push(Coordinate::from((
-            unsafe { h3ron_h3_sys::radsToDegs(gb.verts[i as usize].lon) },
-            unsafe { h3ron_h3_sys::radsToDegs(gb.verts[i as usize].lat) },
+            unsafe { h3ron_h3_sys::radsToDegs(gb.verts[i].lon) },
+            unsafe { h3ron_h3_sys::radsToDegs(gb.verts[i].lat) },
         )));
     }
     nodes
