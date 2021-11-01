@@ -10,7 +10,7 @@ done without github actions and without having to coordinate the release process
 python extension.
 
 
-## h3ron-h3-sys [Unreleased]
+## h3ron-h3-sys Unreleased
 
 ## h3ron-h3-sys [0.12.0] - 2021-08-10
 ### Changed
@@ -32,7 +32,6 @@ no changes
 The changes done in earlier versions where not documented in this changelog and can only be reconstructed from the
 commits in git.
 
-[Unreleased]: https://github.com/nmandery/h3ron/compare/v0.12.0...HEAD
 [0.12.0]: https://github.com/nmandery/h3ron/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/nmandery/h3ron/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/nmandery/h3ron/compare/v0.9.0...v0.10.0

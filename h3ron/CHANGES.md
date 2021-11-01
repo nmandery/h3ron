@@ -9,7 +9,9 @@ After version 0.12 the version numbers from the individual crates are decoupled 
 done without github actions and without having to coordinate the release process with the `h3ronpy`
 python extension.
 
-## h3ron [Unreleased]
+## h3ron Unreleased
+
+## h3ron 0.13.0 - 2021-11-01
 
 ### Added
 - `IndexVec<T>` to interface between libh3 and rust.
@@ -106,7 +108,6 @@ python extension.
 The changes done in earlier versions where not documented in this changelog and can only be reconstructed from the
 commits in git.
 
-[Unreleased]: https://github.com/nmandery/h3ron/compare/v0.12.0...HEAD
 [0.12.0]: https://github.com/nmandery/h3ron/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/nmandery/h3ron/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/nmandery/h3ron/compare/v0.9.0...v0.10.0
