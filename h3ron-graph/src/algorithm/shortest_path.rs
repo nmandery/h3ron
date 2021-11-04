@@ -14,7 +14,7 @@ use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::{change_cell_resolution, H3EdgesBuilder};
 use h3ron::{H3Cell, H3Edge, HasH3Resolution};
 
-use crate::algorithm::path::Path;
+use crate::algorithm::path::{EdgeSequence, Path};
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::node::GetGapBridgedCellNodes;
@@ -250,7 +250,7 @@ where
     let destinations: HashMap<H3Cell, H3Cell> = graph
         .gap_bridged_cell_nodes::<Vec<_>, _>(
             change_cell_resolution(destination_cells, graph.h3_resolution()).collect(),
-            |node_type| node_type.is_destination(),
+            |_, node_type| true, //node_type.is_destination(),
             num_gap_cells_to_graph,
         )
         .drain(..)
@@ -291,7 +291,7 @@ where
     for gm in graph
         .gap_bridged_cell_nodes::<Vec<_>, _>(
             change_cell_resolution(origin_cells, graph.h3_resolution()).collect(),
-            |node_type| node_type.is_origin(),
+            |_, node_type| node_type.is_origin(),
             num_gap_cells_to_graph,
         )
         .drain(..)
@@ -474,6 +474,7 @@ where
         })
         .collect();
 
+    dbg!(&destinations_reached);
     // assemble the paths
     let mut paths = Vec::with_capacity(destinations_reached.len());
     for destination_cell in destinations_reached {
@@ -504,10 +505,15 @@ where
                 DijkstraEdge::Long(longedge) => h3edges.append(&mut longedge.h3edge_path()),
             }
         }
-        paths.push(Path {
-            edges: h3edges,
-            cost: total_weight.unwrap_or_else(W::zero),
-        })
+        let path = if h3edges.is_empty() {
+            Path::OriginIsDestination(*start_cell, total_weight.unwrap_or_else(W::zero))
+        } else {
+            Path::EdgeSequence(EdgeSequence {
+                edges: h3edges,
+                path_cost: total_weight.unwrap_or_else(W::zero),
+            })
+        };
+        paths.push(path);
     }
 
     // return sorted from lowest to highest cost, use destination cell as second criteria
@@ -541,5 +547,54 @@ impl<W: Ord> PartialOrd for SmallestHolder<W> {
 impl<W: Ord> Ord for SmallestHolder<W> {
     fn cmp(&self, other: &Self) -> Ordering {
         other.weight.cmp(&self.weight)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::algorithm::shortest_path::{DefaultShortestPathOptions, ShortestPathManyToMany};
+    use crate::graph::{H3EdgeGraph, PreparedH3EdgeGraph};
+    use geo_types::Coordinate;
+    use h3ron::H3Cell;
+    use std::convert::TryInto;
+
+    #[test]
+    fn test_shortest_path_same_origin_and_destination() {
+        let res = 8;
+        let origin = H3Cell::from_coordinate(&Coordinate::from((23.3, 12.3)), res).unwrap();
+        let edge = origin.unidirectional_edges().first().unwrap();
+        let destination = edge.destination_index_unchecked();
+
+        // build a micro-graph
+        let prepared_graph: PreparedH3EdgeGraph<_> = {
+            let mut graph = H3EdgeGraph::new(res);
+            graph.add_edge(edge, 5_u32).unwrap();
+            graph.try_into().unwrap()
+        };
+
+        let paths = prepared_graph
+            .shortest_path_many_to_many(
+                &vec![origin],
+                // find the path to the origin cell itself, and to the neighbor
+                &vec![origin, destination],
+                &DefaultShortestPathOptions::default(),
+            )
+            .unwrap();
+
+        assert_eq!(paths.len(), 1);
+        let path_vec = paths.get(&origin).unwrap();
+        assert_eq!(path_vec.len(), 2);
+        for path in path_vec.iter() {
+            let path_destination = path.destination_cell().unwrap();
+            if path_destination == origin {
+                assert!(path.is_empty());
+                assert_eq!(path.cost(), &0);
+            } else if path_destination == destination {
+                assert!(!path.is_empty());
+                assert_eq!(path.cost(), &5);
+            } else {
+                unreachable!()
+            }
+        }
     }
 }

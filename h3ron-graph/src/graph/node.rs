@@ -92,7 +92,7 @@ pub trait GetGapBridgedCellNodes {
     ) -> B
     where
         B: FromParallelIterator<GapBridgedCellNode>,
-        F: Fn(&NodeType) -> bool + Send + Sync + Copy;
+        F: Fn(&H3Cell, &NodeType) -> bool + Send + Sync + Copy;
 }
 
 impl<G> GetGapBridgedCellNodes for G
@@ -107,7 +107,7 @@ where
     ) -> B
     where
         B: FromParallelIterator<GapBridgedCellNode>,
-        F: Fn(&NodeType) -> bool + Send + Sync + Copy,
+        F: Fn(&H3Cell, &NodeType) -> bool + Send + Sync + Copy,
     {
         cells.sort_unstable();
         cells.dedup();
@@ -116,7 +116,7 @@ where
             .map(|cell: &H3Cell| {
                 if self
                     .get_node_type(cell)
-                    .map(nodetype_filter_fn)
+                    .map(|node_type| nodetype_filter_fn(cell, node_type))
                     .unwrap_or(false)
                 {
                     GapBridgedCellNode::DirectConnection(*cell)
@@ -131,7 +131,7 @@ where
                     for neighbor in neighbors {
                         if self
                             .get_node_type(&neighbor.1)
-                            .map(nodetype_filter_fn)
+                            .map(|node_type| nodetype_filter_fn(&neighbor.1, node_type))
                             .unwrap_or(false)
                         {
                             selected_neighbor = Some(neighbor.1);
