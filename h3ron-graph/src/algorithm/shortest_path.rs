@@ -14,7 +14,7 @@ use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::{change_cell_resolution, H3EdgesBuilder};
 use h3ron::{H3Cell, H3Edge, HasH3Resolution};
 
-use crate::algorithm::path::{EdgeSequence, Path};
+use crate::algorithm::path::Path;
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::node::GetGapBridgedCellNodes;
@@ -474,7 +474,6 @@ where
         })
         .collect();
 
-    dbg!(&destinations_reached);
     // assemble the paths
     let mut paths = Vec::with_capacity(destinations_reached.len());
     for destination_cell in destinations_reached {
@@ -508,10 +507,7 @@ where
         let path = if h3edges.is_empty() {
             Path::OriginIsDestination(*start_cell, total_weight.unwrap_or_else(W::zero))
         } else {
-            Path::EdgeSequence(EdgeSequence {
-                edges: h3edges,
-                path_cost: total_weight.unwrap_or_else(W::zero),
-            })
+            Path::EdgeSequence(h3edges, total_weight.unwrap_or_else(W::zero))
         };
         paths.push(path);
     }

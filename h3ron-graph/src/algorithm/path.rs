@@ -15,63 +15,18 @@ pub enum Path<W> {
     OriginIsDestination(H3Cell, W),
 
     /// a sequence of edges describing the path.
-    EdgeSequence(EdgeSequence<W>),
-}
-
-/// A path of continuous [`H3Edge`] values with an associated cost.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub struct EdgeSequence<W> {
-    /// Vec of [`H3Edge`] values of the route in the order origin -> destination
-    pub edges: Vec<H3Edge>,
-
-    /// the total cost of the route (= sum of all edge weights).
-    pub path_cost: W,
-}
-
-impl<W> EdgeSequence<W> {
-    pub fn is_empty(&self) -> bool {
-        self.edges.is_empty()
-    }
-
-    pub fn len(&self) -> usize {
-        self.edges.len()
-    }
-
-    pub fn origin_cell(&self) -> Result<H3Cell, Error> {
-        self.edges
-            .first()
-            .map(|edge| edge.origin_index_unchecked())
-            .ok_or(Error::EmptyPath)
-    }
-
-    pub fn destination_cell(&self) -> Result<H3Cell, Error> {
-        self.edges
-            .last()
-            .map(|edge| edge.destination_index_unchecked())
-            .ok_or(Error::EmptyPath)
-    }
-
-    pub fn to_linestring(&self) -> Result<LineString<f64>, Error> {
-        match self.edges.len() {
-            0 => Err(Error::InsufficientNumberOfEdges),
-            1 => Ok(self.edges[0].to_linestring()?),
-            _ => {
-                let mut multilinesstring = self.edges.to_multilinestring()?;
-                match multilinesstring.0.len() {
-                    0 => Err(Error::InsufficientNumberOfEdges),
-                    1 => Ok(multilinesstring.0.remove(0)),
-                    _ => Err(Error::SegmentedPath),
-                }
-            }
-        }
-    }
+    ///
+    /// The edges in the vec are expected to be consecutive.
+    ///
+    /// The cost is the total cost summed for all of the edges.
+    EdgeSequence(Vec<H3Edge>, W),
 }
 
 impl<W> Path<W> {
     pub fn is_empty(&self) -> bool {
         match self {
             Self::OriginIsDestination(_, _) => true,
-            Self::EdgeSequence(es) => es.is_empty(),
+            Self::EdgeSequence(edges, _) => edges.is_empty(),
         }
     }
 
@@ -79,35 +34,59 @@ impl<W> Path<W> {
     pub fn len(&self) -> usize {
         match self {
             Self::OriginIsDestination(_, _) => 0,
-            Self::EdgeSequence(es) => es.len(),
+            Self::EdgeSequence(edges, _) => edges.len(),
         }
     }
 
     pub fn origin_cell(&self) -> Result<H3Cell, Error> {
         match self {
             Self::OriginIsDestination(cell, _) => Ok(*cell),
-            Self::EdgeSequence(es) => es.origin_cell(),
+            Self::EdgeSequence(edges, _) => edges
+                .first()
+                .map(|edge| edge.origin_index_unchecked())
+                .ok_or(Error::EmptyPath),
         }
     }
 
     pub fn destination_cell(&self) -> Result<H3Cell, Error> {
         match self {
             Self::OriginIsDestination(cell, _) => Ok(*cell),
-            Self::EdgeSequence(es) => es.destination_cell(),
+            Self::EdgeSequence(edges, _) => edges
+                .last()
+                .map(|edge| edge.destination_index_unchecked())
+                .ok_or(Error::EmptyPath),
         }
     }
 
     pub fn to_linestring(&self) -> Result<LineString<f64>, Error> {
         match self {
             Self::OriginIsDestination(_, _) => Err(Error::InsufficientNumberOfEdges),
-            Self::EdgeSequence(es) => es.to_linestring(),
+            Self::EdgeSequence(edges, _) => match edges.len() {
+                0 => Err(Error::InsufficientNumberOfEdges),
+                1 => Ok(edges[0].to_linestring()?),
+                _ => {
+                    let mut multilinesstring = edges.to_multilinestring()?;
+                    match multilinesstring.0.len() {
+                        0 => Err(Error::InsufficientNumberOfEdges),
+                        1 => Ok(multilinesstring.0.remove(0)),
+                        _ => Err(Error::SegmentedPath),
+                    }
+                }
+            },
         }
     }
 
     pub fn cost(&self) -> &W {
         match self {
             Self::OriginIsDestination(_, c) => c,
-            Self::EdgeSequence(es) => &es.path_cost,
+            Self::EdgeSequence(_, c) => c,
+        }
+    }
+
+    pub fn edges(&self) -> &[H3Edge] {
+        match self {
+            Self::EdgeSequence(edges, _) => edges.as_slice(),
+            Self::OriginIsDestination(_, _) => &[],
         }
     }
 }
@@ -154,24 +133,13 @@ fn index_or_zero(cell: Result<H3Cell, Error>) -> u64 {
 mod tests {
     use h3ron::{H3Edge, Index};
 
-    use crate::algorithm::path::EdgeSequence;
-
     use super::Path;
 
     #[test]
     fn paths_deterministic_ordering() {
-        let r1 = Path::EdgeSequence(EdgeSequence {
-            edges: vec![H3Edge::new(0x1176b49474ffffff)],
-            path_cost: 1,
-        });
-        let r2 = Path::EdgeSequence(EdgeSequence {
-            edges: vec![H3Edge::new(0x1476b49474ffffff)],
-            path_cost: 3,
-        });
-        let r3 = Path::EdgeSequence(EdgeSequence {
-            edges: vec![H3Edge::new(0x1476b4b2c2ffffff)],
-            path_cost: 3,
-        });
+        let r1 = Path::EdgeSequence(vec![H3Edge::new(0x1176b49474ffffff)], 1);
+        let r2 = Path::EdgeSequence(vec![H3Edge::new(0x1476b49474ffffff)], 3);
+        let r3 = Path::EdgeSequence(vec![H3Edge::new(0x1476b4b2c2ffffff)], 3);
         let mut paths = vec![r3.clone(), r1.clone(), r2.clone()];
         paths.sort_unstable();
         assert_eq!(paths[0], r1);
