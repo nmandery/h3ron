@@ -1,6 +1,5 @@
 use std::ops::{Add, AddAssign};
 
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use h3ron::H3Cell;
@@ -83,15 +82,23 @@ impl GapBridgedCellNode {
 }
 
 pub trait GetGapBridgedCellNodes {
-    /// TODO: This function should probably take an iterator instead of a vec
-    fn gap_bridged_cell_nodes<B, F>(
+    /// get the closest corresponding node in the graph to the
+    /// given cell
+    fn gap_bridged_corresponding_node(
         &self,
-        cells: Vec<H3Cell>,
-        nodetype_filter_fn: F,
+        cell: &H3Cell,
         num_gap_cells_to_graph: u32,
-    ) -> B
+    ) -> GapBridgedCellNode {
+        self.gap_bridged_corresponding_node_filtered(cell, num_gap_cells_to_graph, |_, _| true)
+    }
+
+    fn gap_bridged_corresponding_node_filtered<F>(
+        &self,
+        cell: &H3Cell,
+        num_gap_cells_to_graph: u32,
+        nodetype_filter_fn: F,
+    ) -> GapBridgedCellNode
     where
-        B: FromParallelIterator<GapBridgedCellNode>,
         F: Fn(&H3Cell, &NodeType) -> bool + Send + Sync + Copy;
 }
 
@@ -99,53 +106,45 @@ impl<G> GetGapBridgedCellNodes for G
 where
     G: GetNodeType + Sync,
 {
-    fn gap_bridged_cell_nodes<B, F>(
+    fn gap_bridged_corresponding_node_filtered<F>(
         &self,
-        mut cells: Vec<H3Cell>,
-        nodetype_filter_fn: F,
+        cell: &H3Cell,
         num_gap_cells_to_graph: u32,
-    ) -> B
+        nodetype_filter_fn: F,
+    ) -> GapBridgedCellNode
     where
-        B: FromParallelIterator<GapBridgedCellNode>,
         F: Fn(&H3Cell, &NodeType) -> bool + Send + Sync + Copy,
     {
-        cells.sort_unstable();
-        cells.dedup();
-        cells
-            .par_iter()
-            .map(|cell: &H3Cell| {
+        if self
+            .get_node_type(cell)
+            .map(|node_type| nodetype_filter_fn(cell, node_type))
+            .unwrap_or(false)
+        {
+            GapBridgedCellNode::DirectConnection(*cell)
+        } else if num_gap_cells_to_graph > 0 {
+            // attempt to find the next neighboring cell which is part of the graph
+            let mut neighbors = cell.k_ring_distances(1, num_gap_cells_to_graph.max(1));
+            neighbors.sort_unstable_by_key(|neighbor| neighbor.0);
+
+            // possible improvement: choose the neighbor with the best connectivity or
+            // the edge with the smallest weight
+            let mut selected_neighbor: Option<H3Cell> = None;
+            for neighbor in neighbors {
                 if self
-                    .get_node_type(cell)
-                    .map(|node_type| nodetype_filter_fn(cell, node_type))
+                    .get_node_type(&neighbor.1)
+                    .map(|node_type| nodetype_filter_fn(&neighbor.1, node_type))
                     .unwrap_or(false)
                 {
-                    GapBridgedCellNode::DirectConnection(*cell)
-                } else if num_gap_cells_to_graph > 0 {
-                    // attempt to find the next neighboring cell which is part of the graph
-                    let mut neighbors = cell.k_ring_distances(1, num_gap_cells_to_graph.max(1));
-                    neighbors.sort_unstable_by_key(|neighbor| neighbor.0);
-
-                    // possible improvement: choose the neighbor with the best connectivity or
-                    // the edge with the smallest weight
-                    let mut selected_neighbor: Option<H3Cell> = None;
-                    for neighbor in neighbors {
-                        if self
-                            .get_node_type(&neighbor.1)
-                            .map(|node_type| nodetype_filter_fn(&neighbor.1, node_type))
-                            .unwrap_or(false)
-                        {
-                            selected_neighbor = Some(neighbor.1);
-                            break;
-                        }
-                    }
-                    selected_neighbor
-                        .map(|neighbor| GapBridgedCellNode::WithGap(*cell, neighbor))
-                        .unwrap_or_else(|| GapBridgedCellNode::NoConnection(*cell))
-                } else {
-                    GapBridgedCellNode::NoConnection(*cell)
+                    selected_neighbor = Some(neighbor.1);
+                    break;
                 }
-            })
-            .collect()
+            }
+            selected_neighbor
+                .map(|neighbor| GapBridgedCellNode::WithGap(*cell, neighbor))
+                .unwrap_or_else(|| GapBridgedCellNode::NoConnection(*cell))
+        } else {
+            GapBridgedCellNode::NoConnection(*cell)
+        }
     }
 }
 

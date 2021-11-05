@@ -146,10 +146,17 @@ where
             return Ok(Default::default());
         }
 
-        let filtered_destination_cells =
-            filtered_destination_cells(self, options.num_gap_cells_to_graph(), destination_cells)?;
+        let filtered_destination_cells = {
+            let origins_treemap: H3Treemap<H3Cell> =
+                filtered_origin_cells.iter().map(|(k, _)| *k).collect();
 
-        let destinations_treemap = filtered_destination_cells.keys().collect::<H3Treemap<_>>();
+            filtered_destination_cells(
+                self,
+                options.num_gap_cells_to_graph(),
+                destination_cells,
+                &origins_treemap,
+            )?
+        };
 
         log::debug!(
             "shortest_path many-to-many: from {} cells to {} cells at resolution {} with num_gap_cells_to_graph = {}",
@@ -164,7 +171,7 @@ where
                 let paths = edge_dijkstra(
                     self,
                     graph_connected_origin_cell,
-                    &destinations_treemap,
+                    &filtered_destination_cells,
                     options.num_destinations_to_reach(),
                     &path_map_fn,
                 );
@@ -196,22 +203,29 @@ where
         I::Item: Borrow<H3Cell>,
         OPT: ShortestPathOptions,
     {
-        let filtered_origin_cells = filtered_origin_cells(
-            self,
-            options.num_gap_cells_to_graph(),
-            std::iter::once(origin_cell),
-        );
-        let graph_connected_origin_cell = if let Some(first_fo) = filtered_origin_cells.first() {
-            first_fo.0
-        } else {
-            return Ok(Default::default());
+        let graph_connected_origin_cell = {
+            let filtered_origin_cells = filtered_origin_cells(
+                self,
+                options.num_gap_cells_to_graph(),
+                std::iter::once(origin_cell),
+            );
+            if let Some(first_fo) = filtered_origin_cells.first() {
+                first_fo.0
+            } else {
+                return Ok(Default::default());
+            }
         };
 
-        let destination_treemap =
-            filtered_destination_cells(self, options.num_gap_cells_to_graph(), destination_cells)?
-                .keys()
-                .copied()
-                .collect::<H3Treemap<_>>();
+        let destination_treemap = {
+            let mut origins_treemap: H3Treemap<H3Cell> = Default::default();
+            origins_treemap.insert(graph_connected_origin_cell);
+            filtered_destination_cells(
+                self,
+                options.num_gap_cells_to_graph(),
+                destination_cells,
+                &origins_treemap,
+            )?
+        };
 
         if destination_treemap.is_empty() {
             return Ok(Default::default());
@@ -227,11 +241,9 @@ where
     }
 }
 
-/// maps the graph-connected cells to the requested cells.
-/// For direct graph members both cells are the same
-///
-/// TODO: this should be a 1:n relationship in case multiple cells map to
-///      the same cell in the graph
+/// finds the corresponding cells in the graph for the given
+/// destinations. When no corresponding cell is found, that destination
+/// is filtered out.
 ///
 /// The cell resolution is changed to the resolution of the graph.
 ///
@@ -241,26 +253,28 @@ fn filtered_destination_cells<G, I>(
     graph: &G,
     num_gap_cells_to_graph: u32,
     destination_cells: I,
-) -> Result<HashMap<H3Cell, H3Cell>, Error>
+    origins_treemap: &H3Treemap<H3Cell>,
+) -> Result<H3Treemap<H3Cell>, Error>
 where
     G: GetNodeType + GetGapBridgedCellNodes + HasH3Resolution,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {
-    let destinations: HashMap<H3Cell, H3Cell> = graph
-        .gap_bridged_cell_nodes::<Vec<_>, _>(
-            change_cell_resolution(destination_cells, graph.h3_resolution()).collect(),
-            |_, node_type| true, //node_type.is_destination(),
+    let mut destinations: H3Treemap<H3Cell> = Default::default();
+    for destination in change_cell_resolution(destination_cells, graph.h3_resolution()) {
+        let gap_bridged = graph.gap_bridged_corresponding_node_filtered(
+            &destination,
             num_gap_cells_to_graph,
-        )
-        .drain(..)
-        .filter_map(|graph_membership| {
-            // ignore all non-connected destinations
-            graph_membership
-                .corresponding_cell_in_graph()
-                .map(|graph_cell| (graph_cell, graph_membership.cell()))
-        })
-        .collect();
+            // destinations which are origins at the same time are always allowed as they can
+            // always be reached even when they are not a destination in the graph.
+            |graph_cell, node_type| {
+                node_type.is_destination() || origins_treemap.contains(graph_cell)
+            },
+        );
+        if let Some(graph_cell) = gap_bridged.corresponding_cell_in_graph() {
+            destinations.insert(graph_cell);
+        }
+    }
 
     if destinations.is_empty() {
         return Err(Error::DestinationsNotInGraph);
@@ -288,19 +302,18 @@ where
 {
     // maps cells to their closest found neighbors in the graph
     let mut origin_cell_map = H3CellMap::default();
-    for gm in graph
-        .gap_bridged_cell_nodes::<Vec<_>, _>(
-            change_cell_resolution(origin_cells, graph.h3_resolution()).collect(),
-            |_, node_type| node_type.is_origin(),
+
+    for cell in change_cell_resolution(origin_cells, graph.h3_resolution()) {
+        let gap_bridged = graph.gap_bridged_corresponding_node_filtered(
+            &cell,
             num_gap_cells_to_graph,
-        )
-        .drain(..)
-    {
-        if let Some(corr_cell) = gm.corresponding_cell_in_graph() {
+            |_, node_type| node_type.is_origin(),
+        );
+        if let Some(graph_cell) = gap_bridged.corresponding_cell_in_graph() {
             origin_cell_map
-                .entry(corr_cell)
-                .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(gm.cell()))
-                .or_insert_with(|| vec![gm.cell()]);
+                .entry(graph_cell)
+                .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(gap_bridged.cell()))
+                .or_insert_with(|| vec![gap_bridged.cell()]);
         }
     }
     origin_cell_map.drain().collect()
