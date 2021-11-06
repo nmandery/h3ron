@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-graph"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Graph algorithms on edges of th3 H3 spatial indexing system"
 edition = "2018"

@@ -11,12 +11,13 @@ python extension.
 
 ## h3ron-graph Unreleased
 
+## h3ron-graph 0.2.0 - 2021-11-06
+
 ### Changed
 
 - Simplified `GetGapBridgedCellNodes` trait
 - Converted `Path` to an enum and added variant to support paths where origin == destination.
 - Improved `ShortestPath` to support paths where origin == destination. Also added an unittest.
-
 
 ## h3ron-graph 0.1.0 - 2021-11-01
 
