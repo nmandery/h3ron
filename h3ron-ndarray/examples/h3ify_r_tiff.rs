@@ -10,7 +10,7 @@ fn main() {
     env_logger::init(); // run with the environment variable RUST_LOG set to "debug" for log output
 
     let filename = format!("{}/../data/r.tiff", env!("CARGO_MANIFEST_DIR"));
-    let dataset = Dataset::open((&filename).as_ref()).unwrap();
+    let dataset = Dataset::open(&filename).unwrap();
     let transform = Transform::from_gdal(&dataset.geo_transform().unwrap());
     let band = dataset.rasterband(1).unwrap();
     let band_array = band

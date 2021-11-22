@@ -11,6 +11,10 @@ python extension.
 
 ## h3ron-graph Unreleased
 
+### Changed
+
+* Upgraded gdal from 0.10 to 0.11
+
 ## h3ron-graph 0.2.0 - 2021-11-06
 
 ### Changed
