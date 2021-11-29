@@ -95,7 +95,7 @@ where
         Ok(())
     }
 
-    pub fn try_add(&mut self, mut other: H3EdgeGraph<W>) -> Result<(), Error> {
+    pub fn try_add(&mut self, mut other: Self) -> Result<(), Error> {
         if self.h3_resolution != other.h3_resolution {
             return Err(Error::MixedH3Resolutions(
                 self.h3_resolution,

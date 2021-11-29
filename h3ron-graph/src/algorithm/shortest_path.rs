@@ -342,7 +342,7 @@ impl<'a> DijkstraEdge<'a> {
     }
 
     #[allow(dead_code)]
-    fn last_edge(&self) -> H3Edge {
+    const fn last_edge(&self) -> H3Edge {
         match self {
             Self::Single(h3edge) => *h3edge,
             Self::Long(longedge) => longedge.out_edge,
@@ -350,7 +350,7 @@ impl<'a> DijkstraEdge<'a> {
     }
 
     #[allow(dead_code)]
-    fn first_edge(&self) -> H3Edge {
+    const fn first_edge(&self) -> H3Edge {
         match self {
             Self::Single(h3edge) => *h3edge,
             Self::Long(longedge) => longedge.in_edge,

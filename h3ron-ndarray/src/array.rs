@@ -27,14 +27,14 @@ pub enum AxisOrder {
 }
 
 impl AxisOrder {
-    pub fn x_axis(&self) -> usize {
+    pub const fn x_axis(&self) -> usize {
         match self {
             Self::XY => 0,
             Self::YX => 1,
         }
     }
 
-    pub fn y_axis(&self) -> usize {
+    pub const fn y_axis(&self) -> usize {
         match self {
             Self::XY => 1,
             Self::YX => 0,

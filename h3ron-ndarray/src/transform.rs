@@ -35,12 +35,12 @@ pub struct Transform {
 
 impl Transform {
     #![allow(clippy::many_single_char_names)]
-    pub fn new(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> Self {
+    pub const fn new(a: f64, b: f64, c: f64, d: f64, e: f64, f: f64) -> Self {
         Self { a, b, c, d, e, f }
     }
 
     /// create from an f64 slice in the ordering used by rasterio
-    pub fn from_rasterio(transform: &[f64; 6]) -> Self {
+    pub const fn from_rasterio(transform: &[f64; 6]) -> Self {
         Self::new(
             transform[0],
             transform[1],
@@ -52,7 +52,7 @@ impl Transform {
     }
 
     /// create from an f64 slice in the ordering used by gdal
-    pub fn from_gdal(transform: &[f64; 6]) -> Self {
+    pub const fn from_gdal(transform: &[f64; 6]) -> Self {
         Self::new(
             transform[1],
             transform[2],
@@ -103,8 +103,8 @@ impl Mul<&Coordinate<f64>> for &Transform {
 
     fn mul(self, rhs: &Coordinate<f64>) -> Self::Output {
         Coordinate {
-            x: rhs.x as f64 * self.a + rhs.y as f64 * self.b + self.c,
-            y: rhs.x as f64 * self.d + rhs.y as f64 * self.e + self.f,
+            x: (rhs.x as f64).mul_add(self.a, rhs.y as f64 * self.b) + self.c,
+            y: (rhs.x as f64).mul_add(self.d, rhs.y as f64 * self.e) + self.f,
         }
     }
 }

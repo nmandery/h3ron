@@ -76,7 +76,7 @@ impl<W> Path<W> {
         }
     }
 
-    pub fn cost(&self) -> &W {
+    pub const fn cost(&self) -> &W {
         match self {
             Self::OriginIsDestination(_, c) => c,
             Self::EdgeSequence(_, c) => c,

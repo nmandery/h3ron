@@ -14,7 +14,7 @@ pub enum NodeType {
 }
 
 impl NodeType {
-    pub fn is_origin(&self) -> bool {
+    pub const fn is_origin(&self) -> bool {
         match self {
             NodeType::Origin => true,
             NodeType::Destination => false,
@@ -22,7 +22,7 @@ impl NodeType {
         }
     }
 
-    pub fn is_destination(&self) -> bool {
+    pub const fn is_destination(&self) -> bool {
         match self {
             NodeType::Origin => false,
             NodeType::Destination => true,
@@ -31,10 +31,10 @@ impl NodeType {
     }
 }
 
-impl Add<NodeType> for NodeType {
-    type Output = NodeType;
+impl Add<Self> for NodeType {
+    type Output = Self;
 
-    fn add(self, rhs: NodeType) -> Self::Output {
+    fn add(self, rhs: Self) -> Self::Output {
         if rhs == self {
             self
         } else {
@@ -43,8 +43,8 @@ impl Add<NodeType> for NodeType {
     }
 }
 
-impl AddAssign<NodeType> for NodeType {
-    fn add_assign(&mut self, rhs: NodeType) {
+impl AddAssign<Self> for NodeType {
+    fn add_assign(&mut self, rhs: Self) {
         if self != &rhs {
             *self = Self::OriginAndDestination
         }
@@ -64,7 +64,7 @@ pub enum GapBridgedCellNode {
 }
 
 impl GapBridgedCellNode {
-    pub fn cell(&self) -> H3Cell {
+    pub const fn cell(&self) -> H3Cell {
         match self {
             Self::DirectConnection(cell) => *cell,
             Self::WithGap(cell, _) => *cell,
@@ -72,7 +72,7 @@ impl GapBridgedCellNode {
         }
     }
 
-    pub fn corresponding_cell_in_graph(&self) -> Option<H3Cell> {
+    pub const fn corresponding_cell_in_graph(&self) -> Option<H3Cell> {
         match self {
             Self::DirectConnection(cell) => Some(*cell),
             Self::WithGap(_, cell) => Some(*cell),

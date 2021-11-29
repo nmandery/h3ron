@@ -202,7 +202,7 @@ where
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn from(mut prepared_graph: PreparedH3EdgeGraph<W>) -> Self {
-        H3EdgeGraph {
+        Self {
             edges: prepared_graph
                 .edges
                 .drain()

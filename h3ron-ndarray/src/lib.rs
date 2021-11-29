@@ -5,6 +5,18 @@
 //! This library is in parts parallelized using [rayon](https://github.com/rayon-rs/rayon). The number of threads can be controlled as
 //! described in [the rayon FAQ](https://github.com/rayon-rs/rayon/blob/master/FAQ.md#how-many-threads-will-rayon-spawn)
 //!
+
+#![warn(
+    clippy::all,
+    clippy::correctness,
+    clippy::suspicious,
+    clippy::style,
+    clippy::complexity,
+    clippy::perf,
+    clippy::nursery,
+    nonstandard_style
+)]
+
 #[cfg(test)]
 #[macro_use]
 extern crate approx;

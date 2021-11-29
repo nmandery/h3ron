@@ -81,7 +81,7 @@ impl TryFrom<Vec<H3Edge>> for LongEdge {
         h3edges.shrink_to_fit();
         if h3edges.len() >= 2 {
             let cell_lookup: H3Treemap<_> = h3edge_path_to_h3cell_path(&h3edges).iter().collect();
-            Ok(LongEdge {
+            Ok(Self {
                 in_edge: h3edges[0],
                 out_edge: *h3edges.last().unwrap(),
                 edge_path: h3edges.into(),
