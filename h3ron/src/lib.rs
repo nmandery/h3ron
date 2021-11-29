@@ -6,6 +6,17 @@
 //! * **use-serde**: serde support and also enables the `h3ron::collections::compressed` module.
 //! * **use-rayon**: Enables [`collections::ThreadPartitionedMap`].
 //! * **use-roaring**: Enables [`collections::H3Treemap`] based on the `roaring` crate.
+#![warn(
+    clippy::all,
+    clippy::correctness,
+    clippy::suspicious,
+    clippy::style,
+    clippy::complexity,
+    clippy::perf,
+    clippy::nursery,
+    nonstandard_style
+)]
+#![allow(clippy::redundant_pub_crate)]
 use std::iter::Iterator;
 use std::os::raw::c_int;
 

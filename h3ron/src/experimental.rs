@@ -20,10 +20,10 @@ impl Default for CoordIj {
 }
 
 impl Sub for CoordIj {
-    type Output = CoordIj;
+    type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        CoordIj {
+        Self {
             i: self.i - rhs.i,
             j: self.j - rhs.j,
         }
@@ -31,10 +31,10 @@ impl Sub for CoordIj {
 }
 
 impl Add for CoordIj {
-    type Output = CoordIj;
+    type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        CoordIj {
+        Self {
             i: self.i + rhs.i,
             j: self.j + rhs.j,
         }

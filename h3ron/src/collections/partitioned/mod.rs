@@ -288,7 +288,7 @@ where
 }
 
 #[inline]
-fn h_partition(h: u64, num_partitions: u64) -> u64 {
+const fn h_partition(h: u64, num_partitions: u64) -> u64 {
     // Based on https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
     // and used instead of modulo (`h % num_partitions`)
     ((h as u128 * num_partitions as u128) >> 64) as u64
