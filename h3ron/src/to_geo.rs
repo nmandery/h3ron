@@ -93,7 +93,7 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
             let parent_cell = cell.get_parent_unchecked(align_to_h3_resolution);
             cells_grouped
                 .entry(parent_cell)
-                .or_insert_with(Vec::new)
+                .or_insert_with(Self::new)
                 .push(*cell)
         }
 

@@ -24,8 +24,8 @@ pub struct CompactedCellVec {
 }
 
 impl<'a> CompactedCellVec {
-    pub fn new() -> CompactedCellVec {
-        CompactedCellVec {
+    pub fn new() -> Self {
+        Self {
             cells_by_resolution: Default::default(),
         }
     }
@@ -151,7 +151,7 @@ impl<'a> CompactedCellVec {
     }
 
     /// iterate over the compacted (or not, depending on if `compact` was called) contents
-    pub fn iter_compacted_cells(&self) -> CompactedCellVecCompactedIterator {
+    pub const fn iter_compacted_cells(&self) -> CompactedCellVecCompactedIterator {
         CompactedCellVecCompactedIterator {
             compacted_vec: self,
             current_resolution: H3_MIN_RESOLUTION as usize,
@@ -265,7 +265,7 @@ impl<'a> CompactedCellVec {
 
 impl Default for CompactedCellVec {
     fn default() -> Self {
-        CompactedCellVec::new()
+        Self::new()
     }
 }
 

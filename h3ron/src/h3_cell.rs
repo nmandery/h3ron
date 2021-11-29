@@ -135,7 +135,7 @@ impl H3Cell {
     /// # Note
     ///
     /// For repeated building of k-rings, there is also [`super::iter::KRingBuilder`].
-    pub fn k_ring(&self, k: u32) -> IndexVec<H3Cell> {
+    pub fn k_ring(&self, k: u32) -> IndexVec<Self> {
         let mut index_vec =
             IndexVec::with_length(unsafe { h3ron_h3_sys::maxKringSize(k as i32) as usize });
         unsafe {
@@ -144,7 +144,7 @@ impl H3Cell {
         index_vec
     }
 
-    pub fn hex_ring(&self, k: u32) -> Result<IndexVec<H3Cell>, Error> {
+    pub fn hex_ring(&self, k: u32) -> Result<IndexVec<Self>, Error> {
         // calculation of max_size taken from
         // https://github.com/uber/h3-py/blob/dd08189b378429291c342d0af3d3cc1e38a659d5/src/h3/_cy/cells.pyx#L111
         let mut index_vec = IndexVec::with_length(if k > 0 { 6 * k as usize } else { 1 });
@@ -174,7 +174,7 @@ impl H3Cell {
     ///
     /// For repeated building of k-rings, there is also [`super::iter::KRingBuilder`].
     ///
-    pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, H3Cell)> {
+    pub fn k_ring_distances(&self, k_min: u32, k_max: u32) -> Vec<(u32, Self)> {
         let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
@@ -189,7 +189,7 @@ impl H3Cell {
         self.associate_index_distances(h3_indexes_out, distances_out, k_min)
     }
 
-    pub fn hex_range_distances(&self, k_min: u32, k_max: u32) -> Result<Vec<(u32, H3Cell)>, Error> {
+    pub fn hex_range_distances(&self, k_min: u32, k_max: u32) -> Result<Vec<(u32, Self)>, Error> {
         let max_size = max_k_ring_size(k_max);
         let mut h3_indexes_out: Vec<H3Index> = vec![0; max_size];
         let mut distances_out: Vec<c_int> = vec![0; max_size];
@@ -220,12 +220,12 @@ impl H3Cell {
         mut h3_indexes_out: Vec<H3Index>,
         distances_out: Vec<c_int>,
         k_min: u32,
-    ) -> Vec<(u32, H3Cell)> {
+    ) -> Vec<(u32, Self)> {
         h3_indexes_out
             .drain(..)
             .enumerate()
             .filter(|(idx, h3index)| *h3index != 0 && distances_out[*idx] >= k_min as i32)
-            .map(|(idx, h3index)| (distances_out[idx] as u32, H3Cell::new(h3index)))
+            .map(|(idx, h3index)| (distances_out[idx] as u32, Self::new(h3index)))
             .collect()
     }
 
@@ -320,7 +320,7 @@ impl FromStr for H3Cell {
         let h3index: H3Index = CString::new(s)
             .map(|cs| unsafe { h3ron_h3_sys::stringToH3(cs.as_ptr()) })
             .map_err(|_| Error::InvalidInput)?;
-        H3Cell::try_from(h3index)
+        Self::try_from(h3index)
     }
 }
 

@@ -146,7 +146,7 @@ impl H3Edge {
     }
 
     /// Retrieves the corresponding edge in the reversed direction.
-    pub fn reversed_unchecked(&self) -> H3Edge {
+    pub fn reversed_unchecked(&self) -> Self {
         let edge_cells = self.cell_indexes_unchecked();
         edge_cells
             .destination
@@ -158,7 +158,7 @@ impl H3Edge {
     /// # Returns
     /// If the built edge is invalid, returns an Error.
     /// Use the `reversed_unchecked` to avoid error.
-    pub fn reversed(&self) -> Result<H3Edge, Error> {
+    pub fn reversed(&self) -> Result<Self, Error> {
         let edge_cells = self.cell_indexes()?;
         edge_cells
             .destination
@@ -202,7 +202,7 @@ impl ExactLength for H3Edge {
 
 impl FromH3Index for H3Edge {
     fn from_h3index(h3index: H3Index) -> Self {
-        H3Edge::new(h3index)
+        Self::new(h3index)
     }
 }
 

@@ -119,7 +119,7 @@ impl<T: FromH3Index + Index> IndexVec<T> {
         }
     }
 
-    pub fn append(&mut self, other: &mut IndexVec<T>) {
+    pub fn append(&mut self, other: &mut Self) {
         self.inner_vec.append(&mut other.inner_vec)
     }
 

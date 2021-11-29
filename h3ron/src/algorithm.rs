@@ -28,8 +28,8 @@ pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coor
             out.push(*in_coords.first().unwrap());
         }
         let apply_window = |c1: &Coordinate<f64>, c2: &Coordinate<f64>| Coordinate {
-            x: 0.5 * c1.x + 0.5 * c2.x,
-            y: 0.5 * c1.y + 0.5 * c2.y,
+            x: 0.5f64.mul_add(c1.x, 0.5 * c2.x),
+            y: 0.5f64.mul_add(c1.y, 0.5 * c2.y),
         };
         in_coords.windows(2).for_each(|window| {
             out.push(apply_window(&window[0], &window[1]));

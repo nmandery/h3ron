@@ -1,3 +1,4 @@
+#![allow(clippy::missing_const_for_fn)]
 use std::marker::PhantomData;
 use std::mem::size_of;
 
