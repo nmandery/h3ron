@@ -95,6 +95,14 @@ impl Transform {
             -self.c * rd - self.f * re,
         ))
     }
+
+    /// Apply the transformation to a coordinate
+    pub fn transform_coordinate(&self, coordinate: &Coordinate<f64>) -> Coordinate<f64> {
+        Coordinate {
+            x: (coordinate.x as f64).mul_add(self.a, coordinate.y as f64 * self.b) + self.c,
+            y: (coordinate.x as f64).mul_add(self.d, coordinate.y as f64 * self.e) + self.f,
+        }
+    }
 }
 
 /// apply the transformation to a coordinate
@@ -102,10 +110,16 @@ impl Mul<&Coordinate<f64>> for &Transform {
     type Output = Coordinate<f64>;
 
     fn mul(self, rhs: &Coordinate<f64>) -> Self::Output {
-        Coordinate {
-            x: (rhs.x as f64).mul_add(self.a, rhs.y as f64 * self.b) + self.c,
-            y: (rhs.x as f64).mul_add(self.d, rhs.y as f64 * self.e) + self.f,
-        }
+        self.transform_coordinate(rhs)
+    }
+}
+
+/// apply the transformation to a coordinate
+impl Mul<Coordinate<f64>> for &Transform {
+    type Output = Coordinate<f64>;
+
+    fn mul(self, rhs: Coordinate<f64>) -> Self::Output {
+        self.transform_coordinate(&rhs)
     }
 }
 
@@ -114,7 +128,7 @@ impl Mul<&Rect<f64>> for &Transform {
     type Output = Rect<f64>;
 
     fn mul(self, rhs: &Rect<f64>) -> Self::Output {
-        Rect::new(self * &rhs.min(), self * &rhs.max())
+        Rect::new(self * rhs.min(), self * rhs.max())
     }
 }
 

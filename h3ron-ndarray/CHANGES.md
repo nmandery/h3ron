@@ -12,6 +12,9 @@ python extension.
 ## h3ron-ndarray Unreleased
 
 ## h3ron-ndarray 0.13.0 - 2021-11-01
+### Added
+- `Transform.transform_coordinate` method.
+
 ### Changed
 - Documentation improvements
 - Switch to `thiserror` crate for the error implementation.
