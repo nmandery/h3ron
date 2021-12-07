@@ -54,14 +54,13 @@ impl ToLinkedPolygons for IndexVec<H3Cell> {
 
 impl ToLinkedPolygons for CompactedCellVec {
     fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
-        if let Some(res) = self.finest_resolution_contained() {
-            let mut cells: Vec<_> = self.iter_uncompacted_cells(res).collect();
-            cells.sort_unstable();
-            cells.dedup();
-            to_linked_polygons(&cells, smoothen)
-        } else {
-            vec![]
-        }
+        self.finest_resolution_contained()
+            .map_or_else(Vec::new, |res| {
+                let mut cells: Vec<_> = self.iter_uncompacted_cells(res).collect();
+                cells.sort_unstable();
+                cells.dedup();
+                to_linked_polygons(&cells, smoothen)
+            })
     }
 }
 
@@ -127,14 +126,10 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
                         .iter()
                         .map(|c| {
                             let p = Point::from(*c);
-                            if let Some(pv) = parent_poly_vertices
+                            parent_poly_vertices
                                 .iter()
                                 .find(|pv| p.euclidean_distance(*pv) < edge_length)
-                            {
-                                pv.0
-                            } else {
-                                *c
-                            }
+                                .map_or_else(|| *c, |pv| pv.0)
                         })
                         .collect();
                     polygons.push(Polygon::new(

@@ -33,9 +33,9 @@ pub fn nearest_h3_resolution(
         return Err(Error::EmptyArray);
     }
     let bbox_array = Rect::new(
-        transform * &Coordinate::from((0.0_f64, 0.0_f64)),
+        transform * Coordinate::from((0.0_f64, 0.0_f64)),
         transform
-            * &Coordinate::from((
+            * Coordinate::from((
                 (shape[axis_order.x_axis()] - 1) as f64,
                 (shape[axis_order.y_axis()] - 1) as f64,
             )),

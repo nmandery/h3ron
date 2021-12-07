@@ -7,16 +7,10 @@ use crate::error::Error;
 use crate::H3Cell;
 use crate::Index;
 
-#[derive(Debug, PartialEq, Copy, Clone)]
+#[derive(Debug, PartialEq, Copy, Clone, Default)]
 pub struct CoordIj {
     pub i: i32,
     pub j: i32,
-}
-
-impl Default for CoordIj {
-    fn default() -> Self {
-        Self { i: 0, j: 0 }
-    }
 }
 
 impl Sub for CoordIj {

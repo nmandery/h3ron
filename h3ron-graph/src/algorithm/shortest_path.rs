@@ -41,15 +41,10 @@ pub trait ShortestPathOptions {
 
 /// Default implementation of a type implementing the `ShortestPathOptions`
 /// trait.
+#[derive(Default)]
 pub struct DefaultShortestPathOptions {}
 
 impl ShortestPathOptions for DefaultShortestPathOptions {}
-
-impl Default for DefaultShortestPathOptions {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 impl DefaultShortestPathOptions {
     pub fn new() -> Self {
