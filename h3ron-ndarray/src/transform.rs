@@ -180,12 +180,12 @@ mod tests {
         // upper left pixel
         let px_ul = Coordinate { x: 0., y: 0. };
 
-        let coord_ul = gt * &px_ul;
+        let coord_ul = gt * px_ul;
         assert_relative_eq!(coord_ul.x, 8.11377);
         assert_relative_eq!(coord_ul.y, 49.40792);
 
         let gt_inv = gt.invert().unwrap();
-        let px_ul_back = &gt_inv * &coord_ul;
+        let px_ul_back = &gt_inv * coord_ul;
         assert_relative_eq!(px_ul_back.x, 0.0);
         assert_relative_eq!(px_ul_back.y, 0.0);
     }

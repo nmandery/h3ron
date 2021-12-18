@@ -93,7 +93,7 @@ impl WeightFeatureField for i32 {
     }
 
     fn fill_weight_feature_fields<'a>(&self, feature: &mut Feature<'a>) -> Result<(), Error> {
-        feature.set_field_integer(WEIGHT_FIELD_NAME, *self as i32)?;
+        feature.set_field_integer(WEIGHT_FIELD_NAME, *self as Self)?;
         Ok(())
     }
 }
