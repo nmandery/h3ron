@@ -1,14 +1,17 @@
-use crate::algorithm::path::Path;
-use crate::graph::longedge::LongEdge;
-use crate::graph::GetEdge;
-use h3ron::collections::{H3CellSet, H3Treemap, HashMap, RandomState};
-use h3ron::iter::H3EdgesBuilder;
-use h3ron::{H3Cell, H3Edge};
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+
 use indexmap::map::Entry::{Occupied, Vacant};
 use indexmap::map::IndexMap;
 use num_traits::Zero;
-use std::cmp::Ordering;
-use std::collections::BinaryHeap;
+
+use h3ron::collections::{H3CellSet, H3Treemap, HashMap, RandomState};
+use h3ron::iter::H3EdgesBuilder;
+use h3ron::{H3Cell, H3Edge};
+
+use crate::algorithm::path::Path;
+use crate::graph::longedge::LongEdge;
+use crate::graph::GetEdge;
 
 #[derive(Clone)]
 enum DijkstraEdge<'a> {
@@ -246,6 +249,38 @@ impl<W: Ord> PartialOrd for SmallestHolder<W> {
 
 impl<W: Ord> Ord for SmallestHolder<W> {
     fn cmp(&self, other: &Self) -> Ordering {
+        // sort by priority, lowest values have the highest priority
         other.weight.cmp(&self.weight)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::algorithm::dijkstra::SmallestHolder;
+
+    #[test]
+    fn smallest_holder_partial_eq() {
+        let sh1 = SmallestHolder {
+            weight: 10u8,
+            index: 4,
+        };
+        let sh2 = SmallestHolder {
+            weight: 10u8,
+            index: 10,
+        };
+        assert!(sh2 == sh1);
+    }
+
+    #[test]
+    fn smallest_holder_partial_ord() {
+        let sh1 = SmallestHolder {
+            weight: 10u8,
+            index: 4,
+        };
+        let sh2 = SmallestHolder {
+            weight: 7u8,
+            index: 4,
+        };
+        assert!(sh2 > sh1);
     }
 }
