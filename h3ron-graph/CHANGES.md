@@ -11,6 +11,10 @@ python extension.
 
 ## h3ron-graph Unreleased
 
+### Added
+
+* added `WithinWeightThreshold` trait
+
 ### Changed
 
 * Upgraded gdal from 0.10 to 0.11

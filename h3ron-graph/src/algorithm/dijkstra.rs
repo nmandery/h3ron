@@ -1,11 +1,12 @@
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use std::ops::Add;
 
 use indexmap::map::Entry::{Occupied, Vacant};
 use indexmap::map::IndexMap;
 use num_traits::Zero;
 
-use h3ron::collections::{H3CellSet, H3Treemap, HashMap, RandomState};
+use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::H3EdgesBuilder;
 use h3ron::{H3Cell, H3Edge};
 
@@ -61,18 +62,88 @@ struct DijkstraEntry<'a, W> {
     edge: Option<DijkstraEdge<'a>>,
 }
 
+/// follow the edges of the graph until the aggregated weights reach `threshold_weight`
+///
+/// This function does not make usage of longedges.
+pub fn edge_dijkstra_weight_threshold<G, W>(
+    graph: &G,
+    origin_cell: &H3Cell,
+    threshold_weight: W,
+    // TODO: optional bitmap/set of cells we are interested in
+) -> H3CellMap<W>
+where
+    G: GetEdge<WeightType = W>,
+    W: Zero + Ord + Copy + Add,
+{
+    let mut edge_builder = H3EdgesBuilder::new();
+    let mut to_see = BinaryHeap::new();
+    let mut parents: IndexMap<H3Cell, W, RandomState> = IndexMap::default();
+
+    to_see.push(SmallestHolder {
+        weight: W::zero(),
+        index: 0,
+    });
+    parents.insert(*origin_cell, W::zero());
+
+    while let Some(SmallestHolder { weight, index }) = to_see.pop() {
+        let (cell, weight_from_parents) = parents.get_index(index).unwrap();
+
+        // We may have inserted a node several time into the binary heap if we found
+        // a better way to access it. Ensure that we are currently dealing with the
+        // best path and discard the others.
+        if weight > *weight_from_parents {
+            continue;
+        }
+
+        for succeeding_edge in edge_builder.from_origin_cell(cell) {
+            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge) {
+                // TODO: make use of longedges in case a subset-of-interest is set
+
+                let new_weight = weight + succeeding_edge_value.weight;
+
+                // skip following this edge when the threshold is reached.
+                if new_weight > threshold_weight {
+                    continue;
+                }
+
+                let n;
+                match parents.entry(succeeding_edge.destination_index_unchecked()) {
+                    Vacant(e) => {
+                        n = e.index();
+                        e.insert(new_weight);
+                    }
+                    Occupied(mut e) => {
+                        if e.get() > &new_weight {
+                            n = e.index();
+                            e.insert(new_weight);
+                        } else {
+                            continue;
+                        }
+                    }
+                }
+                to_see.push(SmallestHolder {
+                    weight: new_weight,
+                    index: n,
+                });
+            }
+        }
+    }
+
+    parents.drain(..).collect()
+}
+
 /// Dijkstra shortest path using h3 edges
 ///
 /// Adapted from the `run_dijkstra` function of the `pathfinding` crate.
 pub fn edge_dijkstra<'a, G, W>(
     graph: &'a G,
-    start_cell: &H3Cell,
+    origin_cell: &H3Cell,
     destinations: &H3Treemap<H3Cell>,
     num_destinations_to_reach: Option<usize>,
 ) -> Vec<Path<W>>
 where
     G: GetEdge<WeightType = W>,
-    W: Zero + Ord + Copy,
+    W: Zero + Ord + Copy + Add,
 {
     // this is the main exit condition. Stop after this many destinations have been reached or
     // the complete graph has been traversed.
@@ -90,7 +161,7 @@ where
         index: 0,
     });
     parents.insert(
-        *start_cell,
+        *origin_cell,
         DijkstraEntry {
             weight: W::zero(),
             index: usize::MAX,
@@ -179,11 +250,11 @@ where
         })
         .collect();
 
-    edge_dijkstra_assemble_paths(start_cell, parents_map, destinations_reached)
+    edge_dijkstra_assemble_paths(origin_cell, parents_map, destinations_reached)
 }
 
 fn edge_dijkstra_assemble_paths<'a, W>(
-    start_cell: &H3Cell,
+    origin_cell: &H3Cell,
     parents_map: HashMap<H3Cell, (&'a H3Cell, &DijkstraEntry<'a, W>)>,
     destinations_reached: H3CellSet,
 ) -> Vec<Path<W>>
@@ -221,7 +292,7 @@ where
             }
         }
         let path = if h3edges.is_empty() {
-            Path::OriginIsDestination(*start_cell, total_weight.unwrap_or_else(W::zero))
+            Path::OriginIsDestination(*origin_cell, total_weight.unwrap_or_else(W::zero))
         } else {
             Path::EdgeSequence(h3edges, total_weight.unwrap_or_else(W::zero))
         };
