@@ -18,6 +18,7 @@ python extension.
 ### Changed
 
 * Upgraded gdal from 0.10 to 0.11
+* Re-export algorithm traits from `algorithm` module.
 
 ## h3ron-graph 0.2.0 - 2021-11-06
 
