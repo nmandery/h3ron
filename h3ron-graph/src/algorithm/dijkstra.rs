@@ -64,17 +64,15 @@ struct DijkstraEntry<'a, W> {
 /// Dijkstra shortest path using h3 edges
 ///
 /// Adapted from the `run_dijkstra` function of the `pathfinding` crate.
-pub fn edge_dijkstra<'a, G, W, PM, O>(
+pub fn edge_dijkstra<'a, G, W>(
     graph: &'a G,
     start_cell: &H3Cell,
     destinations: &H3Treemap<H3Cell>,
     num_destinations_to_reach: Option<usize>,
-    path_map_fn: &PM,
-) -> Vec<O>
+) -> Vec<Path<W>>
 where
     G: GetEdge<WeightType = W>,
     W: Zero + Ord + Copy,
-    PM: Fn(Path<W>) -> O,
 {
     // this is the main exit condition. Stop after this many destinations have been reached or
     // the complete graph has been traversed.
@@ -101,12 +99,11 @@ where
     );
     while let Some(SmallestHolder { weight, index }) = to_see.pop() {
         let (cell, dijkstra_entry) = parents.get_index(index).unwrap();
-        if destinations.contains(cell) {
-            if destinations_reached.insert(*cell)
-                && destinations_reached.len() >= num_destinations_to_reach
-            {
-                break;
-            }
+        if destinations.contains(cell)
+            && destinations_reached.insert(*cell)
+            && destinations_reached.len() >= num_destinations_to_reach
+        {
+            break;
         }
 
         // We may have inserted a node several time into the binary heap if we found
@@ -182,18 +179,16 @@ where
         })
         .collect();
 
-    edge_dijkstra_assemble_paths(start_cell, parents_map, destinations_reached, path_map_fn)
+    edge_dijkstra_assemble_paths(start_cell, parents_map, destinations_reached)
 }
 
-fn edge_dijkstra_assemble_paths<'a, W, PM, O>(
+fn edge_dijkstra_assemble_paths<'a, W>(
     start_cell: &H3Cell,
     parents_map: HashMap<H3Cell, (&'a H3Cell, &DijkstraEntry<'a, W>)>,
     destinations_reached: H3CellSet,
-    path_map_fn: &PM,
-) -> Vec<O>
+) -> Vec<Path<W>>
 where
     W: Zero + Ord + Copy,
-    PM: Fn(Path<W>) -> O,
 {
     // assemble the paths
     let mut paths = Vec::with_capacity(destinations_reached.len());
@@ -237,9 +232,7 @@ where
     // to make path vecs directly comparable using this deterministic order
     paths.sort_unstable();
 
-    // ensure the sorted order is correct by sorting path instances before applying
-    // the `path_map_fn`.
-    paths.drain(..).map(path_map_fn).collect()
+    paths
 }
 
 struct SmallestHolder<W> {

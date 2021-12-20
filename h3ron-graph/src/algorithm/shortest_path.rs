@@ -159,13 +159,15 @@ where
         let paths = filtered_origin_cells
             .par_iter()
             .map(|(graph_connected_origin_cell, output_origin_cells)| {
-                let paths = edge_dijkstra(
+                let paths: Vec<_> = edge_dijkstra(
                     self,
                     graph_connected_origin_cell,
                     &filtered_destination_cells,
                     options.num_destinations_to_reach(),
-                    &path_map_fn,
-                );
+                )
+                .drain(..)
+                .map(&path_map_fn)
+                .collect();
 
                 output_origin_cells
                     .iter()
@@ -221,14 +223,12 @@ where
         if destination_treemap.is_empty() {
             return Ok(Default::default());
         }
-        let paths = edge_dijkstra(
+        Ok(edge_dijkstra(
             self,
             &graph_connected_origin_cell,
             &destination_treemap,
             options.num_destinations_to_reach(),
-            &(|path| path),
-        );
-        Ok(paths)
+        ))
     }
 }
 
