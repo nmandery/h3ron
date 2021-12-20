@@ -102,8 +102,9 @@ where
     while let Some(SmallestHolder { weight, index }) = to_see.pop() {
         let (cell, dijkstra_entry) = parents.get_index(index).unwrap();
         if destinations.contains(cell) {
-            destinations_reached.insert(*cell);
-            if destinations_reached.len() >= num_destinations_to_reach {
+            if destinations_reached.insert(*cell)
+                && destinations_reached.len() >= num_destinations_to_reach
+            {
                 break;
             }
         }
@@ -181,6 +182,19 @@ where
         })
         .collect();
 
+    edge_dijkstra_assemble_paths(start_cell, parents_map, destinations_reached, path_map_fn)
+}
+
+fn edge_dijkstra_assemble_paths<'a, W, PM, O>(
+    start_cell: &H3Cell,
+    parents_map: HashMap<H3Cell, (&'a H3Cell, &DijkstraEntry<'a, W>)>,
+    destinations_reached: H3CellSet,
+    path_map_fn: &PM,
+) -> Vec<O>
+where
+    W: Zero + Ord + Copy,
+    PM: Fn(Path<W>) -> O,
+{
     // assemble the paths
     let mut paths = Vec::with_capacity(destinations_reached.len());
     for destination_cell in destinations_reached {
@@ -204,8 +218,8 @@ where
 
         let mut h3edges = vec![];
         for dijkstra_edge in rev_dijkstra_edges.drain(..) {
-            // dijkstra_edge is already in the correct order in itself and
-            // does not need to be reversed
+            // dijkstra_edge and the contained longedge is already in the correct order in
+            // itself and does not need to be reversed
             match dijkstra_edge {
                 DijkstraEdge::Single(h3edge) => h3edges.push(*h3edge),
                 DijkstraEdge::Long(longedge) => h3edges.append(&mut longedge.h3edge_path()),

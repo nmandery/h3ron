@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 use std::fs::File;
+use std::io::BufReader;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
@@ -13,13 +14,13 @@ use h3ron_graph::graph::prepared::PreparedH3EdgeGraph;
 //use std::io::Write;
 
 fn load_bench_graph() -> PreparedH3EdgeGraph<OrderedFloat<f64>> {
-    let graph: PreparedH3EdgeGraph<OrderedFloat<f64>> = deserialize_from(
+    let graph: PreparedH3EdgeGraph<OrderedFloat<f64>> = deserialize_from(BufReader::new(
         File::open(format!(
-            "{}/../data/graph-germany_r7_f64.bincode.lz",
+            "{}/../data/graph-germany_r10_f64.bincode.lz",
             env!("CARGO_MANIFEST_DIR")
         ))
         .unwrap(),
-    )
+    ))
     .unwrap();
     graph
 }
@@ -83,7 +84,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     let routing_graph = load_bench_graph();
 
     let mut group = c.benchmark_group("route_many_to_many");
-    // group.sample_size(10);
+    group.sample_size(10);
     group.bench_function("route_across germany", |b| {
         b.iter(|| route_across_germany(black_box(&routing_graph)))
     });

@@ -7,9 +7,11 @@ members = [
     "h3ron-graph",
 ]
 [profile.release]
-#debug = true # for flamegraph
-debug = false
-lto = "fat"
+debug = true # for flamegraph
+lto = false # for callgrind
+
+#debug = false
+#lto = "fat"
 
 [profile.bench]
 debug = true
