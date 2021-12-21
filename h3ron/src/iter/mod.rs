@@ -1,4 +1,4 @@
-//! Iterator functionalites
+//! Iterator functionalities
 //!
 //! Most iterators in this module are implemented as generic functions. This allow to not just use them
 //! with the collections in `std::collections`, but also to apply them to custom data structures.
