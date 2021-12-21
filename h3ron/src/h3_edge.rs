@@ -42,6 +42,11 @@ impl TryFrom<u64> for H3Edge {
 }
 
 impl H3Edge {
+    /// Gets the unidirectional edge from `origin_cell` to `destination_cell`
+    pub fn from_cells(origin_cell: H3Cell, destination_cell: H3Cell) -> Result<Self, Error> {
+        origin_cell.unidirectional_edge_to(&destination_cell)
+    }
+
     pub fn is_edge_valid(&self) -> bool {
         unsafe { h3ron_h3_sys::h3UnidirectionalEdgeIsValid(self.h3index()) != 0 }
     }

@@ -11,6 +11,10 @@ python extension.
 
 ## h3ron Unreleased
 
+### Added
+
+- Add `H3Edge::from_cells` as an alternative way to build edges to `H3Cell::unidirectional_edge_to`.
+
 ### Changed
 
 - Re-export `hashbrown` from `collections`.
