@@ -1,5 +1,6 @@
 use crate::collections::indexvec::{IndexVec, UncheckedIter};
-use crate::{H3Cell, H3Edge, Index};
+use crate::{Error, H3Cell, H3Edge, Index};
+use std::borrow::Borrow;
 
 /// Creates H3Edges from cells while only requiring a single memory allocation
 /// when the struct is created.
@@ -80,12 +81,62 @@ impl<'a> Iterator for EdgeIter<'a> {
     }
 }
 
+/// convert an iterator of continuous (= neighboring) cells to edges connecting
+/// consecutive cells from the iterator.
+pub fn continuous_cells_to_edges<I>(cells: I) -> CellsToEdgesIter<<I as IntoIterator>::IntoIter>
+where
+    I: IntoIterator,
+    I::Item: Borrow<H3Cell>,
+{
+    let iter = cells.into_iter();
+    CellsToEdgesIter {
+        last_cell: None,
+        iter,
+    }
+}
+
+pub struct CellsToEdgesIter<I> {
+    last_cell: Option<H3Cell>,
+    iter: I,
+}
+
+impl<I> Iterator for CellsToEdgesIter<I>
+where
+    I: Iterator,
+    I::Item: Borrow<H3Cell>,
+{
+    type Item = Result<H3Edge, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for cell_item in self.iter.by_ref() {
+            let cell = *cell_item.borrow();
+            if self.last_cell.is_none() {
+                self.last_cell = Some(cell);
+                continue;
+            }
+            let edge = self.last_cell.unwrap().unidirectional_edge_to(&cell);
+            self.last_cell = Some(cell);
+            return Some(edge);
+        }
+        None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (remaining, upper_bound) = self.iter.size_hint();
+        (
+            remaining.saturating_sub(1),
+            upper_bound.map(|ub| ub.saturating_sub(1)),
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use geo::Coordinate;
+    use geo_types::{Geometry, Line};
 
-    use crate::iter::H3EdgesBuilder;
-    use crate::H3Cell;
+    use crate::iter::{continuous_cells_to_edges, H3EdgesBuilder};
+    use crate::{H3Cell, ToH3Cells};
 
     #[test]
     fn from_origin_cell() {
@@ -127,5 +178,29 @@ mod tests {
         for other_edge in other_edges {
             assert_eq!(cell, other_edge.destination_index_unchecked());
         }
+    }
+
+    #[test]
+    fn test_continuous_cells_to_edges() {
+        let h3_resolution = 4;
+        let cell_sequence: Vec<_> = Geometry::Line(Line {
+            start: (10.0f64, 20.0f64).into(),
+            end: (20., 20.).into(),
+        })
+        .to_h3_cells(h3_resolution)
+        .unwrap()
+        .iter()
+        .collect();
+        assert!(cell_sequence.len() > 20);
+
+        let edges = continuous_cells_to_edges(&cell_sequence)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(cell_sequence.len(), edges.len() + 1);
+        assert_eq!(cell_sequence[0], edges[0].origin_index_unchecked());
+        assert_eq!(
+            *cell_sequence.last().unwrap(),
+            edges.last().unwrap().destination_index_unchecked()
+        );
     }
 }

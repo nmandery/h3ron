@@ -17,6 +17,7 @@
 //! # Edges
 //!
 //! * [`H3EdgesBuilder`]
+//! * [`continuous_cells_to_edges`]
 //!
 
 mod edge;
@@ -24,7 +25,7 @@ mod kring;
 mod neighbor;
 mod resolution;
 
-pub use edge::H3EdgesBuilder;
+pub use edge::{continuous_cells_to_edges, CellsToEdgesIter, H3EdgesBuilder};
 pub use kring::KRingBuilder;
 pub use neighbor::*;
 pub use resolution::change_cell_resolution;

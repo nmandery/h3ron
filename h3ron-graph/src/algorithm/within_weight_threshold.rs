@@ -11,7 +11,7 @@ use h3ron::H3Cell;
 use crate::algorithm::dijkstra::edge_dijkstra_weight_threshold;
 use crate::graph::GetEdge;
 
-/// Find all cells connected to the graph within a given threshold
+/// Find all cells connected to the graph around a origin cell within a given threshold
 pub trait WithinWeightThreshold<W> {
     /// Find all cells connected to the graph within a given `weight_threshold` around the
     /// given `origin_cell`
@@ -36,7 +36,7 @@ where
     }
 }
 
-/// Find all cells connected to the graph within a given threshold
+/// Find all cells connected to the graph around a origin cell within a given threshold
 pub trait WithinWeightThresholdMany<W> {
     /// Find all cells connected to the graph within a given `weight_threshold` around the
     /// given `origin_cells`.
@@ -106,7 +106,8 @@ mod tests {
     use geo_types::{Geometry, Line};
     use itertools::Itertools;
 
-    use h3ron::{H3Cell, H3Edge, ToH3Cells};
+    use h3ron::iter::continuous_cells_to_edges;
+    use h3ron::{H3Cell, ToH3Cells};
 
     use crate::algorithm::{WithinWeightThreshold, WithinWeightThresholdMany};
     use crate::graph::{GetStats, H3EdgeGraph, PreparedH3EdgeGraph};
@@ -124,21 +125,10 @@ mod tests {
         .collect();
 
         let mut g = H3EdgeGraph::new(h3_resolution);
-        for edge in continuous_cells_to_edges(&cell_sequence) {
-            g.add_edge(edge, default_weight).unwrap();
+        for edge_result in continuous_cells_to_edges(&cell_sequence) {
+            g.add_edge(edge_result.unwrap(), default_weight).unwrap();
         }
         (cell_sequence, g.try_into().unwrap())
-    }
-
-    fn continuous_cells_to_edges(cells: &[H3Cell]) -> Vec<H3Edge> {
-        let mut edges = Vec::with_capacity(cells.len().saturating_sub(1));
-        for cell_window in cells.windows(2) {
-            let edge = cell_window[0]
-                .unidirectional_edge_to(&cell_window[1])
-                .unwrap();
-            edges.push(edge)
-        }
-        edges
     }
 
     #[test]
