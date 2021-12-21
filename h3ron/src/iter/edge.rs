@@ -88,10 +88,9 @@ where
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {
-    let iter = cells.into_iter();
     CellsToEdgesIter {
         last_cell: None,
-        iter,
+        iter: cells.into_iter(),
     }
 }
 
@@ -110,13 +109,21 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         for cell_item in self.iter.by_ref() {
             let cell = *cell_item.borrow();
-            if self.last_cell.is_none() {
-                self.last_cell = Some(cell);
+            let last_cell = match self.last_cell {
+                Some(last_cell) => last_cell,
+                None => {
+                    self.last_cell = Some(cell);
+                    continue;
+                }
+            };
+            if cell == last_cell {
+                // duplicate cell, skipping
                 continue;
             }
-            let edge = self.last_cell.unwrap().unidirectional_edge_to(&cell);
+
+            let edge_result = last_cell.unidirectional_edge_to(&cell);
             self.last_cell = Some(cell);
-            return Some(edge);
+            return Some(edge_result);
         }
         None
     }
@@ -193,9 +200,10 @@ mod tests {
         .collect();
         assert!(cell_sequence.len() > 20);
 
-        let edges = continuous_cells_to_edges(&cell_sequence)
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap();
+        let iter = continuous_cells_to_edges(&cell_sequence);
+        assert_eq!(iter.size_hint().0, cell_sequence.len().saturating_sub(1));
+
+        let edges = iter.collect::<Result<Vec<_>, _>>().unwrap();
         assert_eq!(cell_sequence.len(), edges.len() + 1);
         assert_eq!(cell_sequence[0], edges[0].origin_index_unchecked());
         assert_eq!(
