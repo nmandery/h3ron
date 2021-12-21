@@ -47,6 +47,7 @@ features = ["serde"]
 optional = true
 
 [dev-dependencies]
+itertools = "0.10"
 
 [dev-dependencies.geojson]
 version = "0.22"

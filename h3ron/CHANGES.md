@@ -11,6 +11,10 @@ python extension.
 
 ## h3ron Unreleased
 
+### Changed
+
+- Re-export `hashbrown` from `collections`.
+
 ## h3ron 0.13.0 - 2021-11-01
 
 ### Added

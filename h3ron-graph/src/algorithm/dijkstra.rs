@@ -62,7 +62,8 @@ struct DijkstraEntry<'a, W> {
     edge: Option<DijkstraEdge<'a>>,
 }
 
-/// follow the edges of the graph until the aggregated weights reach `threshold_weight`
+/// follow the edges of the graph until the aggregated weights reach `threshold_weight`.
+/// Returns a hashmap of all traversed cells and the weight.
 ///
 /// This function does not make usage of longedges.
 pub fn edge_dijkstra_weight_threshold<G, W>(

@@ -13,7 +13,7 @@
 use std::hash::Hash;
 
 pub use ahash::RandomState;
-use hashbrown;
+pub use hashbrown;
 
 pub use compactedcellvec::CompactedCellVec;
 #[cfg(feature = "use-rayon")]

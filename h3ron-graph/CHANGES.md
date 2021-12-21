@@ -13,7 +13,7 @@ python extension.
 
 ### Added
 
-* added `WithinWeightThreshold` trait
+* added `WithinWeightThreshold` and `WithinWeightThresholdMany` traits.
 
 ### Changed
 

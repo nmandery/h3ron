@@ -9,4 +9,4 @@ pub mod within_weight_threshold;
 pub use covered_area::CoveredArea;
 pub use differential_shortest_path::DifferentialShortestPath;
 pub use shortest_path::{ShortestPath, ShortestPathManyToMany};
-pub use within_weight_threshold::WithinWeightThreshold;
+pub use within_weight_threshold::{WithinWeightThreshold, WithinWeightThresholdMany};
