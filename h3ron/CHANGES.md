@@ -19,6 +19,7 @@ python extension.
 ### Changed
 
 - Re-export `hashbrown` from `collections`.
+- switch to using safe en-/decoding with lz4_flex
 
 ## h3ron 0.13.0 - 2021-11-01
 
