@@ -89,6 +89,23 @@ impl<W> Path<W> {
             Self::OriginIsDestination(_, _) => &[],
         }
     }
+
+    /// return a vec of all [`H3Cells`] the path passes through.
+    pub fn cells(&self) -> Vec<H3Cell> {
+        match self {
+            Path::OriginIsDestination(cell, _) => vec![*cell],
+            Path::EdgeSequence(edges, _) => {
+                let mut cells = Vec::with_capacity(edges.len() + 1);
+                for edge in edges.iter() {
+                    cells.push(edge.origin_index_unchecked());
+                    cells.push(edge.destination_index_unchecked());
+                }
+                cells.dedup();
+                cells.shrink_to_fit();
+                cells
+            }
+        }
+    }
 }
 
 /// order by cost, origin index and destination_index.

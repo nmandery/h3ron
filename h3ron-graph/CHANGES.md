@@ -14,6 +14,7 @@ python extension.
 ### Added
 
 * added `WithinWeightThreshold` and `WithinWeightThresholdMany` traits.
+* add `Path::cells()`.
 
 ### Changed
 
