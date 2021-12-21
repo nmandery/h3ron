@@ -203,4 +203,17 @@ mod tests {
             edges.last().unwrap().destination_index_unchecked()
         );
     }
+
+    #[should_panic(expected = "InvalidH3Edge")]
+    #[test]
+    fn test_continuous_cells_to_edges_non_continuous() {
+        let h3_resolution = 4;
+        let cells = vec![
+            H3Cell::from_coordinate(&(10.0, 20.0).into(), h3_resolution).unwrap(),
+            H3Cell::from_coordinate(&(20.0, 20.0).into(), h3_resolution).unwrap(),
+        ];
+        let _edges = continuous_cells_to_edges(&cells)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+    }
 }
