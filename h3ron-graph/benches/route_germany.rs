@@ -16,7 +16,7 @@ use h3ron_graph::graph::prepared::PreparedH3EdgeGraph;
 fn load_bench_graph() -> PreparedH3EdgeGraph<OrderedFloat<f64>> {
     let graph: PreparedH3EdgeGraph<OrderedFloat<f64>> = deserialize_from(BufReader::new(
         File::open(format!(
-            "{}/../data/graph-germany_r10_f64.bincode.lz",
+            "{}/../data/graph-germany_r7_f64.bincode.lz",
             env!("CARGO_MANIFEST_DIR")
         ))
         .unwrap(),
