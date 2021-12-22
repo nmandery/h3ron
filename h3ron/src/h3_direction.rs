@@ -89,9 +89,8 @@ impl H3Direction {
         let ptr = index.h3index() as *const u64;
         let ptr = ptr as u64;
         let offset =
-            (H3_MAX_RESOLUTION.saturating_sub(target_resolution) * H3_PER_DIGIT_OFFSET) as u64;
-        let mask = H3_DIGIT_MASK as u64;
-        let dir = (ptr >> offset) & mask;
+            u64::from(H3_MAX_RESOLUTION.saturating_sub(target_resolution) * H3_PER_DIGIT_OFFSET);
+        let dir = (ptr >> offset) & u64::from(H3_DIGIT_MASK);
         Self::try_from(dir as u8)
     }
 }

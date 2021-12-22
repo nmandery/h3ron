@@ -43,10 +43,8 @@ pub struct CellNeighborsIterator<'a, I, F, T> {
 impl<'a, I, F, T> Iterator for CellNeighborsIterator<'a, I, F, T>
 where
     I: Iterator,
-    I::Item: Borrow<H3Cell>,
-    I: 'a,
-    F: Fn(&H3Cell) -> Option<&'a T>,
-    F: 'a,
+    I::Item: Borrow<H3Cell> + 'a,
+    F: Fn(&H3Cell) -> Option<&'a T> + 'a,
     T: 'a,
 {
     type Item = NeighborCell<'a, T>;
@@ -102,10 +100,8 @@ pub fn neighbors_within_distance_window_or_default<'a, I, F, T>(
 ) -> CellNeighborsIterator<'a, I, F, T>
 where
     I: Iterator,
-    I::Item: Borrow<H3Cell>,
-    I: 'a,
-    F: Fn(&H3Cell) -> Option<&'a T>,
-    F: 'a,
+    I::Item: Borrow<H3Cell> + 'a,
+    F: Fn(&H3Cell) -> Option<&'a T> + 'a,
 {
     CellNeighborsIterator {
         cell_iter,
@@ -126,10 +122,8 @@ pub fn neighbors_within_distance_window<'a, I, F, T>(
 ) -> CellNeighborsIterator<'a, I, F, T>
 where
     I: Iterator,
-    I::Item: Borrow<H3Cell>,
-    I: 'a,
-    F: Fn(&H3Cell) -> Option<&'a T>,
-    F: 'a,
+    I::Item: Borrow<H3Cell> + 'a,
+    F: Fn(&H3Cell) -> Option<&'a T> + 'a,
 {
     neighbors_within_distance_window_or_default(cell_iter, get_cell_value_fn, k_min, k_max, None)
 }
@@ -143,10 +137,8 @@ pub fn neighbors_within_distance<'a, I, F, T>(
 ) -> CellNeighborsIterator<'a, I, F, T>
 where
     I: Iterator,
-    I::Item: Borrow<H3Cell>,
-    I: 'a,
-    F: Fn(&H3Cell) -> Option<&'a T>,
-    F: 'a,
+    I::Item: Borrow<H3Cell> + 'a,
+    F: Fn(&H3Cell) -> Option<&'a T> + 'a,
 {
     neighbors_within_distance_window_or_default(
         cell_iter,

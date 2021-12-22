@@ -81,7 +81,7 @@ impl H3Cell {
     pub fn from_point_unchecked(pt: &Point<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = point_to_geocoord(pt);
-            h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
+            h3ron_h3_sys::geoToH3(&gc, c_int::from(h3_resolution))
         };
         Self::new(h3index)
     }
@@ -105,7 +105,7 @@ impl H3Cell {
     pub fn from_coordinate_unchecked(c: &Coordinate<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = coordinate_to_geocoord(c);
-            h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
+            h3ron_h3_sys::geoToH3(&gc, c_int::from(h3_resolution))
         };
         Self::new(h3index)
     }
@@ -184,7 +184,7 @@ impl H3Cell {
                 k_max as c_int,
                 h3_indexes_out.as_mut_ptr(),
                 distances_out.as_mut_ptr(),
-            )
+            );
         };
         self.associate_index_distances(h3_indexes_out, distances_out, k_min)
     }
@@ -216,7 +216,7 @@ impl H3Cell {
     }
 
     fn associate_index_distances(
-        &self,
+        self,
         mut h3_indexes_out: Vec<H3Index>,
         distances_out: Vec<c_int>,
         k_min: u32,
@@ -271,7 +271,7 @@ impl H3Cell {
             h3ron_h3_sys::getH3UnidirectionalEdgesFromHexagon(
                 self.h3index(),
                 index_vec.as_mut_ptr(),
-            )
+            );
         };
         index_vec
     }
@@ -284,7 +284,7 @@ impl H3Cell {
     /// assert_eq!(15047.5, H3Cell::area_m2(10));
     /// ```
     pub fn area_m2(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) }
+        unsafe { h3ron_h3_sys::hexAreaM2(i32::from(resolution)) }
     }
 
     /// get the average cell area at `resolution` in square kilometers.
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn test_debug_hexadecimal() {
         let cell = H3Cell::new(0x89283080ddbffff_u64);
-        assert_eq!(format!("{:?}", cell), "H3Cell(89283080ddbffff)".to_string())
+        assert_eq!(format!("{:?}", cell), "H3Cell(89283080ddbffff)".to_string());
     }
 
     #[test]
@@ -435,7 +435,7 @@ mod tests {
         let k_max = 2;
         let indexes = idx.k_ring_distances(k_min, k_max);
         assert!(indexes.len() > 10);
-        for (k, index) in indexes.iter() {
+        for (k, index) in &indexes {
             assert!(index.is_valid());
             assert!(*k >= k_min);
             assert!(*k <= k_max);
@@ -449,7 +449,7 @@ mod tests {
         let k_max = 2;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
         assert!(indexes.len() > 10);
-        for (k, index) in indexes.iter() {
+        for (k, index) in &indexes {
             assert!(index.is_valid());
             assert!(*k >= k_min);
             assert!(*k <= k_max);
@@ -464,7 +464,7 @@ mod tests {
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
 
         let mut indexes_resolutions: HashMap<H3Index, Vec<u32>> = HashMap::new();
-        for (dist, idx) in indexes.iter() {
+        for (dist, idx) in &indexes {
             indexes_resolutions
                 .entry(idx.h3index())
                 .and_modify(|v| v.push(*dist))
@@ -472,7 +472,7 @@ mod tests {
         }
 
         assert!(indexes.len() > 10);
-        for (k, index) in indexes.iter() {
+        for (k, index) in &indexes {
             assert!(index.is_valid());
             assert!(*k >= k_min);
             assert!(*k <= k_max);

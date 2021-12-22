@@ -120,15 +120,15 @@ impl<T: FromH3Index + Index> IndexVec<T> {
     }
 
     pub fn append(&mut self, other: &mut Self) {
-        self.inner_vec.append(&mut other.inner_vec)
+        self.inner_vec.append(&mut other.inner_vec);
     }
 
     pub fn dedup(&mut self) {
-        self.inner_vec.dedup()
+        self.inner_vec.dedup();
     }
 
     pub fn sort_unstable(&mut self) {
-        self.inner_vec.sort_unstable()
+        self.inner_vec.sort_unstable();
     }
 
     pub fn count(&self) -> usize {
@@ -136,7 +136,7 @@ impl<T: FromH3Index + Index> IndexVec<T> {
     }
 
     pub fn push(&mut self, item: T) {
-        self.inner_vec.push(item.h3index())
+        self.inner_vec.push(item.h3index());
     }
 }
 
@@ -232,9 +232,9 @@ impl<T: FromH3Index + Index> TryFrom<Vec<H3Index>> for IndexVec<T> {
     type Error = Error;
 
     fn try_from(h3index_vec: Vec<H3Index>) -> Result<Self, Self::Error> {
-        for h3index in h3index_vec.iter() {
+        for h3index in &h3index_vec {
             let value = T::from_h3index(*h3index);
-            value.validate()?
+            value.validate()?;
         }
         Ok(Self {
             inner_vec: h3index_vec,

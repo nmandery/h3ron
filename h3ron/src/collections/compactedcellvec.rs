@@ -55,7 +55,7 @@ impl<'a> CompactedCellVec {
         self.compact_from_resolution_up(
             H3_MAX_RESOLUTION as usize,
             &H3_RESOLUTION_RANGE_USIZE.collect::<Vec<_>>(),
-        )
+        );
     }
 
     /// append the contents of a vector. The caller is responsible to ensure that
@@ -73,7 +73,7 @@ impl<'a> CompactedCellVec {
     pub fn shrink_to_fit(&mut self) {
         self.cells_by_resolution
             .iter_mut()
-            .for_each(|cells| cells.shrink_to_fit())
+            .for_each(Vec::shrink_to_fit);
     }
 
     pub fn len(&self) -> usize {
@@ -84,7 +84,7 @@ impl<'a> CompactedCellVec {
 
     /// length of the vectors for all resolutions. The index of the vec is the resolution
     pub fn len_resolutions(&self) -> Vec<usize> {
-        self.cells_by_resolution.iter().map(|v| v.len()).collect()
+        self.cells_by_resolution.iter().map(Vec::len).collect()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -209,7 +209,7 @@ impl<'a> CompactedCellVec {
     /// the parent resolution unless include_resolutions
     /// forces the recompacting of a given resolution
     fn compact_from_resolution_up(&mut self, resolution: usize, include_resolutions: &[usize]) {
-        let mut resolutions_touched = include_resolutions.iter().cloned().collect::<HashSet<_>>();
+        let mut resolutions_touched = include_resolutions.iter().copied().collect::<HashSet<_>>();
         resolutions_touched.insert(resolution);
 
         for res in ((H3_MIN_RESOLUTION as usize)..=resolution).rev() {
@@ -244,7 +244,7 @@ impl<'a> CompactedCellVec {
         if let Some(lowest_res) = lowest_resolution {
             let mut known_cells = self.cells_by_resolution[lowest_res]
                 .iter()
-                .cloned()
+                .copied()
                 .collect::<H3CellSet>();
 
             for r in (lowest_res + 1)..=(H3_MAX_RESOLUTION as usize) {
@@ -303,10 +303,9 @@ impl<'a> Iterator for CompactedCellVecCompactedIterator<'a> {
             {
                 self.current_pos += 1;
                 return Some(*value);
-            } else {
-                self.current_pos = 0;
-                self.current_resolution += 1;
             }
+            self.current_pos = 0;
+            self.current_resolution += 1;
         }
         None
     }
@@ -329,7 +328,7 @@ impl<'a> Iterator for CompactedCellVecUncompactedIterator<'a> {
                 let value = self.compacted_vec.cells_by_resolution[self.current_resolution]
                     .get(self.current_pos);
                 self.current_pos += 1;
-                return value.cloned();
+                return value.copied();
             } else if let Some(next) = self.current_uncompacted.pop() {
                 return Some(next);
             } else if let Some(next_parent) = self.compacted_vec.cells_by_resolution
@@ -340,10 +339,9 @@ impl<'a> Iterator for CompactedCellVecUncompactedIterator<'a> {
                     next_parent.get_children(self.iteration_resolution as u8);
                 self.current_pos += 1;
                 continue;
-            } else {
-                self.current_resolution += 1;
-                self.current_pos = 0;
             }
+            self.current_resolution += 1;
+            self.current_pos = 0;
         }
         None
     }

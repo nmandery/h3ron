@@ -67,7 +67,7 @@ impl KRingBuilder {
                 self.k_max as c_int,
                 self.k_ring_indexes.as_mut_ptr(),
                 self.k_ring_distances.as_mut_ptr(),
-            )
+            );
         };
         self.rewind_iterator();
         self

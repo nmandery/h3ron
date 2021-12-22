@@ -1,7 +1,7 @@
 //! # Hashing
 //!
-//! This crate uses `ahash` for its HashMap and HashSets. This hash hash shown in benchmarks to be
-//! approx. 10% faster with H3 indexes than the standard SipHash used in rust. On the other hand it shows a higher
+//! This crate uses `ahash` for its `HashMap` and `HashSets`. This hash hash shown in benchmarks to be
+//! approx. 10% faster with H3 indexes than the standard `SipHash` used in rust. On the other hand it shows a higher
 //! fluctuation in runtime during benchmarks. Interestingly the normally very fast
 //! `rustc_hash` (uses `FxHash`) seems to be very slow with H3 cells and edges. Mostly noticed during
 //! deserialization of graphs, but also during using the `pathfinding` crate which uses

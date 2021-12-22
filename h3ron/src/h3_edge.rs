@@ -1,7 +1,6 @@
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
-use std::iter::FromIterator;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::os::raw::c_int;
@@ -54,13 +53,13 @@ impl H3Edge {
     /// Gets the average length of an edge in kilometers at `resolution`.
     /// This is the length of the cell boundary segment represented by the edge.
     pub fn edge_length_km(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::edgeLengthKm(resolution as c_int) }
+        unsafe { h3ron_h3_sys::edgeLengthKm(c_int::from(resolution)) }
     }
 
     /// Gets the average length of an edge in meters at `resolution`.
     /// This is the length of the cell boundary segment represented by the edge.
     pub fn edge_length_m(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::edgeLengthM(resolution as c_int) }
+        unsafe { h3ron_h3_sys::edgeLengthM(c_int::from(resolution)) }
     }
 
     /// The approximate distance between the centroids of two neighboring cells
@@ -129,7 +128,7 @@ impl H3Edge {
     pub fn cell_indexes_unchecked(&self) -> H3EdgeCells {
         let mut out: [H3Index; 2] = [0, 0];
         unsafe {
-            h3ron_h3_sys::getH3IndexesFromUnidirectionalEdge(self.h3index(), out.as_mut_ptr())
+            h3ron_h3_sys::getH3IndexesFromUnidirectionalEdge(self.h3index(), out.as_mut_ptr());
         }
         H3EdgeCells {
             origin: H3Cell::new(out[0]),
@@ -178,8 +177,9 @@ impl H3Edge {
             h3ron_h3_sys::getH3UnidirectionalEdgeBoundary(self.0, mu.as_mut_ptr());
             mu.assume_init()
         };
-
-        LineString::from_iter(geoboundary_to_coordinates(&gb).drain(0..(gb.numVerts as usize)))
+        geoboundary_to_coordinates(&gb)
+            .drain(0..(gb.numVerts as usize))
+            .collect()
     }
 }
 
@@ -294,8 +294,7 @@ impl ToMultiLineString for &[H3Edge] {
             .map(
                 |edge| match (edge.origin_index(), edge.destination_index()) {
                     (Ok(origin_cell), Ok(destination_cell)) => Ok((origin_cell, destination_cell)),
-                    (Err(e), _) => Err(e),
-                    (_, Err(e)) => Err(e),
+                    (Err(e), _) | (_, Err(e)) => Err(e),
                 },
             )
             .collect::<Result<Vec<_>, _>>()?;
@@ -338,16 +337,13 @@ where
     for (origin_cell, destination_cell) in iter {
         if coordinates.is_empty() {
             coordinates.push(origin_cell.to_coordinate());
-            coordinates.push(destination_cell.to_coordinate());
-        } else {
-            if last_destination_cell != Some(origin_cell) {
-                // create a new linestring
-                linestrings.push(LineString::from(std::mem::take(&mut coordinates)));
-                coordinates.push(origin_cell.to_coordinate());
-            }
-            coordinates.push(destination_cell.to_coordinate())
+        } else if last_destination_cell != Some(origin_cell) {
+            // create a new linestring
+            linestrings.push(LineString::from(std::mem::take(&mut coordinates)));
+            coordinates.push(origin_cell.to_coordinate());
         }
-        last_destination_cell = Some(destination_cell)
+        coordinates.push(destination_cell.to_coordinate());
+        last_destination_cell = Some(destination_cell);
     }
     if !coordinates.is_empty() {
         linestrings.push(LineString::from(coordinates));
@@ -404,7 +400,7 @@ mod tests {
         assert_eq!(
             format!("{:?}", edge),
             "H3Edge(149283080ddbffff)".to_string()
-        )
+        );
     }
 
     #[test]

@@ -69,7 +69,7 @@ pub trait Index: Sized + PartialEq + FromH3Index {
     /// Retrieves all children of `self` at resolution `child_resolution`
     fn get_children(&self, child_resolution: u8) -> IndexVec<Self> {
         let mut index_vec = IndexVec::with_length(unsafe {
-            h3ron_h3_sys::maxH3ToChildrenSize(self.h3index(), child_resolution as c_int)
+            h3ron_h3_sys::maxH3ToChildrenSize(self.h3index(), c_int::from(child_resolution))
         } as usize);
         unsafe {
             h3ron_h3_sys::h3ToChildren(
