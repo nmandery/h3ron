@@ -120,7 +120,7 @@ where
                 continue;
             }
 
-            let edge_result = last_cell.unidirectional_edge_to(&cell);
+            let edge_result = last_cell.unidirectional_edge_to(cell);
             self.last_cell = Some(cell);
             return Some(edge_result);
         }

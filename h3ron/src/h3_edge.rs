@@ -43,7 +43,7 @@ impl TryFrom<u64> for H3Edge {
 impl H3Edge {
     /// Gets the unidirectional edge from `origin_cell` to `destination_cell`
     pub fn from_cells(origin_cell: H3Cell, destination_cell: H3Cell) -> Result<Self, Error> {
-        origin_cell.unidirectional_edge_to(&destination_cell)
+        origin_cell.unidirectional_edge_to(destination_cell)
     }
 
     pub fn is_edge_valid(&self) -> bool {
@@ -154,7 +154,7 @@ impl H3Edge {
         let edge_cells = self.cell_indexes_unchecked();
         edge_cells
             .destination
-            .unidirectional_edge_to_unchecked(&edge_cells.origin)
+            .unidirectional_edge_to_unchecked(edge_cells.origin)
     }
 
     /// Retrieves the corresponding edge in the reversed direction.
@@ -166,7 +166,7 @@ impl H3Edge {
         let edge_cells = self.cell_indexes()?;
         edge_cells
             .destination
-            .unidirectional_edge_to(&edge_cells.origin)
+            .unidirectional_edge_to(edge_cells.origin)
     }
 
     /// Retrieves the [`LineString`] which forms the boundary between

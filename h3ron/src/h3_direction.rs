@@ -174,7 +174,7 @@ mod tests {
             if child == center_child {
                 continue;
             }
-            let edge = child.unidirectional_edge_to(&center_child).unwrap();
+            let edge = child.unidirectional_edge_to(center_child).unwrap();
             let direction = H3Direction::direction(&edge);
             assert_eq!(direction as usize, i);
         }

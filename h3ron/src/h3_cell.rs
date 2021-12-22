@@ -122,7 +122,7 @@ impl H3Cell {
     }
 
     /// Checks if the current index and `other` are neighbors.
-    pub fn is_neighbor_to(&self, other: &Self) -> bool {
+    pub fn is_neighbor_to(&self, other: Self) -> bool {
         let res: i32 = unsafe { h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0) };
         res == 1
     }
@@ -215,7 +215,7 @@ impl H3Cell {
     /// Retrieves the number of K Rings between `self` and `other`.
     ///
     /// For distance in miles or kilometers use haversine algorithms.
-    pub fn distance_to(&self, other: &Self) -> i32 {
+    pub fn distance_to(&self, other: Self) -> i32 {
         unsafe { h3ron_h3_sys::h3Distance(self.0, other.0) }
     }
 
@@ -247,7 +247,7 @@ impl H3Cell {
     /// # Returns
     /// The built index may be invalid.
     /// Use the `unidirectional_edge_to_unchecked` method for validity check.
-    pub fn unidirectional_edge_to_unchecked(&self, destination: &Self) -> H3Edge {
+    pub fn unidirectional_edge_to_unchecked(&self, destination: Self) -> H3Edge {
         H3Edge::new(unsafe {
             h3ron_h3_sys::getH3UnidirectionalEdge(self.h3index(), destination.h3index())
         })
@@ -258,7 +258,7 @@ impl H3Cell {
     /// # Returns
     /// If the built index is invalid, returns an Error.
     /// Use the `unidirectional_edge_to_unchecked` to avoid error.
-    pub fn unidirectional_edge_to(&self, destination: &Self) -> Result<H3Edge, Error> {
+    pub fn unidirectional_edge_to(&self, destination: Self) -> Result<H3Edge, Error> {
         let res = self.unidirectional_edge_to_unchecked(destination);
         res.validate()?;
         Ok(res)
@@ -508,23 +508,23 @@ mod tests {
         let idx: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
-        assert!(idx.is_neighbor_to(&neighbor));
+        assert!(idx.is_neighbor_to(neighbor));
         let wrong_neighbor = 0x8a2a1072b59ffff_u64.try_into().unwrap();
-        assert!(!idx.is_neighbor_to(&wrong_neighbor));
+        assert!(!idx.is_neighbor_to(wrong_neighbor));
         // Self
-        assert!(!idx.is_neighbor_to(&idx));
+        assert!(!idx.is_neighbor_to(idx));
     }
 
     #[test]
     fn test_distance_to() {
         let idx: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
-        assert_eq!(idx.distance_to(&idx), 0);
+        assert_eq!(idx.distance_to(idx), 0);
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(&neighbor), 1);
+        assert_eq!(idx.distance_to(neighbor), 1);
         let ring = idx.hex_ring(3).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(&neighbor), 3);
+        assert_eq!(idx.distance_to(neighbor), 3);
     }
 
     mod edges {
@@ -556,7 +556,7 @@ mod tests {
         fn retrieved_edges_are_valid() {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let edges = index.unidirectional_edges();
-            for edge in edges.into_iter() {
+            for edge in &edges {
                 edge.validate().unwrap();
             }
         }
@@ -566,8 +566,8 @@ mod tests {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let ring = index.hex_ring(1).unwrap();
             let neighbor = ring.first().unwrap();
-            let edge_to = index.unidirectional_edge_to(&neighbor).unwrap();
-            let edge_from = neighbor.unidirectional_edge_to(&index).unwrap();
+            let edge_to = index.unidirectional_edge_to(neighbor).unwrap();
+            let edge_from = neighbor.unidirectional_edge_to(index).unwrap();
             assert_ne!(edge_to.h3index(), 0);
             assert_ne!(edge_from.h3index(), 0);
             assert_ne!(edge_from, edge_to);
@@ -582,7 +582,7 @@ mod tests {
         fn can_fail_to_find_edge_to() {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let wrong_neighbor: H3Cell = 0x8a2a1072b59ffff_u64.try_into().unwrap();
-            index.unidirectional_edge_to(&wrong_neighbor).unwrap();
+            index.unidirectional_edge_to(wrong_neighbor).unwrap();
         }
     }
 }
