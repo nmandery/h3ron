@@ -134,7 +134,7 @@ pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> IndexVec<H3Cell> {
             holes: holes.as_mut_ptr(),
         };
 
-        let num_hexagons = h3ron_h3_sys::maxPolyfillSize(&gp, h3_resolution as c_int);
+        let num_hexagons = h3ron_h3_sys::maxPolyfillSize(&gp, c_int::from(h3_resolution));
 
         // pre-allocate for the expected number of hexagons
         let mut index_vec = IndexVec::with_length(num_hexagons as usize);

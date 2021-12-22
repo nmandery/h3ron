@@ -58,7 +58,7 @@ impl Index for H3Cell {
     }
 
     fn validate(&self) -> Result<(), Error> {
-        if !unsafe { h3ron_h3_sys::h3IsValid(self.h3index()) != 0 } {
+        if unsafe { h3ron_h3_sys::h3IsValid(self.h3index()) == 0 } {
             Err(Error::InvalidH3Cell(self.h3index()))
         } else {
             Ok(())
@@ -186,7 +186,7 @@ impl H3Cell {
                 distances_out.as_mut_ptr(),
             );
         };
-        self.associate_index_distances(h3_indexes_out, distances_out, k_min)
+        Self::associate_index_distances(h3_indexes_out, &distances_out, k_min)
     }
 
     pub fn hex_range_distances(&self, k_min: u32, k_max: u32) -> Result<Vec<(u32, Self)>, Error> {
@@ -202,7 +202,11 @@ impl H3Cell {
             ) as c_int
         };
         if res == 0 {
-            Ok(self.associate_index_distances(h3_indexes_out, distances_out, k_min))
+            Ok(Self::associate_index_distances(
+                h3_indexes_out,
+                &distances_out,
+                k_min,
+            ))
         } else {
             Err(Error::PentagonalDistortion) // may also be PentagonEncountered
         }
@@ -216,9 +220,8 @@ impl H3Cell {
     }
 
     fn associate_index_distances(
-        self,
         mut h3_indexes_out: Vec<H3Index>,
-        distances_out: Vec<c_int>,
+        distances_out: &[c_int],
         k_min: u32,
     ) -> Vec<(u32, Self)> {
         h3_indexes_out
@@ -289,7 +292,7 @@ impl H3Cell {
 
     /// get the average cell area at `resolution` in square kilometers.
     pub fn area_km2(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) }
+        unsafe { h3ron_h3_sys::hexAreaKm2(i32::from(resolution)) }
     }
 }
 

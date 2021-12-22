@@ -221,10 +221,10 @@ impl Index for H3Edge {
     }
 
     fn validate(&self) -> Result<(), Error> {
-        if !self.is_edge_valid() {
-            Err(Error::InvalidH3Edge(self.h3index()))
-        } else {
+        if self.is_edge_valid() {
             Ok(())
+        } else {
+            Err(Error::InvalidH3Edge(self.h3index()))
         }
     }
 }
