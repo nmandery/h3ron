@@ -8,6 +8,7 @@ pub use osmpbfreader;
 use osmpbfreader::{OsmPbfReader, Tags};
 
 use h3ron::collections::HashMap;
+use h3ron::iter::continuous_cells_to_edges;
 use h3ron::H3Edge;
 
 use crate::error::Error;
@@ -84,13 +85,12 @@ where
                             .filter_map(|node_id| nodeid_coordinates.get(node_id).cloned())
                             .collect();
                         if coordinates.len() >= 2 {
-                            let mut h3indexes: Vec<_> =
+                            let h3indexes: Vec<_> =
                                 h3ron::line(&LineString::from(coordinates), self.h3_resolution)?
                                     .into();
-                            h3indexes.dedup();
 
-                            for window in h3indexes.windows(2) {
-                                let edge = window[0].unidirectional_edge_to(&window[1])?;
+                            for edge_result in continuous_cells_to_edges(h3indexes) {
+                                let edge = edge_result?;
                                 let edge_props =
                                     self.way_analyzer.way_edge_properties(edge, &way_props);
 
