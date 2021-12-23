@@ -20,6 +20,9 @@ python extension.
 
 - Re-export `hashbrown` from `collections`.
 - switch to using safe en-/decoding with lz4_flex
+- Pass function parameters using `Copy`-implementing types like `H3Cell` and `H3Edge` 
+  directly and not via reference. [#26](https://github.com/nmandery/h3ron/pull/26).
+
 
 ## h3ron 0.13.0 - 2021-11-01
 
