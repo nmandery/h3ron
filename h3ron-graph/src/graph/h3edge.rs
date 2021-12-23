@@ -75,7 +75,7 @@ where
         cell_to: H3Cell,
         weight: W,
     ) -> Result<(), Error> {
-        let edge = cell_from.unidirectional_edge_to(&cell_to)?;
+        let edge = cell_from.unidirectional_edge_to(cell_to)?;
         self.add_edge(edge, weight)
     }
 
@@ -240,7 +240,7 @@ where
                     } else {
                         Some(
                             cell_from
-                                .unidirectional_edge_to(&cell_to)
+                                .unidirectional_edge_to(cell_to)
                                 .map(|downsamled_edge| (downsamled_edge, *weight)),
                         )
                     }

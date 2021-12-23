@@ -2,7 +2,7 @@ use crate::collections::indexvec::{IndexVec, UncheckedIter};
 use crate::{Error, H3Cell, H3Edge, Index};
 use std::borrow::Borrow;
 
-/// Creates H3Edges from cells while only requiring a single memory allocation
+/// Creates `H3Edges` from cells while only requiring a single memory allocation
 /// when the struct is created.
 pub struct H3EdgesBuilder {
     index_vec: IndexVec<H3Edge>,
@@ -30,7 +30,7 @@ impl H3EdgesBuilder {
             h3ron_h3_sys::getH3UnidirectionalEdgesFromHexagon(
                 cell.h3index(),
                 self.index_vec.as_mut_ptr(),
-            )
+            );
         };
         self.index_vec.iter()
     }
@@ -109,19 +109,18 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         for cell_item in self.iter.by_ref() {
             let cell = *cell_item.borrow();
-            let last_cell = match self.last_cell {
-                Some(last_cell) => last_cell,
-                None => {
-                    self.last_cell = Some(cell);
-                    continue;
-                }
+            let last_cell = if let Some(cell) = self.last_cell {
+                cell
+            } else {
+                self.last_cell = Some(cell);
+                continue;
             };
             if cell == last_cell {
                 // duplicate cell, skipping
                 continue;
             }
 
-            let edge_result = last_cell.unidirectional_edge_to(&cell);
+            let edge_result = last_cell.unidirectional_edge_to(cell);
             self.last_cell = Some(cell);
             return Some(edge_result);
         }

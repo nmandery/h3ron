@@ -27,7 +27,7 @@ impl ToH3Cells for Polygon<f64> {
 impl ToH3Cells for MultiPolygon<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         let mut outvec = IndexVec::new();
-        for poly in self.0.iter() {
+        for poly in &self.0 {
             let mut thisvec = poly.to_h3_cells(h3_resolution)?;
             outvec.append(&mut thisvec);
         }
@@ -44,7 +44,7 @@ impl ToH3Cells for Point<f64> {
 impl ToH3Cells for MultiPoint<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         let mut outvec = vec![];
-        for pt in self.0.iter() {
+        for pt in &self.0 {
             outvec.push(H3Cell::from_coordinate(&pt.0, h3_resolution)?.h3index());
         }
         outvec.try_into()
@@ -68,7 +68,7 @@ impl ToH3Cells for LineString<f64> {
 impl ToH3Cells for MultiLineString<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         let mut outvec = IndexVec::new();
-        for ls in self.0.iter() {
+        for ls in &self.0 {
             let mut thisvec = ls.to_h3_cells(h3_resolution)?;
             outvec.append(&mut thisvec);
         }
@@ -97,7 +97,7 @@ impl ToH3Cells for Line<f64> {
 impl ToH3Cells for GeometryCollection<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         let mut outvec = IndexVec::new();
-        for geom in self.0.iter() {
+        for geom in &self.0 {
             let mut thisvec = geom.to_h3_cells(h3_resolution)?;
             outvec.append(&mut thisvec);
         }

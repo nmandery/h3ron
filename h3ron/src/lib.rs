@@ -54,7 +54,7 @@ pub mod to_h3;
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
 
-/// trait for types which can be created from an H3Index
+/// trait for types which can be created from an `H3Index`
 pub trait FromH3Index {
     fn from_h3index(h3index: H3Index) -> Self;
 }
@@ -113,7 +113,7 @@ pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
             holes: holes.as_mut_ptr(),
         };
 
-        h3ron_h3_sys::maxPolyfillSize(&gp, h3_resolution as c_int) as usize
+        h3ron_h3_sys::maxPolyfillSize(&gp, c_int::from(h3_resolution)) as usize
     }
 }
 
@@ -134,12 +134,12 @@ pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> IndexVec<H3Cell> {
             holes: holes.as_mut_ptr(),
         };
 
-        let num_hexagons = h3ron_h3_sys::maxPolyfillSize(&gp, h3_resolution as c_int);
+        let num_hexagons = h3ron_h3_sys::maxPolyfillSize(&gp, c_int::from(h3_resolution));
 
         // pre-allocate for the expected number of hexagons
         let mut index_vec = IndexVec::with_length(num_hexagons as usize);
 
-        h3ron_h3_sys::polyfill(&gp, h3_resolution as c_int, index_vec.as_mut_ptr());
+        h3ron_h3_sys::polyfill(&gp, c_int::from(h3_resolution), index_vec.as_mut_ptr());
         index_vec
     }
 }
@@ -151,7 +151,7 @@ pub fn compact(cells: &[H3Cell]) -> IndexVec<H3Cell> {
     unsafe {
         // the following requires `repr(transparent)` on H3Cell
         let h3index_slice =
-            std::slice::from_raw_parts(cells.as_ptr() as *const H3Index, cells.len());
+            std::slice::from_raw_parts(cells.as_ptr().cast::<H3Index>(), cells.len());
         h3ron_h3_sys::compact(
             h3index_slice.as_ptr(),
             index_vec.as_mut_ptr(),
@@ -161,7 +161,7 @@ pub fn compact(cells: &[H3Cell]) -> IndexVec<H3Cell> {
     index_vec
 }
 
-/// maximum number of cells needed for the k_ring
+/// maximum number of cells needed for the `k_ring`
 #[inline]
 pub fn max_k_ring_size(k: u32) -> usize {
     unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
@@ -194,6 +194,15 @@ fn line_between_cells_not_checked(start: H3Cell, end: H3Cell) -> Result<IndexVec
 }
 
 /// Line of h3 indexes connecting two indexes
+///
+/// # Arguments
+///
+/// * `start`- start cell
+/// * `end` - end cell
+///
+/// # Errors
+///
+/// The function can fail if `start` and `end` have different resolutions
 pub fn line_between_cells(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>, Error> {
     check_same_resolution(start, end)?;
     line_between_cells_not_checked(start, end)
@@ -203,6 +212,10 @@ pub fn line_between_cells(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>
 ///
 /// The returned cells are ordered sequentially, there are no
 /// duplicates caused by the start and endpoints of multiple line segments.
+///
+/// # Errors
+///
+/// The function may fail if invalid indexes are built from the given coordinates.
 pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
     let mut cells_out = IndexVec::new();
     for coords in linestring.0.windows(2) {
@@ -247,6 +260,6 @@ mod tests {
             Coordinate::from((-20.74, 34.88)),
             Coordinate::from((-23.55, 48.92)),
         ]);
-        assert!(line(&ls, 5).unwrap().count() > 200)
+        assert!(line(&ls, 5).unwrap().count() > 200);
     }
 }

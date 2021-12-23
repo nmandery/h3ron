@@ -63,20 +63,19 @@ pub trait Index: Sized + PartialEq + FromH3Index {
     ///
     /// Use `get_parent` for validity check.
     fn get_parent_unchecked(&self, parent_resolution: u8) -> Self {
-        Self::new(unsafe { h3ron_h3_sys::h3ToParent(self.h3index(), parent_resolution as c_int) })
+        Self::new(unsafe {
+            h3ron_h3_sys::h3ToParent(self.h3index(), c_int::from(parent_resolution))
+        })
     }
 
     /// Retrieves all children of `self` at resolution `child_resolution`
     fn get_children(&self, child_resolution: u8) -> IndexVec<Self> {
+        let child_resolution = c_int::from(child_resolution);
         let mut index_vec = IndexVec::with_length(unsafe {
-            h3ron_h3_sys::maxH3ToChildrenSize(self.h3index(), child_resolution as c_int)
+            h3ron_h3_sys::maxH3ToChildrenSize(self.h3index(), child_resolution)
         } as usize);
         unsafe {
-            h3ron_h3_sys::h3ToChildren(
-                self.h3index(),
-                child_resolution as c_int,
-                index_vec.as_mut_ptr(),
-            );
+            h3ron_h3_sys::h3ToChildren(self.h3index(), child_resolution, index_vec.as_mut_ptr());
         }
         index_vec
     }

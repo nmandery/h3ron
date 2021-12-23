@@ -1,7 +1,6 @@
 use std::convert::TryFrom;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
-use std::iter::FromIterator;
 use std::mem::MaybeUninit;
 use std::ops::Deref;
 use std::os::raw::c_int;
@@ -44,7 +43,7 @@ impl TryFrom<u64> for H3Edge {
 impl H3Edge {
     /// Gets the unidirectional edge from `origin_cell` to `destination_cell`
     pub fn from_cells(origin_cell: H3Cell, destination_cell: H3Cell) -> Result<Self, Error> {
-        origin_cell.unidirectional_edge_to(&destination_cell)
+        origin_cell.unidirectional_edge_to(destination_cell)
     }
 
     pub fn is_edge_valid(&self) -> bool {
@@ -54,13 +53,13 @@ impl H3Edge {
     /// Gets the average length of an edge in kilometers at `resolution`.
     /// This is the length of the cell boundary segment represented by the edge.
     pub fn edge_length_km(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::edgeLengthKm(resolution as c_int) }
+        unsafe { h3ron_h3_sys::edgeLengthKm(c_int::from(resolution)) }
     }
 
     /// Gets the average length of an edge in meters at `resolution`.
     /// This is the length of the cell boundary segment represented by the edge.
     pub fn edge_length_m(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::edgeLengthM(resolution as c_int) }
+        unsafe { h3ron_h3_sys::edgeLengthM(c_int::from(resolution)) }
     }
 
     /// The approximate distance between the centroids of two neighboring cells
@@ -129,7 +128,7 @@ impl H3Edge {
     pub fn cell_indexes_unchecked(&self) -> H3EdgeCells {
         let mut out: [H3Index; 2] = [0, 0];
         unsafe {
-            h3ron_h3_sys::getH3IndexesFromUnidirectionalEdge(self.h3index(), out.as_mut_ptr())
+            h3ron_h3_sys::getH3IndexesFromUnidirectionalEdge(self.h3index(), out.as_mut_ptr());
         }
         H3EdgeCells {
             origin: H3Cell::new(out[0]),
@@ -155,7 +154,7 @@ impl H3Edge {
         let edge_cells = self.cell_indexes_unchecked();
         edge_cells
             .destination
-            .unidirectional_edge_to_unchecked(&edge_cells.origin)
+            .unidirectional_edge_to_unchecked(edge_cells.origin)
     }
 
     /// Retrieves the corresponding edge in the reversed direction.
@@ -167,7 +166,7 @@ impl H3Edge {
         let edge_cells = self.cell_indexes()?;
         edge_cells
             .destination
-            .unidirectional_edge_to(&edge_cells.origin)
+            .unidirectional_edge_to(edge_cells.origin)
     }
 
     /// Retrieves the [`LineString`] which forms the boundary between
@@ -178,8 +177,9 @@ impl H3Edge {
             h3ron_h3_sys::getH3UnidirectionalEdgeBoundary(self.0, mu.as_mut_ptr());
             mu.assume_init()
         };
-
-        LineString::from_iter(geoboundary_to_coordinates(&gb).drain(0..(gb.numVerts as usize)))
+        geoboundary_to_coordinates(&gb)
+            .drain(0..(gb.numVerts as usize))
+            .collect()
     }
 }
 
@@ -221,10 +221,10 @@ impl Index for H3Edge {
     }
 
     fn validate(&self) -> Result<(), Error> {
-        if !self.is_edge_valid() {
-            Err(Error::InvalidH3Edge(self.h3index()))
-        } else {
+        if self.is_edge_valid() {
             Ok(())
+        } else {
+            Err(Error::InvalidH3Edge(self.h3index()))
         }
     }
 }
@@ -294,8 +294,7 @@ impl ToMultiLineString for &[H3Edge] {
             .map(
                 |edge| match (edge.origin_index(), edge.destination_index()) {
                     (Ok(origin_cell), Ok(destination_cell)) => Ok((origin_cell, destination_cell)),
-                    (Err(e), _) => Err(e),
-                    (_, Err(e)) => Err(e),
+                    (Err(e), _) | (_, Err(e)) => Err(e),
                 },
             )
             .collect::<Result<Vec<_>, _>>()?;
@@ -338,16 +337,13 @@ where
     for (origin_cell, destination_cell) in iter {
         if coordinates.is_empty() {
             coordinates.push(origin_cell.to_coordinate());
-            coordinates.push(destination_cell.to_coordinate());
-        } else {
-            if last_destination_cell != Some(origin_cell) {
-                // create a new linestring
-                linestrings.push(LineString::from(std::mem::take(&mut coordinates)));
-                coordinates.push(origin_cell.to_coordinate());
-            }
-            coordinates.push(destination_cell.to_coordinate())
+        } else if last_destination_cell != Some(origin_cell) {
+            // create a new linestring
+            linestrings.push(LineString::from(std::mem::take(&mut coordinates)));
+            coordinates.push(origin_cell.to_coordinate());
         }
-        last_destination_cell = Some(destination_cell)
+        coordinates.push(destination_cell.to_coordinate());
+        last_destination_cell = Some(destination_cell);
     }
     if !coordinates.is_empty() {
         linestrings.push(LineString::from(coordinates));
@@ -404,7 +400,7 @@ mod tests {
         assert_eq!(
             format!("{:?}", edge),
             "H3Edge(149283080ddbffff)".to_string()
-        )
+        );
     }
 
     #[test]

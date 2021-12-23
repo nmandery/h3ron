@@ -93,7 +93,7 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
             cells_grouped
                 .entry(parent_cell)
                 .or_insert_with(Self::new)
-                .push(*cell)
+                .push(*cell);
         }
 
         let mut polygons = Vec::new();
@@ -163,7 +163,7 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>>
         };
         // the following requires `repr(transparent)` on H3Cell
         let h3index_slice =
-            std::slice::from_raw_parts(cells.as_ptr() as *const H3Index, cells.len());
+            std::slice::from_raw_parts(cells.as_ptr().cast::<H3Index>(), cells.len());
         h3SetToLinkedGeo(
             h3index_slice.as_ptr(),
             h3index_slice.len() as c_int,
@@ -191,9 +191,9 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>>
                 if coordinates.len() >= 3 {
                     let linestring = LineString::from(coordinates);
                     if linked_loop_i == 0 {
-                        exterior = Some(linestring)
+                        exterior = Some(linestring);
                     } else {
-                        interiors.push(linestring)
+                        interiors.push(linestring);
                     }
                 }
 

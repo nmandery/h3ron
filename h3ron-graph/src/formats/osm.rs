@@ -90,7 +90,7 @@ where
                             h3indexes.dedup();
 
                             for window in h3indexes.windows(2) {
-                                let edge = window[0].unidirectional_edge_to(&window[1])?;
+                                let edge = window[0].unidirectional_edge_to(window[1])?;
                                 let edge_props =
                                     self.way_analyzer.way_edge_properties(edge, &way_props);
 
