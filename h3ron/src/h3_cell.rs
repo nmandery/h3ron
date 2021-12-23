@@ -58,7 +58,7 @@ impl Index for H3Cell {
     }
 
     fn validate(&self) -> Result<(), Error> {
-        if !unsafe { h3ron_h3_sys::h3IsValid(self.h3index()) != 0 } {
+        if unsafe { h3ron_h3_sys::h3IsValid(self.h3index()) == 0 } {
             Err(Error::InvalidH3Cell(self.h3index()))
         } else {
             Ok(())
@@ -81,7 +81,7 @@ impl H3Cell {
     pub fn from_point_unchecked(pt: &Point<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = point_to_geocoord(pt);
-            h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
+            h3ron_h3_sys::geoToH3(&gc, c_int::from(h3_resolution))
         };
         Self::new(h3index)
     }
@@ -105,7 +105,7 @@ impl H3Cell {
     pub fn from_coordinate_unchecked(c: &Coordinate<f64>, h3_resolution: u8) -> Self {
         let h3index = unsafe {
             let gc = coordinate_to_geocoord(c);
-            h3ron_h3_sys::geoToH3(&gc, h3_resolution as c_int)
+            h3ron_h3_sys::geoToH3(&gc, c_int::from(h3_resolution))
         };
         Self::new(h3index)
     }
@@ -122,7 +122,7 @@ impl H3Cell {
     }
 
     /// Checks if the current index and `other` are neighbors.
-    pub fn is_neighbor_to(&self, other: &Self) -> bool {
+    pub fn is_neighbor_to(&self, other: Self) -> bool {
         let res: i32 = unsafe { h3ron_h3_sys::h3IndexesAreNeighbors(self.0, other.0) };
         res == 1
     }
@@ -184,9 +184,9 @@ impl H3Cell {
                 k_max as c_int,
                 h3_indexes_out.as_mut_ptr(),
                 distances_out.as_mut_ptr(),
-            )
+            );
         };
-        self.associate_index_distances(h3_indexes_out, distances_out, k_min)
+        Self::associate_index_distances(h3_indexes_out, &distances_out, k_min)
     }
 
     pub fn hex_range_distances(&self, k_min: u32, k_max: u32) -> Result<Vec<(u32, Self)>, Error> {
@@ -202,7 +202,11 @@ impl H3Cell {
             ) as c_int
         };
         if res == 0 {
-            Ok(self.associate_index_distances(h3_indexes_out, distances_out, k_min))
+            Ok(Self::associate_index_distances(
+                h3_indexes_out,
+                &distances_out,
+                k_min,
+            ))
         } else {
             Err(Error::PentagonalDistortion) // may also be PentagonEncountered
         }
@@ -211,14 +215,13 @@ impl H3Cell {
     /// Retrieves the number of K Rings between `self` and `other`.
     ///
     /// For distance in miles or kilometers use haversine algorithms.
-    pub fn distance_to(&self, other: &Self) -> i32 {
+    pub fn distance_to(&self, other: Self) -> i32 {
         unsafe { h3ron_h3_sys::h3Distance(self.0, other.0) }
     }
 
     fn associate_index_distances(
-        &self,
         mut h3_indexes_out: Vec<H3Index>,
-        distances_out: Vec<c_int>,
+        distances_out: &[c_int],
         k_min: u32,
     ) -> Vec<(u32, Self)> {
         h3_indexes_out
@@ -244,7 +247,7 @@ impl H3Cell {
     /// # Returns
     /// The built index may be invalid.
     /// Use the `unidirectional_edge_to_unchecked` method for validity check.
-    pub fn unidirectional_edge_to_unchecked(&self, destination: &Self) -> H3Edge {
+    pub fn unidirectional_edge_to_unchecked(&self, destination: Self) -> H3Edge {
         H3Edge::new(unsafe {
             h3ron_h3_sys::getH3UnidirectionalEdge(self.h3index(), destination.h3index())
         })
@@ -255,7 +258,7 @@ impl H3Cell {
     /// # Returns
     /// If the built index is invalid, returns an Error.
     /// Use the `unidirectional_edge_to_unchecked` to avoid error.
-    pub fn unidirectional_edge_to(&self, destination: &Self) -> Result<H3Edge, Error> {
+    pub fn unidirectional_edge_to(&self, destination: Self) -> Result<H3Edge, Error> {
         let res = self.unidirectional_edge_to_unchecked(destination);
         res.validate()?;
         Ok(res)
@@ -271,7 +274,7 @@ impl H3Cell {
             h3ron_h3_sys::getH3UnidirectionalEdgesFromHexagon(
                 self.h3index(),
                 index_vec.as_mut_ptr(),
-            )
+            );
         };
         index_vec
     }
@@ -284,12 +287,12 @@ impl H3Cell {
     /// assert_eq!(15047.5, H3Cell::area_m2(10));
     /// ```
     pub fn area_m2(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::hexAreaM2(resolution as i32) }
+        unsafe { h3ron_h3_sys::hexAreaM2(i32::from(resolution)) }
     }
 
     /// get the average cell area at `resolution` in square kilometers.
     pub fn area_km2(resolution: u8) -> f64 {
-        unsafe { h3ron_h3_sys::hexAreaKm2(resolution as i32) }
+        unsafe { h3ron_h3_sys::hexAreaKm2(i32::from(resolution)) }
     }
 }
 
@@ -388,7 +391,7 @@ mod tests {
     #[test]
     fn test_debug_hexadecimal() {
         let cell = H3Cell::new(0x89283080ddbffff_u64);
-        assert_eq!(format!("{:?}", cell), "H3Cell(89283080ddbffff)".to_string())
+        assert_eq!(format!("{:?}", cell), "H3Cell(89283080ddbffff)".to_string());
     }
 
     #[test]
@@ -435,7 +438,7 @@ mod tests {
         let k_max = 2;
         let indexes = idx.k_ring_distances(k_min, k_max);
         assert!(indexes.len() > 10);
-        for (k, index) in indexes.iter() {
+        for (k, index) in &indexes {
             assert!(index.is_valid());
             assert!(*k >= k_min);
             assert!(*k <= k_max);
@@ -449,7 +452,7 @@ mod tests {
         let k_max = 2;
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
         assert!(indexes.len() > 10);
-        for (k, index) in indexes.iter() {
+        for (k, index) in &indexes {
             assert!(index.is_valid());
             assert!(*k >= k_min);
             assert!(*k <= k_max);
@@ -464,7 +467,7 @@ mod tests {
         let indexes = idx.hex_range_distances(k_min, k_max).unwrap();
 
         let mut indexes_resolutions: HashMap<H3Index, Vec<u32>> = HashMap::new();
-        for (dist, idx) in indexes.iter() {
+        for (dist, idx) in &indexes {
             indexes_resolutions
                 .entry(idx.h3index())
                 .and_modify(|v| v.push(*dist))
@@ -472,7 +475,7 @@ mod tests {
         }
 
         assert!(indexes.len() > 10);
-        for (k, index) in indexes.iter() {
+        for (k, index) in &indexes {
             assert!(index.is_valid());
             assert!(*k >= k_min);
             assert!(*k <= k_max);
@@ -505,23 +508,23 @@ mod tests {
         let idx: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
-        assert!(idx.is_neighbor_to(&neighbor));
+        assert!(idx.is_neighbor_to(neighbor));
         let wrong_neighbor = 0x8a2a1072b59ffff_u64.try_into().unwrap();
-        assert!(!idx.is_neighbor_to(&wrong_neighbor));
+        assert!(!idx.is_neighbor_to(wrong_neighbor));
         // Self
-        assert!(!idx.is_neighbor_to(&idx));
+        assert!(!idx.is_neighbor_to(idx));
     }
 
     #[test]
     fn test_distance_to() {
         let idx: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
-        assert_eq!(idx.distance_to(&idx), 0);
+        assert_eq!(idx.distance_to(idx), 0);
         let ring = idx.hex_ring(1).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(&neighbor), 1);
+        assert_eq!(idx.distance_to(neighbor), 1);
         let ring = idx.hex_ring(3).unwrap();
         let neighbor = ring.first().unwrap();
-        assert_eq!(idx.distance_to(&neighbor), 3);
+        assert_eq!(idx.distance_to(neighbor), 3);
     }
 
     mod edges {
@@ -553,7 +556,7 @@ mod tests {
         fn retrieved_edges_are_valid() {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let edges = index.unidirectional_edges();
-            for edge in edges.into_iter() {
+            for edge in &edges {
                 edge.validate().unwrap();
             }
         }
@@ -563,8 +566,8 @@ mod tests {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let ring = index.hex_ring(1).unwrap();
             let neighbor = ring.first().unwrap();
-            let edge_to = index.unidirectional_edge_to(&neighbor).unwrap();
-            let edge_from = neighbor.unidirectional_edge_to(&index).unwrap();
+            let edge_to = index.unidirectional_edge_to(neighbor).unwrap();
+            let edge_from = neighbor.unidirectional_edge_to(index).unwrap();
             assert_ne!(edge_to.h3index(), 0);
             assert_ne!(edge_from.h3index(), 0);
             assert_ne!(edge_from, edge_to);
@@ -579,7 +582,7 @@ mod tests {
         fn can_fail_to_find_edge_to() {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let wrong_neighbor: H3Cell = 0x8a2a1072b59ffff_u64.try_into().unwrap();
-            index.unidirectional_edge_to(&wrong_neighbor).unwrap();
+            index.unidirectional_edge_to(wrong_neighbor).unwrap();
         }
     }
 }

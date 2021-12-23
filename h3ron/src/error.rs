@@ -39,10 +39,10 @@ pub enum Error {
 pub fn check_same_resolution(cell0: H3Cell, cell1: H3Cell) -> Result<(), Error> {
     let res0 = cell0.resolution();
     let res1 = cell1.resolution();
-    if res0 != res1 {
-        Err(Error::MixedResolutions(res0, res1))
-    } else {
+    if res0 == res1 {
         Ok(())
+    } else {
+        Err(Error::MixedResolutions(res0, res1))
     }
 }
 
