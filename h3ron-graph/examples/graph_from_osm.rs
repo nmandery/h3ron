@@ -13,9 +13,9 @@ use h3ron_graph::formats::osm::osmpbfreader::Tags;
 use h3ron_graph::formats::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder, WayAnalyzer};
 use h3ron_graph::graph::{GetStats, H3EdgeGraphBuilder, PreparedH3EdgeGraph};
 
-struct MyWayAnalzer {}
+struct MyWayAnalyzer {}
 
-impl WayAnalyzer<OrderedFloat<f64>> for MyWayAnalzer {
+impl WayAnalyzer<OrderedFloat<f64>> for MyWayAnalyzer {
     type WayProperties = (OrderedFloat<f64>, bool);
 
     fn analyze_way_tags(&self, tags: &Tags) -> Option<Self::WayProperties> {
@@ -89,7 +89,7 @@ fn main() {
         .expect("invalid h3 resolution");
     let graph_output = matches.value_of("OUTPUT-GRAPH").unwrap().to_string();
 
-    let mut builder = OsmPbfH3EdgeGraphBuilder::new(h3_resolution, MyWayAnalzer {});
+    let mut builder = OsmPbfH3EdgeGraphBuilder::new(h3_resolution, MyWayAnalyzer {});
     for pbf_input in matches.values_of("OSM-PBF").unwrap() {
         builder
             .read_pbf(Path::new(&pbf_input))
