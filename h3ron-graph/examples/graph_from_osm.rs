@@ -63,18 +63,18 @@ fn main() {
     let app = App::new("graph_from_osm")
         .about("Build a routing graph from an OSM PBF file")
         .arg(
-            Arg::with_name("h3_resolution")
-                .short("r")
+            Arg::new("h3_resolution")
+                .short('r')
                 .takes_value(true)
                 .default_value("7"),
         )
         .arg(
-            Arg::with_name("OUTPUT-GRAPH")
+            Arg::new("OUTPUT-GRAPH")
                 .help("output file to write the graph to")
                 .required(true),
         )
         .arg(
-            Arg::with_name("OSM-PBF")
+            Arg::new("OSM-PBF")
                 .help("input OSM .pbf file")
                 .required(true)
                 .min_values(1),
