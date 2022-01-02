@@ -1,3 +1,4 @@
+use geo_types::LineString;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 
@@ -5,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use h3ron::collections::compressed::CompressedIndexVec;
 use h3ron::collections::H3Treemap;
+use h3ron::to_geo::{ToLineString, ToMultiLineString};
 use h3ron::{H3Cell, H3Edge};
 
 use crate::error::Error;
@@ -90,5 +92,29 @@ impl TryFrom<Vec<H3Edge>> for LongEdge {
         } else {
             Err(Error::InsufficientNumberOfEdges)
         }
+    }
+}
+
+impl ToLineString for LongEdge {
+    fn to_linestring(&self) -> Result<LineString<f64>, h3ron::Error> {
+        match self.edge_path.to_vec().as_slice().to_multilinestring() {
+            Ok(mut mls) => {
+                if mls.0.len() != 1 {
+                    Err(h3ron::Error::InvalidGeometry)
+                } else {
+                    Ok(mls.0.swap_remove(0))
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    fn to_linestring_unchecked(&self) -> LineString<f64> {
+        self.edge_path
+            .to_vec()
+            .as_slice()
+            .to_multilinestring_unchecked()
+            .0
+            .swap_remove(0)
     }
 }

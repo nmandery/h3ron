@@ -15,6 +15,7 @@ python extension.
 
 * added `WithinWeightThreshold` and `WithinWeightThresholdMany` traits.
 * add `Path::cells()`.
+* Implemented `h3ron::to_geo::ToLineString` for `LongEdge`.
 
 ### Changed
 

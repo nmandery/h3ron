@@ -33,6 +33,9 @@ pub enum Error {
     /// feature flags.
     #[error("io error: {0}")]
     IOError(#[from] std::io::Error),
+
+    #[error("invalid geometry")]
+    InvalidGeometry,
 }
 
 /// Ensure two cells have the same resolution

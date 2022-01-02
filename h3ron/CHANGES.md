@@ -15,6 +15,7 @@ python extension.
 
 - Add `H3Edge::from_cells` as an alternative way to build edges to `H3Cell::unidirectional_edge_to`.
 - Add `h3ron::iter::continuous_cells_to_edges`.
+- Add `h3ron::error::InvalidGeometry` error.
 
 ### Changed
 
