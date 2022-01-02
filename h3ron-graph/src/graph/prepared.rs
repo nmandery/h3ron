@@ -6,7 +6,7 @@ use num_traits::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use h3ron::collections::ThreadPartitionedMap;
+use h3ron::collections::{H3Treemap, ThreadPartitionedMap};
 use h3ron::iter::H3EdgesBuilder;
 use h3ron::{H3Cell, H3Edge, HasH3Resolution};
 
@@ -18,8 +18,8 @@ use crate::graph::{EdgeValue, GetEdge, GetNodeType, GetStats, GraphStats, H3Edge
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct OwnedEdgeValue<W: Send + Sync> {
-    weight: W,
-    longedge: Option<(LongEdge, W)>,
+    pub weight: W,
+    pub longedge: Option<(LongEdge, W)>,
 }
 
 fn to_longedge_edges<W>(
@@ -131,6 +131,34 @@ impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
             .map(|(_, edge_value)| if edge_value.longedge.is_some() { 1 } else { 0 })
             .sum()
     }
+
+    /// iterate over all edges of the graph
+    pub fn iter_edges(&self) -> impl Iterator<Item = (H3Edge, &OwnedEdgeValue<W>)> {
+        self.edges.iter().map(|(edge, weight)| (*edge, weight))
+    }
+
+    /// iterate over all edges of the graph, while skipping simple `H3Edge`
+    /// which are already covered in other `LongEdge` instances of the graph.
+    ///
+    /// This function iterates the graph twice - the first time to collect
+    /// all edges which are part of long-edges.
+    pub fn iter_edges_non_overlapping(&self) -> impl Iterator<Item = (H3Edge, &OwnedEdgeValue<W>)> {
+        let mut covered_edges = H3Treemap::<H3Edge>::default();
+        for (_, owned_edge_value) in self.edges.iter() {
+            if let Some((longedge, _)) = owned_edge_value.longedge.as_ref() {
+                for edge in longedge.h3edge_path().iter().skip(1) {
+                    covered_edges.insert(*edge);
+                }
+            }
+        }
+        self.edges.iter().filter_map(move |(edge, weight)| {
+            if covered_edges.contains(edge) {
+                None
+            } else {
+                Some((*edge, weight))
+            }
+        })
+    }
 }
 
 impl<W> HasH3Resolution for PreparedH3EdgeGraph<W>
@@ -223,5 +251,49 @@ where
             self.h3_resolution(),
             reduce_resolution_by,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::convert::TryInto;
+
+    use geo_types::{Coordinate, LineString};
+
+    use crate::graph::{H3EdgeGraph, PreparedH3EdgeGraph};
+
+    fn build_line_prepared_graph() -> PreparedH3EdgeGraph<u32> {
+        let full_h3_res = 8;
+        let cells: Vec<_> = h3ron::line(
+            &LineString::from(vec![
+                Coordinate::from((23.3, 12.3)),
+                Coordinate::from((24.2, 12.2)),
+            ]),
+            full_h3_res,
+        )
+        .unwrap()
+        .into();
+        assert!(cells.len() > 100);
+
+        let mut graph = H3EdgeGraph::new(full_h3_res);
+        for w in cells.windows(2) {
+            graph.add_edge_using_cells(w[0], w[1], 20u32).unwrap();
+        }
+        assert!(graph.num_edges() > 50);
+        let prep_graph: PreparedH3EdgeGraph<_> = graph.try_into().unwrap();
+        assert_eq!(prep_graph.num_long_edges(), 1);
+        prep_graph
+    }
+
+    #[test]
+    fn test_iter_edges() {
+        let graph = build_line_prepared_graph();
+        assert!(graph.iter_edges().count() > 50);
+    }
+
+    #[test]
+    fn test_iter_non_overlapping_edges() {
+        let graph = build_line_prepared_graph();
+        assert_eq!(graph.iter_edges_non_overlapping().count(), 1);
     }
 }

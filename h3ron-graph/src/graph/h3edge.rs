@@ -149,6 +149,10 @@ where
         }
         tpm
     }
+
+    pub fn iter_edges(&self) -> impl Iterator<Item = (H3Edge, &W)> {
+        self.edges.iter().map(|(edge, weight)| (*edge, weight))
+    }
 }
 
 impl<W> HasH3Resolution for H3EdgeGraph<W>
