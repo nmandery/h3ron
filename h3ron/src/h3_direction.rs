@@ -1,5 +1,6 @@
-use crate::{Error, Index, H3_MAX_RESOLUTION};
 use std::convert::TryFrom;
+
+use crate::{Error, Index, H3_MAX_RESOLUTION};
 
 const H3_PER_DIGIT_OFFSET: u8 = 3;
 const H3_DIGIT_MASK: u8 = 7;
@@ -86,20 +87,58 @@ impl H3Direction {
                 target_resolution,
             ));
         }
-        let ptr = index.h3index() as *const u64;
-        let ptr = ptr as u64;
-        let offset =
-            u64::from(H3_MAX_RESOLUTION.saturating_sub(target_resolution) * H3_PER_DIGIT_OFFSET);
-        let dir = (ptr >> offset) & u64::from(H3_DIGIT_MASK);
-        Self::try_from(dir as u8)
+        direction(index.h3index() as u64, offset(target_resolution))
+    }
+
+    /// iterate over all directions leading to the given `index` starting from
+    /// resolution 0 to the resolution of the `index`.
+    pub fn iter_directions_over_resolutions<I: Index>(index: &I) -> ResolutionDirectionIter {
+        ResolutionDirectionIter {
+            h3index: index.h3index(),
+            stop_offset: offset(index.resolution()),
+            current_offset: offset(0),
+        }
+    }
+}
+
+#[inline]
+fn offset(target_resolution: u8) -> u64 {
+    u64::from(H3_MAX_RESOLUTION.saturating_sub(target_resolution) * H3_PER_DIGIT_OFFSET)
+}
+
+#[inline]
+fn direction(h3index: u64, offset: u64) -> Result<H3Direction, Error> {
+    let dir = (h3index >> offset) & u64::from(H3_DIGIT_MASK);
+    H3Direction::try_from(dir as u8)
+}
+
+pub struct ResolutionDirectionIter {
+    h3index: u64,
+    stop_offset: u64,
+    current_offset: u64,
+}
+
+impl Iterator for ResolutionDirectionIter {
+    type Item = Result<H3Direction, Error>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_offset >= self.stop_offset {
+            let dir_result = direction(self.h3index, self.current_offset);
+            self.current_offset -= u64::from(H3_PER_DIGIT_OFFSET);
+            Some(dir_result)
+        } else {
+            None
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::H3Cell;
     use std::convert::TryFrom;
+
+    use crate::{H3Cell, H3Edge};
+
+    use super::*;
 
     #[test]
     fn can_be_created() {
@@ -178,5 +217,29 @@ mod tests {
             let direction = H3Direction::direction(&edge);
             assert_eq!(direction as usize, i);
         }
+    }
+
+    #[test]
+    fn iter_directions_over_resolutions() {
+        let edge = H3Edge::new(0x149283080ddbffff);
+        let directions = H3Direction::iter_directions_over_resolutions(&edge)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(directions.len() - 1, edge.resolution() as usize);
+        assert_eq!(
+            directions,
+            vec![
+                H3Direction::IAxesDigit,
+                H3Direction::CenterDigit,
+                H3Direction::IjAxesDigit,
+                H3Direction::CenterDigit,
+                H3Direction::IAxesDigit,
+                H3Direction::CenterDigit,
+                H3Direction::KAxesDigit,
+                H3Direction::IkAxesDigit,
+                H3Direction::IjAxesDigit,
+                H3Direction::IjAxesDigit,
+            ]
+        );
     }
 }

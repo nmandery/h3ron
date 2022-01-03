@@ -16,6 +16,8 @@ python extension.
 - Add `H3Edge::from_cells` as an alternative way to build edges to `H3Cell::unidirectional_edge_to`.
 - Add `h3ron::iter::continuous_cells_to_edges`.
 - Add `h3ron::error::InvalidGeometry` error.
+- Add `H3Direction::iter_directions_over_resolutions` to iterate over all directions leading to the given `Index`
+  starting from resolution 0 to the resolution of the `Index`.
 
 ### Changed
 
