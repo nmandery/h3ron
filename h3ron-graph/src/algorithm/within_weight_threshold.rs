@@ -101,10 +101,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::convert::TryInto;
 
     use geo_types::{Geometry, Line};
-    use itertools::Itertools;
 
     use h3ron::iter::continuous_cells_to_edges;
     use h3ron::{H3Cell, ToH3Cells};
@@ -166,7 +166,12 @@ mod tests {
             },
         );
         assert_eq!(within_threshold.len(), 9);
-        let weights_freq = within_threshold.iter().counts_by(|w| *w.1);
+        let weights_freq = within_threshold
+            .iter()
+            .fold(HashMap::new(), |mut agg, (_, weight)| {
+                agg.entry(weight).and_modify(|c| *c += 1).or_insert(1u32);
+                agg
+            });
         assert_eq!(weights_freq[&0], 3);
         assert_eq!(weights_freq[&10], 2);
         assert_eq!(weights_freq[&20], 2);

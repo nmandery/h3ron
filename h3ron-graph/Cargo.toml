@@ -46,12 +46,9 @@ version = "2.8"
 features = ["serde"]
 optional = true
 
-[dev-dependencies]
-itertools = "0.10"
-
-[dev-dependencies.geojson]
-version = "0.22"
-features = ["geo-types"]
+#[dev-dependencies.geojson]
+#version = "0.22"
+#features = ["geo-types"]
 
 [dev-dependencies.criterion]
 version = "^0.3"

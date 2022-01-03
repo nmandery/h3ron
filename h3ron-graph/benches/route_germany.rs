@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -53,6 +52,7 @@ fn route_across_germany(routing_graph: &PreparedH3EdgeGraph<OrderedFloat<f64>>) 
         )
         .unwrap();
     assert_eq!(paths.len(), 2);
+    /*
     let mut features = Vec::with_capacity(paths.len());
     for path in paths.iter() {
         // the following would fail if a non-consecutive path is generated
@@ -66,7 +66,6 @@ fn route_across_germany(routing_graph: &PreparedH3EdgeGraph<OrderedFloat<f64>>) 
         };
         features.push(feature);
     }
-    /*
     let fc = geojson::FeatureCollection {
         bbox: None,
         features,
