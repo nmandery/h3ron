@@ -232,6 +232,18 @@ pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<IndexVec<
     Ok(cells_out)
 }
 
+/// res0IndexCount returns the number of resolution 0 indexes
+pub fn res0_index_count() -> u8 {
+    unsafe { h3ron_h3_sys::res0IndexCount() as u8 }
+}
+
+/// provides all base cells in H3Index format
+pub fn res0_indexes() -> IndexVec<H3Cell> {
+    let mut index_vec = IndexVec::with_length(res0_index_count() as usize);
+    unsafe { h3ron_h3_sys::getRes0Indexes(index_vec.as_mut_ptr()) };
+    index_vec
+}
+
 #[cfg(test)]
 mod tests {
     use std::convert::TryFrom;
@@ -239,7 +251,7 @@ mod tests {
     use geo::Coordinate;
     use geo_types::LineString;
 
-    use crate::{line, line_between_cells, H3Cell};
+    use crate::{line, line_between_cells, res0_index_count, res0_indexes, H3Cell};
 
     #[test]
     fn line_across_multiple_faces() {
@@ -261,5 +273,16 @@ mod tests {
             Coordinate::from((-23.55, 48.92)),
         ]);
         assert!(line(&ls, 5).unwrap().count() > 200);
+    }
+
+    #[test]
+    fn test_res0_index_count() {
+        assert_eq!(res0_index_count(), 122);
+    }
+
+    #[test]
+    fn test_res0_indexes() {
+        let indexes = res0_indexes().iter().collect::<Vec<_>>();
+        assert_eq!(indexes.len(), res0_index_count() as usize);
     }
 }

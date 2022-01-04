@@ -18,6 +18,8 @@ python extension.
 - Add `h3ron::error::InvalidGeometry` error.
 - Add `H3Direction::iter_directions_over_resolutions` to iterate over all directions leading to the given `Index`
   starting from resolution 0 to the resolution of the `Index`.
+- Add `h3ron::res0_index_count` and `h3ron::res0_indexes`.
+- Add `Index::base_cell_number`.
 
 ### Changed
 

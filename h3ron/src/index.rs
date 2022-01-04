@@ -89,6 +89,14 @@ pub trait Index: Sized + PartialEq + FromH3Index {
     fn direction_to_parent_resolution(&self, target_resolution: u8) -> Result<H3Direction, Error> {
         H3Direction::direction_to_parent_resolution(self, target_resolution)
     }
+
+    /// Returns the base cell "number" (0 to 121) of the provided H3 cell
+    ///
+    /// Note: Technically works on H3 edges, but will return base cell of the
+    /// origin cell.
+    fn base_cell_number(&self) -> u8 {
+        unsafe { h3ron_h3_sys::h3GetBaseCell(self.h3index()) as u8 }
+    }
 }
 
 /// trait to be implemented by all structs being based
