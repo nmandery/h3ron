@@ -282,7 +282,6 @@ mod tests {
 
     #[test]
     fn test_res0_indexes() {
-        let indexes = res0_indexes().iter().collect::<Vec<_>>();
-        assert_eq!(indexes.len(), res0_index_count() as usize);
+        assert_eq!(res0_indexes().iter().count(), res0_index_count() as usize);
     }
 }

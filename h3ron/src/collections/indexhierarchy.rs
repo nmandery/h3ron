@@ -233,6 +233,6 @@ mod tests {
     fn map_count_empty() {
         let map: IndexHierarchyMap<H3Cell, u8> = IndexHierarchyMap::default();
         assert_eq!(map.count(), 0);
-        assert_eq!(map.is_empty(), true);
+        assert!(map.is_empty());
     }
 }
