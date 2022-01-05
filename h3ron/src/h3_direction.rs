@@ -96,7 +96,7 @@ impl H3Direction {
         ResolutionDirectionIter {
             h3index: index.h3index(),
             stop_offset: offset(index.resolution()),
-            current_offset: offset(0),
+            current_offset: offset(1),
         }
     }
 }
@@ -220,16 +220,36 @@ mod tests {
     }
 
     #[test]
-    fn iter_directions_over_resolutions() {
+    fn iter_directions_over_resolutions_cell() {
+        let cell = H3Cell::new(0x861ea54f7ffffff);
+        //let cell = H3Cell::new(0x8518607bfffffff);
+        let directions = H3Direction::iter_directions_over_resolutions(&cell)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(directions.len(), cell.resolution() as usize);
+        assert_eq!(
+            directions,
+            vec![
+                H3Direction::JAxesDigit,
+                H3Direction::IAxesDigit,
+                H3Direction::IkAxesDigit,
+                H3Direction::JAxesDigit,
+                H3Direction::JkAxesDigit,
+                H3Direction::IjAxesDigit
+            ]
+        );
+    }
+
+    #[test]
+    fn iter_directions_over_resolutions_edge() {
         let edge = H3Edge::new(0x149283080ddbffff);
         let directions = H3Direction::iter_directions_over_resolutions(&edge)
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
-        assert_eq!(directions.len() - 1, edge.resolution() as usize);
+        assert_eq!(directions.len(), edge.resolution() as usize);
         assert_eq!(
             directions,
             vec![
-                H3Direction::IAxesDigit,
                 H3Direction::CenterDigit,
                 H3Direction::IjAxesDigit,
                 H3Direction::CenterDigit,
