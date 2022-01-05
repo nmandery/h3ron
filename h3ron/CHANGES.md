@@ -21,6 +21,7 @@ python extension.
 - Add `h3ron::res0_index_count` and `h3ron::res0_indexes`.
 - Add `Index::base_cell_number`.
 - Add naive implementation of `h3ron::collections::IndexHierarchyMap` as an idea to maybe improve in the future.
+- Allow faster creation of `H3Treemap` from unsorted iterators by using `H3Treemap::from_iter_with_sort`.
 
 ### Changed
 

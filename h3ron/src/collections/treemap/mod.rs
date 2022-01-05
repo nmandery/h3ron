@@ -28,9 +28,14 @@ where
     Q: Borrow<T>,
     T: Index,
 {
+    /// Create from an iterator.
+    ///
+    /// Please note the - for unsorted values faster - `from_iter_with_sort` method.
     fn from_iter<I: IntoIterator<Item = Q>>(iter: I) -> Self {
         Self {
-            treemap: RoaringTreemap::from_iter(iter.into_iter().map(|c| c.borrow().h3index())),
+            treemap: RoaringTreemap::from_iter(
+                iter.into_iter().map(|c| c.borrow().h3index() as u64),
+            ),
             phantom_data: Default::default(),
         }
     }
@@ -98,6 +103,24 @@ where
     pub fn iter(&self) -> Iter<T> {
         Iter {
             inner_iter: self.treemap.iter(),
+            phantom_data: Default::default(),
+        }
+    }
+
+    /// create this struct from an iterator. The iterator is consumed and sorted in memory
+    /// before creating the Treemap - this can greatly reduce the creation time.
+    ///
+    /// Requires accumulating the whole iterator in memory for a short while.
+    pub fn from_iter_with_sort<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        // pre-sort for improved creation-speed of the RoaringTreemap
+        let mut h3indexes: Vec<_> = iter
+            .into_iter()
+            .map(|c| c.borrow().h3index() as u64)
+            .collect();
+        h3indexes.sort_unstable();
+
+        Self {
+            treemap: RoaringTreemap::from_sorted_iter(h3indexes.drain(..)).unwrap(),
             phantom_data: Default::default(),
         }
     }

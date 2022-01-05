@@ -37,10 +37,10 @@ fn criterion_benchmark(c: &mut Criterion) {
         },
     );
     group.bench_function(
-        format!("H3Treemap::from_iter (n={})", cells.len()),
+        format!("H3Treemap::from_iter_with_sort (n={})", cells.len()),
         |bencher| {
             bencher.iter(|| {
-                H3Treemap::from_iter(cells.iter().copied());
+                H3Treemap::from_iter_with_sort(cells.iter().copied());
             });
         },
     );
