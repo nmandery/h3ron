@@ -25,7 +25,7 @@ pub struct OwnedEdgeValue<W: Send + Sync> {
 fn to_longedge_edges<W>(
     input_graph: H3EdgeGraph<W>,
     min_longedge_length: usize,
-) -> Result<ThreadPartitionedMap<H3Edge, OwnedEdgeValue<W>>, Error>
+) -> Result<ThreadPartitionedMap<H3Edge, OwnedEdgeValue<W>, 4>, Error>
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
 {
@@ -35,7 +35,7 @@ where
         ));
     }
 
-    let mut edges: ThreadPartitionedMap<_, _> = Default::default();
+    let mut edges: ThreadPartitionedMap<_, _, 4> = Default::default();
 
     let mut parts: Vec<_> = input_graph
         .edges
@@ -117,9 +117,9 @@ where
 /// a prepared graph which can be used for routing
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PreparedH3EdgeGraph<W: Send + Sync> {
-    edges: ThreadPartitionedMap<H3Edge, OwnedEdgeValue<W>>,
+    edges: ThreadPartitionedMap<H3Edge, OwnedEdgeValue<W>, 4>,
     h3_resolution: u8,
-    graph_nodes: ThreadPartitionedMap<H3Cell, NodeType>,
+    graph_nodes: ThreadPartitionedMap<H3Cell, NodeType, 4>,
 }
 
 unsafe impl<W: Sync + Send> Sync for PreparedH3EdgeGraph<W> {}

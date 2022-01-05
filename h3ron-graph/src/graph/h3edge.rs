@@ -16,7 +16,7 @@ use super::GraphStats;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct H3EdgeGraph<W: Send + Sync> {
-    pub edges: ThreadPartitionedMap<H3Edge, W>,
+    pub edges: ThreadPartitionedMap<H3Edge, W, 4>,
     pub h3_resolution: u8,
 }
 
@@ -102,7 +102,7 @@ where
                 other.h3_resolution,
             ));
         }
-        for mut partition in other.edges.take_partitions().drain(..) {
+        for partition in other.edges.partitions_mut() {
             self.edges
                 .insert_or_modify_many(partition.drain(), |old, new| {
                     *old = edge_weight_selector(old, new)
@@ -115,7 +115,7 @@ where
     ///
     /// This is a rather expensive operation as nodes are not stored anywhere
     /// and need to be extracted from the edges.
-    pub fn nodes(&self) -> ThreadPartitionedMap<H3Cell, NodeType> {
+    pub fn nodes(&self) -> ThreadPartitionedMap<H3Cell, NodeType, 4> {
         log::debug!(
             "extracting nodes from the graph edges @ r={}",
             self.h3_resolution

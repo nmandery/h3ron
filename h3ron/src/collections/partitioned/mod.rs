@@ -1,4 +1,5 @@
 use std::borrow::BorrowMut;
+use std::convert::TryInto;
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::iter::FromIterator;
 
@@ -14,21 +15,21 @@ pub mod serde;
 
 /// A Map consisting of multiple hashmaps (partitions) each handled by its own thread. The purpose is
 /// acceleration of batch operations by splitting them across multiple threads. Like populating the
-/// map faster from serialized data.
+/// map faster from serialized data, where this implementation becomes faster than a HashMap when the number
+/// of entries gets larger than a few million items.
 ///
 /// Inspired by the [vector hasher](https://github.com/pola-rs/polars/blob/0b145967533691249d094614c5315fa03a693fd9/polars/polars-core/src/vector_hasher.rs)
 /// of the `polars` crate.
 #[derive(Clone)]
-pub struct ThreadPartitionedMap<K, V, S = RandomState> {
-    build_hasher: S,
-    partitions: Vec<hashbrown::HashMap<K, V, S>>,
+pub struct ThreadPartitionedMap<K, V, const N: usize> {
+    build_hasher: RandomState,
+    partitions: [hashbrown::HashMap<K, V>; N],
 }
 
-impl<K, V, S> ThreadPartitionedMap<K, V, S>
+impl<K, V, const N: usize> ThreadPartitionedMap<K, V, N>
 where
     K: Hash + Eq + Send + Sync,
     V: Send + Sync,
-    S: BuildHasher + Default + Send + Clone,
 {
     #[inline]
     pub fn new() -> Self {
@@ -36,16 +37,14 @@ where
     }
 
     pub fn with_capacity(capacity: usize) -> Self {
-        let num_partitions = num_cpus::get();
         let partition_capacity = if capacity > 0 {
             // expecting an equal distribution of keys over all partitions
-            1 + capacity / num_partitions
+            1 + capacity / N
         } else {
             0
         };
-        let build_hasher = S::default();
-        let partitions =
-            create_partitions(num_partitions, partition_capacity, build_hasher.clone());
+        let build_hasher = RandomState::default();
+        let partitions = create_partitions(partition_capacity, build_hasher.clone());
         Self {
             build_hasher,
             partitions,
@@ -53,7 +52,10 @@ where
     }
 
     pub fn reserve(&mut self, additional: usize) {
-        let additional_avg = additional / self.num_partitions();
+        if additional == 0 {
+            return;
+        }
+        let additional_avg = additional / N;
         for partition in self.partitions.iter_mut() {
             let partition_additional =
                 additional_avg.saturating_sub(partition.capacity() - partition.len());
@@ -63,17 +65,17 @@ where
         }
     }
 
+    #[inline(always)]
     pub fn num_partitions(&self) -> usize {
-        self.partitions.len()
+        N
     }
 
-    pub fn partitions(&self) -> &[hashbrown::HashMap<K, V, S>] {
+    pub fn partitions(&self) -> &[hashbrown::HashMap<K, V>] {
         &self.partitions
     }
 
-    pub fn take_partitions(&mut self) -> Vec<hashbrown::HashMap<K, V, S>> {
-        let new_partitions = create_partitions(self.partitions.len(), 0, self.build_hasher.clone());
-        std::mem::replace(&mut self.partitions, new_partitions)
+    pub fn partitions_mut(&mut self) -> &mut [hashbrown::HashMap<K, V>] {
+        &mut self.partitions
     }
 
     pub fn len(&self) -> usize {
@@ -90,11 +92,7 @@ where
     where
         F: Fn(&V, V) -> V,
     {
-        let (h, partition) = hash_and_partition(
-            &key,
-            self.num_partitions(),
-            self.build_hasher.build_hasher(),
-        );
+        let (h, partition) = hash_and_partition(&key, N, self.build_hasher.build_hasher());
         let raw_entry = self.partitions[partition]
             .raw_entry_mut()
             .from_key_hashed_nocheck(h, &key);
@@ -122,6 +120,7 @@ where
     where
         I: Iterator<Item = (K, V)>,
     {
+        self.reserve(iter.size_hint().0);
         self.insert_or_modify_many(iter, |old, new| {
             *old = new;
         });
@@ -135,18 +134,18 @@ where
         I: Iterator<Item = (K, V)>,
         F: Fn(&mut V, V) + Send + Sync,
     {
-        let mut hashed_kv = hash_vectorized(iter, &self.build_hasher, self.num_partitions());
+        let mut hashed_kv = hash_vectorized(iter, &self.build_hasher, N);
         if self.partitions.len() != hashed_kv.len() {
             // should not be reachable
             panic!("differing length of partitions");
         }
-        self.reserve(hashed_kv.len()); // not taking modifications into account
-        self.partitions = std::mem::take(&mut self.partitions)
-            .drain(..)
+        self.reserve(hashed_kv.iter().map(|kv| kv.len()).sum()); // not taking modifications into account
+        self.partitions
+            .iter_mut()
             .zip(hashed_kv.drain(..))
             .collect::<Vec<_>>()
             .par_drain(..)
-            .map(|(mut partition, mut partition_hashed_kv)| {
+            .for_each(|(partition, mut partition_hashed_kv)| {
                 for (h, (k, v)) in partition_hashed_kv.drain(..) {
                     // raw_entry_mut in `std` requires nightly. in hashbrown it is already stable
                     // https://github.com/rust-lang/rust/issues/56167
@@ -162,14 +161,11 @@ where
                         }
                     }
                 }
-                partition
-            })
-            .collect();
+            });
     }
 
     pub fn get_key_value(&self, key: &K) -> Option<(&K, &V)> {
-        let (h, partition) =
-            hash_and_partition(key, self.num_partitions(), self.build_hasher.build_hasher());
+        let (h, partition) = hash_and_partition(key, N, self.build_hasher.build_hasher());
         self.partitions[partition]
             .raw_entry()
             .from_key_hashed_nocheck(h, key)
@@ -183,7 +179,7 @@ where
         self.get_key_value(key).is_some()
     }
 
-    pub fn keys(&self) -> TPMKeys<K, V, S> {
+    pub fn keys(&self) -> TPMKeys<K, V, N> {
         TPMKeys {
             tpm: self,
             current_partition: 0,
@@ -191,7 +187,7 @@ where
         }
     }
 
-    pub fn iter(&self) -> TPMIter<K, V, S> {
+    pub fn iter(&self) -> TPMIter<K, V, N> {
         TPMIter {
             tpm: self,
             current_partition: 0,
@@ -210,18 +206,17 @@ where
     }
 }
 
-impl<K, V, S> Default for ThreadPartitionedMap<K, V, S>
+impl<K, V, const N: usize> Default for ThreadPartitionedMap<K, V, N>
 where
     K: Hash + Eq + Send + Sync,
     V: Send + Sync,
-    S: BuildHasher + Default + Send + Clone,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<K, V> FromIterator<(K, V)> for ThreadPartitionedMap<K, V, RandomState>
+impl<K, V, const N: usize> FromIterator<(K, V)> for ThreadPartitionedMap<K, V, N>
 where
     K: Hash + Eq + Send + Sync,
     V: Send + Sync,
@@ -234,16 +229,24 @@ where
     }
 }
 
-fn create_partitions<K, V, S>(
-    num_partitions: usize,
+impl<K, V, const N: usize> Extend<(K, V)> for ThreadPartitionedMap<K, V, N>
+where
+    K: Hash + Eq + Send + Sync,
+    V: Send + Sync,
+{
+    fn extend<I: IntoIterator<Item = (K, V)>>(&mut self, iter: I) {
+        self.insert_many(iter.into_iter());
+    }
+}
+
+fn create_partitions<K, V, const N: usize>(
     partition_capacity: usize,
-    build_hasher: S,
-) -> Vec<hashbrown::HashMap<K, V, S>>
+    build_hasher: RandomState,
+) -> [hashbrown::HashMap<K, V, RandomState>; N]
 where
     K: Hash + Eq,
-    S: BuildHasher + Clone,
 {
-    (0..num_partitions)
+    (0..N)
         .map(|_| {
             hashbrown::HashMap::with_capacity_and_hasher(
                 partition_capacity,
@@ -252,7 +255,10 @@ where
                 build_hasher.clone(),
             )
         })
-        .collect()
+        .collect::<Vec<_>>()
+        .try_into()
+        .map_err(|_e| false) // get rid of the `Debug` bind on the error
+        .expect("invalid partition count")
 }
 
 fn hash_vectorized<K, V, S, I>(
@@ -276,7 +282,7 @@ where
     out_vecs
 }
 
-#[inline]
+#[inline(always)]
 fn hash_and_partition<K, H>(key: &K, num_partitions: usize, mut hasher: H) -> (u64, usize)
 where
     H: Hasher,
@@ -287,24 +293,23 @@ where
     (h, h_partition(h, num_partitions as u64) as usize)
 }
 
-#[inline]
+#[inline(always)]
 const fn h_partition(h: u64, num_partitions: u64) -> u64 {
     // Based on https://lemire.me/blog/2016/06/27/a-fast-alternative-to-the-modulo-reduction/
     // and used instead of modulo (`h % num_partitions`)
     ((h as u128 * num_partitions as u128) >> 64) as u64
 }
 
-pub struct TPMKeys<'a, K, V, S> {
-    tpm: &'a ThreadPartitionedMap<K, V, S>,
+pub struct TPMKeys<'a, K, V, const N: usize> {
+    tpm: &'a ThreadPartitionedMap<K, V, N>,
     current_partition: usize,
     current_keys_iter: Option<hashbrown::hash_map::Keys<'a, K, V>>,
 }
 
-impl<'a, K, V, S> Iterator for TPMKeys<'a, K, V, S>
+impl<'a, K, V, const N: usize> Iterator for TPMKeys<'a, K, V, N>
 where
     K: Hash + Eq + Send + Sync,
     V: Send + Sync,
-    S: BuildHasher + Default + Send + Clone,
 {
     type Item = &'a K;
 
@@ -330,17 +335,16 @@ where
     }
 }
 
-pub struct TPMIter<'a, K, V, S> {
-    tpm: &'a ThreadPartitionedMap<K, V, S>,
+pub struct TPMIter<'a, K, V, const N: usize> {
+    tpm: &'a ThreadPartitionedMap<K, V, N>,
     current_partition: usize,
     current_iter: Option<hashbrown::hash_map::Iter<'a, K, V>>,
 }
 
-impl<'a, K, V, S> Iterator for TPMIter<'a, K, V, S>
+impl<'a, K, V, const N: usize> Iterator for TPMIter<'a, K, V, N>
 where
     K: Hash + Eq + Send + Sync,
     V: Send + Sync,
-    S: BuildHasher + Default + Send + Clone,
 {
     type Item = (&'a K, &'a V);
 
@@ -396,8 +400,8 @@ where
     }
 }
 
-impl<I: Index + Hash + Eq + Send + Sync, V: Send + Sync> ContainsIndex<I>
-    for ThreadPartitionedMap<I, V>
+impl<I: Index + Hash + Eq + Send + Sync, V: Send + Sync, const N: usize> ContainsIndex<I>
+    for ThreadPartitionedMap<I, V, N>
 {
     fn contains_index(&self, index: &I) -> bool {
         self.contains(index)
@@ -415,7 +419,8 @@ mod tests {
     #[test]
     fn from_and_to_vec_h3edge() {
         let in_vec: Vec<_> = (0_u64..1_000_000).map(|i| (H3Edge::new(i), i)).collect();
-        let mut tpm = ThreadPartitionedMap::from_iter(in_vec.clone());
+        let mut tpm: ThreadPartitionedMap<_, _, 6> =
+            ThreadPartitionedMap::from_iter(in_vec.clone());
         assert_eq!(tpm.len(), 1_000_000);
         assert_eq!(tpm.get(&H3Edge::new(613777)), Some(&613777));
         let mut out_vec: Vec<_> = tpm.drain().collect();
@@ -425,7 +430,7 @@ mod tests {
 
     #[test]
     fn insert_single() {
-        let mut tpm: ThreadPartitionedMap<u64, u64> = Default::default();
+        let mut tpm: ThreadPartitionedMap<u64, u64, 8> = Default::default();
         assert_eq!(tpm.insert(4, 1), None);
         assert_eq!(tpm.insert(4, 2), Some(1));
         assert_eq!(tpm.insert(5, 1), None);

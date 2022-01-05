@@ -24,6 +24,7 @@ pub use treemap::H3Treemap;
 use crate::{H3Cell, H3Edge, Index};
 
 pub mod compactedcellvec;
+pub mod indexhierarchy;
 pub mod indexvec;
 
 #[cfg(feature = "io")]

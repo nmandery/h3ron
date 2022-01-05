@@ -20,6 +20,7 @@ python extension.
   starting from resolution 0 to the resolution of the `Index`.
 - Add `h3ron::res0_index_count` and `h3ron::res0_indexes`.
 - Add `Index::base_cell_number`.
+- Add naive implementation of `h3ron::collections::IndexHierarchyMap` as an idea to maybe improve in the future.
 
 ### Changed
 
@@ -27,7 +28,8 @@ python extension.
 - switch to using safe en-/decoding with lz4_flex
 - Pass function parameters using `Copy`-implementing types like `H3Cell` and `H3Edge` 
   directly and not via reference. [#26](https://github.com/nmandery/h3ron/pull/26).
-
+- Remove the generic hasher parameter from `ThreadPartitionedMap`. Also make the number of partitions not CPU dependent
+  but instead using a generic usize parameter (using const_generics).
 
 ## h3ron 0.13.0 - 2021-11-01
 

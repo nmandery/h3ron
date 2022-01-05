@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
+
 use h3ron::iter::KRingBuilder;
 use h3ron::H3Cell;
-use std::time::Duration;
 
 fn criterion_benchmark(c: &mut Criterion) {
     let cell = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 6).unwrap();
