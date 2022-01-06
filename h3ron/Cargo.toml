@@ -75,3 +75,7 @@ harness = false
 [[bench]]
 name = "collections_insert_get"
 harness = false
+
+[[bench]]
+name = "compressed_index_vec"
+harness = false
