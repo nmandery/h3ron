@@ -21,12 +21,10 @@ pub trait ToCoordinate {
 
 pub trait ToLineString {
     fn to_linestring(&self) -> Result<LineString<f64>, Error>;
-    fn to_linestring_unchecked(&self) -> LineString<f64>;
 }
 
 pub trait ToMultiLineString {
     fn to_multilinestring(&self) -> Result<MultiLineString<f64>, Error>;
-    fn to_multilinestring_unchecked(&self) -> MultiLineString<f64>;
 }
 
 /// join hexagon polygons to larger polygons where hexagons are touching each other

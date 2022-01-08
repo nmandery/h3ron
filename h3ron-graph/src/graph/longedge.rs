@@ -109,17 +109,4 @@ impl ToLineString for LongEdge {
             Err(e) => Err(e),
         }
     }
-
-    fn to_linestring_unchecked(&self) -> LineString<f64> {
-        todo!()
-        /*
-        self.edge_path
-            .to_vec()
-            .as_slice()
-            .to_multilinestring_unchecked()
-            .0
-            .swap_remove(0)
-
-         */
-    }
 }

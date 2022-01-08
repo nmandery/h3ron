@@ -37,6 +37,8 @@ python extension.
 ### Removed
 
 - Removal of `CompressedIndexVec` in favour of `IndexBlock`. See the above "Added" section.
+- Removed `ToLinestring::to_linestring_unchecked` and `ToMultiLinestring::to_multilinestring` in favour of
+  the checked variants.
 
 ## h3ron 0.13.0 - 2021-11-01
 

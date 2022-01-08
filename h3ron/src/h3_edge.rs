@@ -272,17 +272,6 @@ impl ToLineString for H3Edge {
             edge_cells.destination.to_coordinate(),
         ]))
     }
-
-    /// Create a linestring from the origin index to the destination index.
-    ///
-    /// Also see [`H3Edge::to_linestring`] for an related example.
-    fn to_linestring_unchecked(&self) -> LineString<f64> {
-        let edge_cells = self.cell_indexes_unchecked();
-        LineString::from(vec![
-            edge_cells.origin.to_coordinate(),
-            edge_cells.destination.to_coordinate(),
-        ])
-    }
 }
 
 /// converts `&[H3Edge]` slices to `MultiLineString` while attempting
@@ -299,15 +288,6 @@ impl ToMultiLineString for &[H3Edge] {
             )
             .collect::<Result<Vec<_>, _>>()?;
         Ok(celltuples_to_multlinestring(cell_tuples))
-    }
-
-    fn to_multilinestring_unchecked(&self) -> MultiLineString<f64> {
-        celltuples_to_multlinestring(self.iter().map(|edge| {
-            (
-                edge.origin_index_unchecked(),
-                edge.destination_index_unchecked(),
-            )
-        }))
     }
 }
 
@@ -354,10 +334,6 @@ where
 impl ToMultiLineString for Vec<H3Edge> {
     fn to_multilinestring(&self) -> Result<MultiLineString<f64>, Error> {
         self.as_slice().to_multilinestring()
-    }
-
-    fn to_multilinestring_unchecked(&self) -> MultiLineString<f64> {
-        self.as_slice().to_multilinestring_unchecked()
     }
 }
 
