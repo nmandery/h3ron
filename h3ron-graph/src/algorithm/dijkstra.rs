@@ -6,11 +6,13 @@ use indexmap::map::Entry::{Occupied, Vacant};
 use indexmap::map::IndexMap;
 use num_traits::Zero;
 
+use h3ron::collections::compressed::Decompressor;
 use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::H3EdgesBuilder;
 use h3ron::{H3Cell, H3Edge};
 
 use crate::algorithm::path::Path;
+use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::GetEdge;
 
@@ -141,7 +143,7 @@ pub fn edge_dijkstra<'a, G, W>(
     origin_cell: &H3Cell,
     destinations: &H3Treemap<H3Cell>,
     num_destinations_to_reach: Option<usize>,
-) -> Vec<Path<W>>
+) -> Result<Vec<Path<W>>, Error>
 where
     G: GetEdge<WeightType = W>,
     W: Zero + Ord + Copy + Add,
@@ -258,10 +260,12 @@ fn edge_dijkstra_assemble_paths<'a, W>(
     origin_cell: &H3Cell,
     parents_map: HashMap<H3Cell, (&'a H3Cell, &DijkstraEntry<'a, W>)>,
     destinations_reached: H3CellSet,
-) -> Vec<Path<W>>
+) -> Result<Vec<Path<W>>, Error>
 where
     W: Zero + Ord + Copy,
 {
+    let mut decompressor = Decompressor::default();
+
     // assemble the paths
     let mut paths = Vec::with_capacity(destinations_reached.len());
     for destination_cell in destinations_reached {
@@ -289,7 +293,11 @@ where
             // itself and does not need to be reversed
             match dijkstra_edge {
                 DijkstraEdge::Single(h3edge) => h3edges.push(*h3edge),
-                DijkstraEdge::Long(longedge) => h3edges.append(&mut longedge.h3edge_path()),
+                DijkstraEdge::Long(longedge) => {
+                    for h3edge in decompressor.decompress_block(&longedge.edge_path)? {
+                        h3edges.push(h3edge);
+                    }
+                }
             }
         }
         let path = if h3edges.is_empty() {
@@ -304,7 +312,7 @@ where
     // to make path vecs directly comparable using this deterministic order
     paths.sort_unstable();
 
-    paths
+    Ok(paths)
 }
 
 struct SmallestHolder<W> {

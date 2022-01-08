@@ -13,6 +13,7 @@ repository = "https://github.com/nmandery/h3ron"
 [features]
 use-rayon = ["rayon"]
 io = ["bincode", "lz4_flex", "serde"]
+compress = ["lz4_flex"]
 use-serde = ["serde", "bincode", "tinyvec/serde"]
 use-roaring = ["roaring"]
 
@@ -77,5 +78,5 @@ name = "collections_insert_get"
 harness = false
 
 [[bench]]
-name = "compressed_index_vec"
+name = "indexblock"
 harness = false

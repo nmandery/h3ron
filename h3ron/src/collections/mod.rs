@@ -16,6 +16,8 @@ pub use ahash::RandomState;
 pub use hashbrown;
 
 pub use compactedcellvec::CompactedCellVec;
+#[cfg(feature = "lz4_flex")]
+pub use compressed::{Decompressor, IndexBlock};
 #[cfg(feature = "use-rayon")]
 pub use partitioned::ThreadPartitionedMap;
 #[cfg(feature = "use-roaring")]
@@ -27,7 +29,7 @@ pub mod compactedcellvec;
 pub mod indexhierarchy;
 pub mod indexvec;
 
-#[cfg(feature = "io")]
+#[cfg(feature = "lz4_flex")]
 pub mod compressed;
 #[cfg(feature = "use-rayon")]
 pub mod partitioned;

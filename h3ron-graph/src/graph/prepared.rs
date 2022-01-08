@@ -6,6 +6,7 @@ use num_traits::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use h3ron::collections::compressed::Decompressor;
 use h3ron::collections::{H3Treemap, ThreadPartitionedMap};
 use h3ron::iter::H3EdgesBuilder;
 use h3ron::{H3Cell, H3Edge, HasH3Resolution};
@@ -142,22 +143,25 @@ impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
     ///
     /// This function iterates the graph twice - the first time to collect
     /// all edges which are part of long-edges.
-    pub fn iter_edges_non_overlapping(&self) -> impl Iterator<Item = (H3Edge, &OwnedEdgeValue<W>)> {
+    pub fn iter_edges_non_overlapping(
+        &self,
+    ) -> Result<impl Iterator<Item = (H3Edge, &OwnedEdgeValue<W>)>, Error> {
         let mut covered_edges = H3Treemap::<H3Edge>::default();
+        let mut decompressor = Decompressor::default();
         for (_, owned_edge_value) in self.edges.iter() {
             if let Some((longedge, _)) = owned_edge_value.longedge.as_ref() {
-                for edge in longedge.h3edge_path().iter().skip(1) {
-                    covered_edges.insert(*edge);
+                for edge in decompressor.decompress_block(&longedge.edge_path)?.skip(1) {
+                    covered_edges.insert(edge);
                 }
             }
         }
-        self.edges.iter().filter_map(move |(edge, weight)| {
+        Ok(self.edges.iter().filter_map(move |(edge, weight)| {
             if covered_edges.contains(edge) {
                 None
             } else {
                 Some((*edge, weight))
             }
-        })
+        }))
     }
 }
 
@@ -294,6 +298,6 @@ mod tests {
     #[test]
     fn test_iter_non_overlapping_edges() {
         let graph = build_line_prepared_graph();
-        assert_eq!(graph.iter_edges_non_overlapping().count(), 1);
+        assert_eq!(graph.iter_edges_non_overlapping().unwrap().count(), 1);
     }
 }

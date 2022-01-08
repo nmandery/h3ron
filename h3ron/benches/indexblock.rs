@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
-use h3ron::collections::compressed::CompressedIndexVec;
+use h3ron::collections::compressed::{Decompressor, IndexBlock};
 
 use h3ron::H3Cell;
 
@@ -13,22 +13,23 @@ fn criterion_benchmark(c: &mut Criterion) {
         .iter()
         .collect::<Vec<_>>();
 
-    let mut group = c.benchmark_group("compressed_index_vec");
+    let mut group = c.benchmark_group("indexblock");
     group.sample_size(20);
     group.warm_up_time(Duration::from_secs(1));
     group.bench_function(format!("compress {} cells", cells.len()), |bencher| {
         bencher.iter(|| {
-            let _cv = CompressedIndexVec::from(cells.clone());
+            let _ib = IndexBlock::from(cells.clone());
         });
     });
 
-    let cv = CompressedIndexVec::from(cells.clone());
-    dbg!((cv.size_of_data_uncompressed(), cv.size_of_data_compressed()));
+    let ib = IndexBlock::from(cells.clone());
+    dbg!((ib.size_of_uncompressed(), ib.size_of_compressed()));
     group.bench_function(
         format!("decompress {} cells to vec", cells.len()),
         |bencher| {
             bencher.iter(|| {
-                let _cells2 = cv.to_vec();
+                let mut decompressor = Decompressor::default();
+                let _cells2: Vec<_> = decompressor.decompress_block(&ib).unwrap().collect();
             });
         },
     );
