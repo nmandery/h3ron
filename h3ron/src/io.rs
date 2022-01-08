@@ -5,9 +5,10 @@
 //!
 use std::io;
 
-use crate::Error;
 use lz4_flex::frame::{FrameDecoder, FrameEncoder};
 use serde::Serialize;
+
+use crate::Error;
 
 /// hide bincode errors in the io error to avoid having bincode in the public api.
 impl From<bincode::Error> for Error {
@@ -78,8 +79,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::io::{deserialize_from, serialize_into};
     use std::io::Cursor;
+
+    use crate::io::{deserialize_from, serialize_into};
 
     fn roundtrip(compress: bool) {
         let data = vec![1_i32, 2, 3, 4];

@@ -18,9 +18,9 @@ pub use hashbrown;
 pub use compactedcellvec::CompactedCellVec;
 #[cfg(feature = "lz4_flex")]
 pub use compressed::{Decompressor, IndexBlock};
-#[cfg(feature = "use-rayon")]
+#[cfg(feature = "rayon")]
 pub use partitioned::ThreadPartitionedMap;
-#[cfg(feature = "use-roaring")]
+#[cfg(feature = "roaring")]
 pub use treemap::H3Treemap;
 
 use crate::{H3Cell, H3Edge, Index};
@@ -31,9 +31,9 @@ pub mod indexvec;
 
 #[cfg(feature = "lz4_flex")]
 pub mod compressed;
-#[cfg(feature = "use-rayon")]
+#[cfg(feature = "rayon")]
 pub mod partitioned;
-#[cfg(feature = "use-roaring")]
+#[cfg(feature = "roaring")]
 pub mod treemap;
 
 /// generic trait to check if a index is contained in a collection

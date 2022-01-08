@@ -33,6 +33,7 @@ python extension.
   directly and not via reference. [#26](https://github.com/nmandery/h3ron/pull/26).
 - Remove the generic hasher parameter from `ThreadPartitionedMap`. Also make the number of partitions not CPU dependent
   but instead using a generic usize parameter (using const_generics).
+- Cleanup/rename feature gates - see main page of documentation.
 
 ### Removed
 
