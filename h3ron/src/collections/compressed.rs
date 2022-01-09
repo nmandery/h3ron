@@ -30,23 +30,16 @@ use crate::{Error, Index, IndexVec};
     serde(bound(serialize = "T: Serialize", deserialize = "T: Deserialize<'de>",))
 )]
 pub struct IndexBlock<T> {
-    phantom_data: PhantomData<T>,
     num_indexes: usize,
     compressed: bool,
     block_data: Vec<u8>,
+    phantom_data: PhantomData<T>,
 }
 
 impl<T> IndexBlock<T>
 where
     T: Index,
 {
-    /// approximate size of the data in the block.
-    ///
-    /// Does not include any overheads from the inner `Vec`.
-    pub fn size_of(&self) -> usize {
-        size_of::<Self>() + (size_of::<u8>() * self.block_data.len())
-    }
-
     pub fn len(&self) -> usize {
         self.num_indexes
     }
@@ -95,7 +88,7 @@ where
             // keep the same bits of the h3indexes together to improve compression
             // when the h3indexes are closely together.
             buf[pos] = (h3index >> (7 * 8) & 255) as u8;
-            buf[pos + (byte_offset)] = (h3index >> (6 * 8) & 255) as u8;
+            buf[pos + byte_offset] = (h3index >> (6 * 8) & 255) as u8;
             buf[pos + (2 * byte_offset)] = (h3index >> (5 * 8) & 255) as u8;
             buf[pos + (3 * byte_offset)] = (h3index >> (4 * 8) & 255) as u8;
             buf[pos + (4 * byte_offset)] = (h3index >> (3 * 8) & 255) as u8;
@@ -108,10 +101,10 @@ where
         let block_data = if compressed { compress(&buf) } else { buf };
 
         Self {
-            phantom_data: PhantomData::default(),
             num_indexes: index_slice.len(),
             compressed,
             block_data,
+            phantom_data: PhantomData::default(),
         }
     }
 }
@@ -219,6 +212,8 @@ impl Default for Decompressor {
 
 #[inline]
 fn h3index_from_block_buf(buf: &[u8], pos: usize, num_indexes: usize) -> u64 {
+    assert!(pos < num_indexes);
+    assert!(buf.len() >= (num_indexes * size_of::<u64>() / size_of::<u8>()));
     (u64::from(buf[pos]) << (7 * 8))
         + (u64::from(buf[pos + num_indexes]) << (6 * 8))
         + (u64::from(buf[pos + (2 * num_indexes)]) << (5 * 8))
@@ -318,13 +313,6 @@ mod tests {
             compressed_cells.size_of_compressed(),
             compressed_cells.size_of_uncompressed()
         );
-        /*
-        assert!(
-            compressed_ring.size_of_data_compressed()
-                <= compressed_ring.size_of_data_uncompressed()
-        );
-
-         */
         assert_eq!(cells.len(), compressed_cells.len());
 
         let mut decompressor = Decompressor::default();
@@ -339,17 +327,20 @@ mod tests {
 
     #[test]
     fn test_indexblock_roundtrip_kring1() {
-        let _civ = kring_indexblock_roundtrip(make_kring(1));
+        let civ = kring_indexblock_roundtrip(make_kring(1));
+        assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
     }
 
     #[test]
     fn test_indexblock_roundtrip_kring8() {
-        let _civ = kring_indexblock_roundtrip(make_kring(8));
+        let civ = kring_indexblock_roundtrip(make_kring(8));
+        assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
     }
 
     #[test]
     fn test_indexblock_roundtrip_kring50() {
-        let _civ = kring_indexblock_roundtrip(make_kring(50));
+        let civ = kring_indexblock_roundtrip(make_kring(50));
+        assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
     }
 
     #[test]
