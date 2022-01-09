@@ -212,7 +212,7 @@ where
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.block.num_indexes, None)
+        (self.block.num_indexes.saturating_sub(self.pos), None)
     }
 }
 

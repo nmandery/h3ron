@@ -96,6 +96,6 @@ impl Iterator for KRingBuilder {
 
     fn size_hint(&self) -> (usize, Option<usize>) {
         // IMPROVE: this overestimates when k_min != 0
-        (self.k_ring_size, None)
+        (self.k_ring_size - self.current_pos, None)
     }
 }
