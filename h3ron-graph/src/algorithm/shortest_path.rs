@@ -156,27 +156,34 @@ where
             self.h3_resolution(),
             options.num_gap_cells_to_graph()
         );
-        let paths = filtered_origin_cells
+
+        let mut cellmap = H3CellMap::default();
+        for par_result in filtered_origin_cells
             .par_iter()
             .map(|(graph_connected_origin_cell, output_origin_cells)| {
-                let paths: Vec<_> = edge_dijkstra(
+                let paths: Result<Vec<_>, _> = edge_dijkstra(
                     self,
                     graph_connected_origin_cell,
                     &filtered_destination_cells,
                     options.num_destinations_to_reach(),
                 )
-                .drain(..)
-                .map(&path_map_fn)
-                .collect();
+                .map(|mut paths| {
+                    let mapped_paths: Vec<_> = paths.drain(..).map(&path_map_fn).collect();
 
-                output_origin_cells
-                    .iter()
-                    .map(|out_cell| (*out_cell, paths.clone()))
-                    .collect::<Vec<_>>()
+                    output_origin_cells
+                        .iter()
+                        .map(|out_cell| (*out_cell, mapped_paths.clone()))
+                        .collect::<Vec<_>>()
+                });
+                paths
             })
-            .flatten()
-            .collect::<H3CellMap<_>>();
-        Ok(paths)
+            .collect::<Vec<_>>()
+        {
+            for (out_cell, mapped_paths) in par_result? {
+                cellmap.insert(out_cell, mapped_paths);
+            }
+        }
+        Ok(cellmap)
     }
 }
 
@@ -223,12 +230,12 @@ where
         if destination_treemap.is_empty() {
             return Ok(Default::default());
         }
-        Ok(edge_dijkstra(
+        edge_dijkstra(
             self,
             &graph_connected_origin_cell,
             &destination_treemap,
             options.num_destinations_to_reach(),
-        ))
+        )
     }
 }
 

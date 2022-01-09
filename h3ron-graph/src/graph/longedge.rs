@@ -1,10 +1,10 @@
-use geo_types::LineString;
 use std::borrow::Borrow;
 use std::convert::TryFrom;
 
+use geo_types::LineString;
 use serde::{Deserialize, Serialize};
 
-use h3ron::collections::compressed::CompressedIndexVec;
+use h3ron::collections::compressed::{Decompressor, IndexBlock};
 use h3ron::collections::H3Treemap;
 use h3ron::to_geo::{ToLineString, ToMultiLineString};
 use h3ron::{H3Cell, H3Edge};
@@ -41,7 +41,7 @@ pub struct LongEdge {
 
     /// the path of the longedge described by multiple, successive
     /// `H3Edge` values.
-    edge_path: CompressedIndexVec<H3Edge>,
+    pub(crate) edge_path: IndexBlock<H3Edge>,
 
     /// provides an efficient lookup to check for intersection of
     /// the edge with `H3Cell` values.
@@ -62,13 +62,14 @@ impl LongEdge {
     }
 
     /// length of `self` as the number of contained h3edges
-    pub fn h3edges_len(&self) -> usize {
+    pub const fn h3edges_len(&self) -> usize {
         (self.edge_path.len() as usize).saturating_sub(1)
     }
 
     /// the path of the longedge described by multiple, successive `H3Edge` values
-    pub fn h3edge_path(&self) -> Vec<H3Edge> {
-        self.edge_path.to_vec()
+    pub fn h3edge_path(&self) -> Result<Vec<H3Edge>, h3ron::Error> {
+        let mut decompressor = Decompressor::new();
+        Ok(decompressor.decompress_block(&self.edge_path)?.collect())
     }
 }
 
@@ -97,7 +98,7 @@ impl TryFrom<Vec<H3Edge>> for LongEdge {
 
 impl ToLineString for LongEdge {
     fn to_linestring(&self) -> Result<LineString<f64>, h3ron::Error> {
-        match self.edge_path.to_vec().as_slice().to_multilinestring() {
+        match self.h3edge_path()?.as_slice().to_multilinestring() {
             Ok(mut mls) => {
                 if mls.0.len() != 1 {
                     Err(h3ron::Error::InvalidGeometry)
@@ -107,14 +108,5 @@ impl ToLineString for LongEdge {
             }
             Err(e) => Err(e),
         }
-    }
-
-    fn to_linestring_unchecked(&self) -> LineString<f64> {
-        self.edge_path
-            .to_vec()
-            .as_slice()
-            .to_multilinestring_unchecked()
-            .0
-            .swap_remove(0)
     }
 }

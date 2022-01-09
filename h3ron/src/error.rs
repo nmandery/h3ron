@@ -36,6 +36,9 @@ pub enum Error {
 
     #[error("invalid geometry")]
     InvalidGeometry,
+
+    #[error("decompression error")]
+    DecompressionError(String),
 }
 
 /// Ensure two cells have the same resolution

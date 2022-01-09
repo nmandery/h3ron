@@ -22,6 +22,8 @@ python extension.
 - Add `Index::base_cell_number`.
 - Add naive implementation of `h3ron::collections::IndexHierarchyMap` as an idea to maybe improve in the future.
 - Allow faster creation of `H3Treemap` from unsorted iterators by using `H3Treemap::from_iter_with_sort`.
+- Add `IndexBlock` to store `Index` vectors in compressed form. This replaces the former `CompressedIndexVec` and also
+  provides a better compression ratio.
 
 ### Changed
 
@@ -31,6 +33,13 @@ python extension.
   directly and not via reference. [#26](https://github.com/nmandery/h3ron/pull/26).
 - Remove the generic hasher parameter from `ThreadPartitionedMap`. Also make the number of partitions not CPU dependent
   but instead using a generic usize parameter (using const_generics).
+- Cleanup/rename feature gates - see main page of documentation.
+
+### Removed
+
+- Removal of `CompressedIndexVec` in favour of `IndexBlock`. See the above "Added" section.
+- Removed `ToLinestring::to_linestring_unchecked` and `ToMultiLinestring::to_multilinestring` in favour of
+  the checked variants.
 
 ## h3ron 0.13.0 - 2021-11-01
 
