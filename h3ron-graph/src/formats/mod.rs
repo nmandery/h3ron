@@ -1,2 +1,2 @@
-#[cfg(feature = "osm")]
+#[cfg(feature = "osmpbfreader")]
 pub mod osm;

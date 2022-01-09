@@ -59,9 +59,9 @@ version = "^3"
 
 [[bench]]
 name = "route_germany"
-required-features = ["ordered-float"]
+required-features = ["ordered-float", "h3ron/io"]
 harness = false
 
 [[example]]
 name = "graph_from_osm"
-required-features = ["osm", "ordered-float"]
+required-features = ["osm", "ordered-float", "h3ron/io"]
