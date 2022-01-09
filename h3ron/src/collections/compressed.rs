@@ -36,7 +36,10 @@ pub struct IndexBlock<T> {
     block_data: Vec<u8>,
 }
 
-impl<T> IndexBlock<T> {
+impl<T> IndexBlock<T>
+where
+    T: Index,
+{
     /// approximate size of the data in the block.
     ///
     /// Does not include any overheads from the inner `Vec`.
@@ -44,27 +47,37 @@ impl<T> IndexBlock<T> {
         size_of::<Self>() + (size_of::<u8>() * self.block_data.len())
     }
 
-    pub const fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.num_indexes
     }
 
-    pub const fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.num_indexes == 0
     }
 
-    pub const fn is_compressed(&self) -> bool {
+    pub fn is_compressed(&self) -> bool {
         self.compressed
     }
 
     /// The size of the inner data when it would be stored in a simple `Vec`
     #[allow(dead_code)]
-    pub const fn size_of_uncompressed(&self) -> usize {
+    pub fn size_of_uncompressed(&self) -> usize {
         size_of::<Vec<T>>() + size_of::<T>() * self.len()
     }
 
     #[allow(dead_code)]
-    pub const fn size_of_compressed(&self) -> usize {
+    pub fn size_of_compressed(&self) -> usize {
         size_of::<Self>() + size_of::<u8>() * self.len()
+    }
+
+    /// returns an iterator over the decompressed decompressed contents of the `IndexBlock`.
+    ///
+    /// Useful for situations where only one or few decompressions are done. When
+    /// many blocks are decompressed using the `Decompressor` is more efficient as the
+    /// decompression buffer needs to be allocated only once.
+    pub fn iter_uncompressed(&self) -> Result<OwningDecompressedIter<T>, Error> {
+        let decompressor = Decompressor::default();
+        decompressor.decompress_block_owning(self)
     }
 }
 
@@ -147,14 +160,11 @@ impl Decompressor {
         Self { buf: vec![] }
     }
 
-    pub fn decompress_block<'a, 'b, T>(
-        &'a mut self,
-        block: &'b IndexBlock<T>,
-    ) -> Result<DecompressedIter<'a, 'b, T>, Error>
+    fn decompress_block_into_inner_buf<T>(&mut self, block: &IndexBlock<T>) -> Result<bool, Error>
     where
         T: Index,
     {
-        let buf = if block.is_compressed() {
+        if block.is_compressed() {
             let uncompressed_size = block.num_indexes * size_of::<u64>();
             self.buf.resize(uncompressed_size, 0xff);
             let bytes_uncompressed = decompress_into(block.block_data.as_slice(), &mut self.buf)
@@ -165,11 +175,39 @@ impl Decompressor {
                     uncompressed_size, bytes_uncompressed
                 )));
             }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
+    }
+    pub fn decompress_block<'a, 'b, T>(
+        &'a mut self,
+        block: &'b IndexBlock<T>,
+    ) -> Result<DecompressedIter<'a, 'b, T>, Error>
+    where
+        T: Index,
+    {
+        let buf = if self.decompress_block_into_inner_buf(block)? {
             Some(self.buf.as_slice())
         } else {
             None
         };
         Ok(DecompressedIter { buf, block, pos: 0 })
+    }
+
+    pub fn decompress_block_owning<T>(
+        mut self,
+        block: &IndexBlock<T>,
+    ) -> Result<OwningDecompressedIter<T>, Error>
+    where
+        T: Index,
+    {
+        let buf = if self.decompress_block_into_inner_buf(block)? {
+            Some(self.buf)
+        } else {
+            None
+        };
+        Ok(OwningDecompressedIter { buf, block, pos: 0 })
     }
 }
 
@@ -177,6 +215,18 @@ impl Default for Decompressor {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[inline]
+fn h3index_from_block_buf(buf: &[u8], pos: usize, num_indexes: usize) -> u64 {
+    (u64::from(buf[pos]) << (7 * 8))
+        + (u64::from(buf[pos + num_indexes]) << (6 * 8))
+        + (u64::from(buf[pos + (2 * num_indexes)]) << (5 * 8))
+        + (u64::from(buf[pos + (3 * num_indexes)]) << (4 * 8))
+        + (u64::from(buf[pos + (4 * num_indexes)]) << (3 * 8))
+        + (u64::from(buf[pos + (5 * num_indexes)]) << (2 * 8))
+        + (u64::from(buf[pos + (6 * num_indexes)]) << 8)
+        + u64::from(buf[pos + (7 * num_indexes)])
 }
 
 pub struct DecompressedIter<'a, 'b, T> {
@@ -199,14 +249,42 @@ where
             Some(b) => b,
             None => self.block.block_data.as_slice(),
         };
-        let h3index: u64 = (u64::from(buf[self.pos]) << (7 * 8))
-            + (u64::from(buf[self.pos + self.block.num_indexes]) << (6 * 8))
-            + (u64::from(buf[self.pos + (2 * self.block.num_indexes)]) << (5 * 8))
-            + (u64::from(buf[self.pos + (3 * self.block.num_indexes)]) << (4 * 8))
-            + (u64::from(buf[self.pos + (4 * self.block.num_indexes)]) << (3 * 8))
-            + (u64::from(buf[self.pos + (5 * self.block.num_indexes)]) << (2 * 8))
-            + (u64::from(buf[self.pos + (6 * self.block.num_indexes)]) << 8)
-            + u64::from(buf[self.pos + (7 * self.block.num_indexes)]);
+        let h3index: u64 = h3index_from_block_buf(buf, self.pos, self.block.num_indexes);
+        self.pos += 1;
+        Some(T::from_h3index(h3index))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.block.num_indexes.saturating_sub(self.pos), None)
+    }
+}
+
+/// a iterator owning the decompressed buffer.
+///
+/// Useful for situations where only one or few decompressions are done. When
+/// many blocks are decompressed using the `Decompressor` is more efficient as the
+/// decompression buffer needs to be allocated only once.
+pub struct OwningDecompressedIter<'a, T> {
+    buf: Option<Vec<u8>>,
+    block: &'a IndexBlock<T>,
+    pos: usize,
+}
+
+impl<'a, T> Iterator for OwningDecompressedIter<'a, T>
+where
+    T: Index,
+{
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.pos >= self.block.num_indexes {
+            return None;
+        }
+        let buf = match self.buf.as_ref() {
+            Some(b) => b.as_slice(),
+            None => self.block.block_data.as_slice(),
+        };
+        let h3index: u64 = h3index_from_block_buf(buf, self.pos, self.block.num_indexes);
         self.pos += 1;
         Some(T::from_h3index(h3index))
     }
@@ -285,6 +363,14 @@ mod tests {
         let ib: IndexBlock<H3Cell> = IndexBlock::from_iter(make_kring(3).iter());
         assert!(!ib.is_empty());
         assert!(ib.is_compressed());
+    }
+
+    #[test]
+    fn test_indexblock_iter() {
+        let ring = make_kring(5);
+        assert!(ring.len() > 10);
+        let ib: IndexBlock<H3Cell> = IndexBlock::from(ring.as_slice());
+        assert_eq!(ring.len(), ib.iter_uncompressed().unwrap().count());
     }
 
     #[cfg(feature = "use-serde")]

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
-use h3ron::collections::compressed::{Decompressor, IndexBlock};
+use h3ron::collections::compressed::IndexBlock;
 
 use h3ron::H3Cell;
 
@@ -28,8 +28,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         format!("decompress {} cells to vec", cells.len()),
         |bencher| {
             bencher.iter(|| {
-                let mut decompressor = Decompressor::default();
-                let _cells2: Vec<_> = decompressor.decompress_block(&ib).unwrap().collect();
+                let _cells2: Vec<_> = ib.iter_uncompressed().unwrap().collect();
             });
         },
     );
