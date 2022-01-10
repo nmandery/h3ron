@@ -18,10 +18,27 @@ use crate::graph::node::NodeType;
 use crate::graph::{EdgeValue, GetEdge, GetNodeType, GetStats, GraphStats, H3EdgeGraph};
 
 #[derive(Serialize, Deserialize, Clone)]
-pub struct OwnedEdgeValue<W: Send + Sync> {
+struct OwnedEdgeValue<W: Send + Sync> {
     pub weight: W,
     pub longedge: Option<(LongEdge, W)>,
 }
+
+impl<'a, W: Send + Sync> From<&'a OwnedEdgeValue<W>> for EdgeValue<'a, W>
+where
+    W: Copy,
+{
+    fn from(owned_edge_value: &'a OwnedEdgeValue<W>) -> Self {
+        EdgeValue {
+            weight: owned_edge_value.weight,
+            longedge: owned_edge_value
+                .longedge
+                .as_ref()
+                .map(|(longedge, le_weight)| (longedge, *le_weight)),
+        }
+    }
+}
+
+const MIN_LONGEDGE_LENGTH: usize = 2;
 
 fn to_longedge_edges<W>(
     input_graph: H3EdgeGraph<W>,
@@ -30,10 +47,11 @@ fn to_longedge_edges<W>(
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
 {
-    if min_longedge_length < 2 {
-        return Err(Error::Other(
-            "minimum longedge length must be >= 2".to_string(),
-        ));
+    if min_longedge_length < MIN_LONGEDGE_LENGTH {
+        return Err(Error::Other(format!(
+            "minimum longedge length must be >= {}",
+            MIN_LONGEDGE_LENGTH
+        )));
     }
 
     let mut edges: ThreadPartitionedMap<_, _, 4> = Default::default();
@@ -125,17 +143,22 @@ pub struct PreparedH3EdgeGraph<W: Send + Sync> {
 
 unsafe impl<W: Sync + Send> Sync for PreparedH3EdgeGraph<W> {}
 
-impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
+impl<W: Sync + Send> PreparedH3EdgeGraph<W>
+where
+    W: Copy,
+{
     pub fn num_long_edges(&self) -> usize {
         self.edges
             .iter()
-            .map(|(_, edge_value)| if edge_value.longedge.is_some() { 1 } else { 0 })
-            .sum()
+            .filter(|(_, oev)| oev.longedge.is_some())
+            .count()
     }
 
     /// iterate over all edges of the graph
-    pub fn iter_edges(&self) -> impl Iterator<Item = (H3Edge, &OwnedEdgeValue<W>)> {
-        self.edges.iter().map(|(edge, weight)| (*edge, weight))
+    pub fn iter_edges(&self) -> impl Iterator<Item = (H3Edge, EdgeValue<W>)> {
+        self.edges
+            .iter()
+            .map(|(edge, weight)| (*edge, weight.into()))
     }
 
     /// iterate over all edges of the graph, while skipping simple `H3Edge`
@@ -145,7 +168,7 @@ impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
     /// all edges which are part of long-edges.
     pub fn iter_edges_non_overlapping(
         &self,
-    ) -> Result<impl Iterator<Item = (H3Edge, &OwnedEdgeValue<W>)>, Error> {
+    ) -> Result<impl Iterator<Item = (H3Edge, EdgeValue<W>)>, Error> {
         let mut covered_edges = H3Treemap::<H3Edge>::default();
         let mut decompressor = Decompressor::default();
         for (_, owned_edge_value) in self.edges.iter() {
@@ -159,7 +182,7 @@ impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
             if covered_edges.contains(edge) {
                 None
             } else {
-                Some((*edge, weight))
+                Some((*edge, weight.into()))
             }
         }))
     }
@@ -197,10 +220,7 @@ impl<W: Send + Sync + Copy> GetEdge for PreparedH3EdgeGraph<W> {
     type WeightType = W;
 
     fn get_edge(&self, edge: &H3Edge) -> Option<EdgeValue<Self::WeightType>> {
-        self.edges.get(edge).map(|owned_edge_value| EdgeValue {
-            weight: owned_edge_value.weight,
-            longedge: owned_edge_value.longedge.as_ref().map(|l| (&l.0, l.1)),
-        })
+        self.edges.get(edge).map(|owv| owv.into())
     }
 }
 
