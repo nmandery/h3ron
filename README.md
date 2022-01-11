@@ -1,6 +1,6 @@
 # h3ron
 
-![ci](https://github.com/nmandery/h3ron/workflows/CI/badge.svg)
+![ci](https://github.com/nmandery/h3ron/workflows/CI/badge.svg) [![dependency status](https://deps.rs/repo/github/nmandery/h3ron/status.svg)](https://deps.rs/repo/github/nmandery/h3ron)
 
 [Rust](https://rustlang.org) library for the [H3](https://h3geo.org) geospatial indexing system.
 
