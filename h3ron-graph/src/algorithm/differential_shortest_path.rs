@@ -12,7 +12,7 @@ use crate::algorithm::shortest_path::{ShortestPathManyToMany, ShortestPathOption
 use crate::error::Error;
 use crate::graph::modifiers::ExcludeCells;
 use crate::graph::node::GetGapBridgedCellNodes;
-use crate::graph::{GetEdge, GetNodeType};
+use crate::graph::{GetCellNode, GetEdge};
 
 #[derive(Serialize, Deserialize)]
 pub struct ExclusionDiff<T> {
@@ -73,8 +73,8 @@ where
 impl<G, W> DifferentialShortestPath<W> for G
 where
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
-    G: GetEdge<WeightType = W>
-        + GetNodeType
+    G: GetEdge<EdgeWeightType = W>
+        + GetCellNode
         + HasH3Resolution
         + GetGapBridgedCellNodes
         + Sync

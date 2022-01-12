@@ -1,21 +1,26 @@
 use std::convert::TryFrom;
 use std::ops::Add;
 
-use geo::MultiPolygon;
+use geo::bounding_rect::BoundingRect;
+use geo::concave_hull::ConcaveHull;
+use geo_types::{Coordinate, MultiPoint, MultiPolygon, Point, Polygon, Rect};
 use num_traits::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use h3ron::collections::compressed::Decompressor;
+use h3ron::collections::partitioned::TPMIter;
 use h3ron::collections::{H3Treemap, ThreadPartitionedMap};
 use h3ron::iter::H3EdgesBuilder;
-use h3ron::{H3Cell, H3Edge, HasH3Resolution};
+use h3ron::{H3Cell, H3Edge, HasH3Resolution, ToCoordinate};
 
 use crate::algorithm::covered_area::{cells_covered_area, CoveredArea};
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::node::NodeType;
-use crate::graph::{EdgeValue, GetEdge, GetNodeType, GetStats, GraphStats, H3EdgeGraph};
+use crate::graph::{
+    EdgeWeight, GetCellNode, GetEdge, GetStats, GraphStats, H3EdgeGraph, IterateCellNodes,
+};
 
 #[derive(Serialize, Deserialize, Clone)]
 struct OwnedEdgeValue<W: Send + Sync> {
@@ -23,12 +28,12 @@ struct OwnedEdgeValue<W: Send + Sync> {
     pub longedge: Option<(LongEdge, W)>,
 }
 
-impl<'a, W: Send + Sync> From<&'a OwnedEdgeValue<W>> for EdgeValue<'a, W>
+impl<'a, W: Send + Sync> From<&'a OwnedEdgeValue<W>> for EdgeWeight<'a, W>
 where
     W: Copy,
 {
     fn from(owned_edge_value: &'a OwnedEdgeValue<W>) -> Self {
-        EdgeValue {
+        EdgeWeight {
             weight: owned_edge_value.weight,
             longedge: owned_edge_value
                 .longedge
@@ -39,6 +44,97 @@ where
 }
 
 const MIN_LONGEDGE_LENGTH: usize = 2;
+
+/// a prepared graph which can be used for routing
+#[derive(Serialize, Deserialize, Clone)]
+pub struct PreparedH3EdgeGraph<W: Send + Sync> {
+    edges: ThreadPartitionedMap<H3Edge, OwnedEdgeValue<W>, 4>,
+    h3_resolution: u8,
+    graph_nodes: ThreadPartitionedMap<H3Cell, NodeType, 4>,
+}
+
+unsafe impl<W: Sync + Send> Sync for PreparedH3EdgeGraph<W> {}
+
+impl<W: Sync + Send> PreparedH3EdgeGraph<W>
+where
+    W: Copy,
+{
+    pub fn num_long_edges(&self) -> usize {
+        self.edges
+            .iter()
+            .filter(|(_, oev)| oev.longedge.is_some())
+            .count()
+    }
+
+    /// iterate over all edges of the graph
+    pub fn iter_edges(&self) -> impl Iterator<Item = (H3Edge, EdgeWeight<W>)> {
+        self.edges
+            .iter()
+            .map(|(edge, weight)| (*edge, weight.into()))
+    }
+
+    /// iterate over all edges of the graph, while skipping simple `H3Edge`
+    /// which are already covered in other `LongEdge` instances of the graph.
+    ///
+    /// This function iterates the graph twice - the first time to collect
+    /// all edges which are part of long-edges.
+    pub fn iter_edges_non_overlapping(
+        &self,
+    ) -> Result<impl Iterator<Item = (H3Edge, EdgeWeight<W>)>, Error> {
+        let mut covered_edges = H3Treemap::<H3Edge>::default();
+        let mut decompressor = Decompressor::default();
+        for (_, owned_edge_value) in self.edges.iter() {
+            if let Some((longedge, _)) = owned_edge_value.longedge.as_ref() {
+                for edge in decompressor.decompress_block(&longedge.edge_path)?.skip(1) {
+                    covered_edges.insert(edge);
+                }
+            }
+        }
+        Ok(self.edges.iter().filter_map(move |(edge, weight)| {
+            if covered_edges.contains(edge) {
+                None
+            } else {
+                Some((*edge, weight.into()))
+            }
+        }))
+    }
+}
+
+impl<W> HasH3Resolution for PreparedH3EdgeGraph<W>
+where
+    W: Send + Sync,
+{
+    fn h3_resolution(&self) -> u8 {
+        self.h3_resolution
+    }
+}
+
+impl<W> GetStats for PreparedH3EdgeGraph<W>
+where
+    W: Send + Sync,
+{
+    fn get_stats(&self) -> GraphStats {
+        GraphStats {
+            h3_resolution: self.h3_resolution,
+            num_nodes: self.graph_nodes.len(),
+            num_edges: self.edges.len(),
+        }
+    }
+}
+
+impl<W: Send + Sync> GetCellNode for PreparedH3EdgeGraph<W> {
+    fn get_cell_node(&self, cell: &H3Cell) -> Option<&NodeType> {
+        self.graph_nodes.get(cell)
+    }
+}
+
+impl<W: Send + Sync + Copy> GetEdge for PreparedH3EdgeGraph<W> {
+    type EdgeWeightType = W;
+
+    fn get_edge(&self, edge: &H3Edge) -> Option<EdgeWeight<Self::EdgeWeightType>> {
+        self.edges.get(edge).map(|owv| owv.into())
+    }
+}
 
 fn to_longedge_edges<W>(
     input_graph: H3EdgeGraph<W>,
@@ -133,109 +229,20 @@ where
     Ok(edges)
 }
 
-/// a prepared graph which can be used for routing
-#[derive(Serialize, Deserialize, Clone)]
-pub struct PreparedH3EdgeGraph<W: Send + Sync> {
-    edges: ThreadPartitionedMap<H3Edge, OwnedEdgeValue<W>, 4>,
-    h3_resolution: u8,
-    graph_nodes: ThreadPartitionedMap<H3Cell, NodeType, 4>,
-}
-
-unsafe impl<W: Sync + Send> Sync for PreparedH3EdgeGraph<W> {}
-
-impl<W: Sync + Send> PreparedH3EdgeGraph<W>
-where
-    W: Copy,
-{
-    pub fn num_long_edges(&self) -> usize {
-        self.edges
-            .iter()
-            .filter(|(_, oev)| oev.longedge.is_some())
-            .count()
-    }
-
-    /// iterate over all edges of the graph
-    pub fn iter_edges(&self) -> impl Iterator<Item = (H3Edge, EdgeValue<W>)> {
-        self.edges
-            .iter()
-            .map(|(edge, weight)| (*edge, weight.into()))
-    }
-
-    /// iterate over all edges of the graph, while skipping simple `H3Edge`
-    /// which are already covered in other `LongEdge` instances of the graph.
-    ///
-    /// This function iterates the graph twice - the first time to collect
-    /// all edges which are part of long-edges.
-    pub fn iter_edges_non_overlapping(
-        &self,
-    ) -> Result<impl Iterator<Item = (H3Edge, EdgeValue<W>)>, Error> {
-        let mut covered_edges = H3Treemap::<H3Edge>::default();
-        let mut decompressor = Decompressor::default();
-        for (_, owned_edge_value) in self.edges.iter() {
-            if let Some((longedge, _)) = owned_edge_value.longedge.as_ref() {
-                for edge in decompressor.decompress_block(&longedge.edge_path)?.skip(1) {
-                    covered_edges.insert(edge);
-                }
-            }
-        }
-        Ok(self.edges.iter().filter_map(move |(edge, weight)| {
-            if covered_edges.contains(edge) {
-                None
-            } else {
-                Some((*edge, weight.into()))
-            }
-        }))
-    }
-}
-
-impl<W> HasH3Resolution for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
-    fn h3_resolution(&self) -> u8 {
-        self.h3_resolution
-    }
-}
-
-impl<W> GetStats for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
-    fn get_stats(&self) -> GraphStats {
-        GraphStats {
-            h3_resolution: self.h3_resolution,
-            num_nodes: self.graph_nodes.len(),
-            num_edges: self.edges.len(),
-        }
-    }
-}
-
-impl<W: Send + Sync> GetNodeType for PreparedH3EdgeGraph<W> {
-    fn get_node_type(&self, cell: &H3Cell) -> Option<&NodeType> {
-        self.graph_nodes.get(cell)
-    }
-}
-
-impl<W: Send + Sync + Copy> GetEdge for PreparedH3EdgeGraph<W> {
-    type WeightType = W;
-
-    fn get_edge(&self, edge: &H3Edge) -> Option<EdgeValue<Self::WeightType>> {
-        self.edges.get(edge).map(|owv| owv.into())
-    }
-}
-
-pub fn prepare_h3edgegraph<W>(graph: H3EdgeGraph<W>) -> Result<PreparedH3EdgeGraph<W>, Error>
+impl<W> PreparedH3EdgeGraph<W>
 where
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
-    let h3_resolution = graph.h3_resolution();
-    let graph_nodes = graph.nodes();
-    let edges = to_longedge_edges(graph, 3)?;
-    Ok(PreparedH3EdgeGraph {
-        edges,
-        graph_nodes,
-        h3_resolution,
-    })
+    fn from_h3edge_graph(graph: H3EdgeGraph<W>, min_longedge_length: usize) -> Result<Self, Error> {
+        let h3_resolution = graph.h3_resolution();
+        let graph_nodes = graph.nodes();
+        let edges = to_longedge_edges(graph, min_longedge_length)?;
+        Ok(Self {
+            edges,
+            graph_nodes,
+            h3_resolution,
+        })
+    }
 }
 
 impl<W> TryFrom<H3EdgeGraph<W>> for PreparedH3EdgeGraph<W>
@@ -244,8 +251,8 @@ where
 {
     type Error = Error;
 
-    fn try_from(graph: H3EdgeGraph<W>) -> std::result::Result<Self, Self::Error> {
-        prepare_h3edgegraph(graph)
+    fn try_from(graph: H3EdgeGraph<W>) -> Result<Self, Self::Error> {
+        Self::from_h3edge_graph(graph, 3)
     }
 }
 
@@ -275,6 +282,76 @@ where
             self.h3_resolution(),
             reduce_resolution_by,
         )
+    }
+}
+
+impl<'a, W> IterateCellNodes<'a> for PreparedH3EdgeGraph<W>
+where
+    W: Send + Sync,
+{
+    type CellNodeIterator = TPMIter<'a, H3Cell, NodeType, 4>;
+
+    fn iter_cell_nodes(&'a self) -> Self::CellNodeIterator {
+        self.graph_nodes.iter()
+    }
+}
+
+impl<W> ConcaveHull for PreparedH3EdgeGraph<W>
+where
+    W: Send + Sync,
+{
+    type Scalar = f64;
+
+    fn concave_hull(&self, concavity: Self::Scalar) -> Polygon<Self::Scalar> {
+        let mpoint = MultiPoint::from(
+            self.iter_cell_nodes()
+                .map(|(cell, _)| Point::from(cell.to_coordinate()))
+                .collect::<Vec<_>>(),
+        );
+        mpoint.concave_hull(concavity)
+    }
+}
+
+impl<W> BoundingRect<f64> for PreparedH3EdgeGraph<W>
+where
+    W: Send + Sync,
+{
+    type Output = Option<Rect<f64>>;
+
+    fn bounding_rect(&self) -> Self::Output {
+        self.iter_cell_nodes()
+            .fold(None, |acc, (cell, _): (&H3Cell, &NodeType)| match acc {
+                Some(rect) => {
+                    let coord = cell.to_coordinate();
+                    Some(Rect::new(
+                        Coordinate {
+                            x: if coord.x < rect.min().x {
+                                coord.x
+                            } else {
+                                rect.min().x
+                            },
+                            y: if coord.y < rect.min().y {
+                                coord.y
+                            } else {
+                                rect.min().y
+                            },
+                        },
+                        Coordinate {
+                            x: if coord.x > rect.max().x {
+                                coord.x
+                            } else {
+                                rect.max().x
+                            },
+                            y: if coord.y > rect.max().y {
+                                coord.y
+                            } else {
+                                rect.max().y
+                            },
+                        },
+                    ))
+                }
+                None => Some(Point::from(cell.to_coordinate()).bounding_rect()),
+            })
     }
 }
 

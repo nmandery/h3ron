@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use h3ron::H3Cell;
 
-use crate::graph::GetNodeType;
+use crate::graph::GetCellNode;
 
 #[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum NodeType {
@@ -104,7 +104,7 @@ pub trait GetGapBridgedCellNodes {
 
 impl<G> GetGapBridgedCellNodes for G
 where
-    G: GetNodeType + Sync,
+    G: GetCellNode + Sync,
 {
     fn gap_bridged_corresponding_node_filtered<F>(
         &self,
@@ -116,7 +116,7 @@ where
         F: Fn(&H3Cell, &NodeType) -> bool + Send + Sync + Copy,
     {
         if self
-            .get_node_type(cell)
+            .get_cell_node(cell)
             .map(|node_type| nodetype_filter_fn(cell, node_type))
             .unwrap_or(false)
         {
@@ -131,7 +131,7 @@ where
             let mut selected_neighbor: Option<H3Cell> = None;
             for neighbor in neighbors {
                 if self
-                    .get_node_type(&neighbor.1)
+                    .get_cell_node(&neighbor.1)
                     .map(|node_type| nodetype_filter_fn(&neighbor.1, node_type))
                     .unwrap_or(false)
                 {

@@ -10,7 +10,7 @@ use h3ron::{H3Cell, H3Edge, HasH3Resolution, Index};
 
 use crate::error::Error;
 use crate::graph::node::NodeType;
-use crate::graph::GetStats;
+use crate::graph::{EdgeWeight, GetEdge, GetStats};
 
 use super::GraphStats;
 
@@ -174,6 +174,17 @@ where
             num_nodes: self.num_nodes(),
             num_edges: self.num_edges(),
         }
+    }
+}
+
+impl<W> GetEdge for H3EdgeGraph<W>
+where
+    W: Copy + Send + Sync,
+{
+    type EdgeWeightType = W;
+
+    fn get_edge(&self, edge: &H3Edge) -> Option<EdgeWeight<Self::EdgeWeightType>> {
+        self.edges.get(edge).map(|w| EdgeWeight::from(*w))
     }
 }
 

@@ -75,7 +75,7 @@ pub fn edge_dijkstra_weight_threshold<G, W>(
     // TODO: optional bitmap/set of cells we are interested in
 ) -> H3CellMap<W>
 where
-    G: GetEdge<WeightType = W>,
+    G: GetEdge<EdgeWeightType = W>,
     W: Zero + Ord + Copy + Add,
 {
     let mut edge_builder = H3EdgesBuilder::new();
@@ -145,7 +145,7 @@ pub fn edge_dijkstra<'a, G, W>(
     num_destinations_to_reach: Option<usize>,
 ) -> Result<Vec<Path<W>>, Error>
 where
-    G: GetEdge<WeightType = W>,
+    G: GetEdge<EdgeWeightType = W>,
     W: Zero + Ord + Copy + Add,
 {
     // this is the main exit condition. Stop after this many destinations have been reached or

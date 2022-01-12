@@ -24,19 +24,33 @@ pub trait GetStats {
     fn get_stats(&self) -> GraphStats;
 }
 
-pub trait GetNodeType {
-    fn get_node_type(&self, cell: &H3Cell) -> Option<&NodeType>;
+pub trait GetCellNode {
+    fn get_cell_node(&self, cell: &H3Cell) -> Option<&NodeType>;
+}
+
+pub trait IterateCellNodes<'a> {
+    type CellNodeIterator;
+    fn iter_cell_nodes(&'a self) -> Self::CellNodeIterator;
+}
+
+pub trait GetEdge {
+    type EdgeWeightType;
+
+    fn get_edge(&self, edge: &H3Edge) -> Option<EdgeWeight<Self::EdgeWeightType>>;
 }
 
 #[derive(Clone)]
-pub struct EdgeValue<'a, W> {
+pub struct EdgeWeight<'a, W> {
     pub weight: W,
 
     pub longedge: Option<(&'a LongEdge, W)>,
 }
 
-pub trait GetEdge {
-    type WeightType;
-
-    fn get_edge(&self, edge: &H3Edge) -> Option<EdgeValue<Self::WeightType>>;
+impl<'a, W> From<W> for EdgeWeight<'a, W> {
+    fn from(weight: W) -> Self {
+        EdgeWeight {
+            weight,
+            longedge: None,
+        }
+    }
 }

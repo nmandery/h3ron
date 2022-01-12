@@ -24,7 +24,7 @@ pub trait WithinWeightThreshold<W> {
 
 impl<W, G> WithinWeightThreshold<W> for G
 where
-    G: GetEdge<WeightType = W>,
+    G: GetEdge<EdgeWeightType = W>,
     W: Zero + Ord + Copy + Add,
 {
     fn cells_within_weight_threshold(
@@ -57,7 +57,7 @@ pub trait WithinWeightThresholdMany<W> {
 
 impl<W, G> WithinWeightThresholdMany<W> for G
 where
-    G: GetEdge<WeightType = W> + WithinWeightThreshold<W> + Sync,
+    G: GetEdge<EdgeWeightType = W> + WithinWeightThreshold<W> + Sync,
     W: Zero + Ord + Copy + Add + Send + Sync,
 {
     fn cells_within_weight_threshold_many<I, AGG>(
