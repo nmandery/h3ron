@@ -65,7 +65,7 @@ impl H3Edge {
     /// The approximate distance between the centroids of two neighboring cells
     /// at the given `resolution`.
     ///
-    /// Based on the approximate edge length. See [`cell_centroid_distance_m`] for a
+    /// Based on the approximate edge length. See [`H3Edge::cell_centroid_distance_m`] for a
     /// more exact variant of this function.
     pub fn cell_centroid_distance_m_at_resolution(resolution: u8) -> f64 {
         cell_centroid_distance_m_by_edge_length(Self::edge_length_m(resolution))
@@ -74,7 +74,7 @@ impl H3Edge {
     /// The approximate distance between the centroids of two neighboring cells
     /// at the given `resolution`.
     ///
-    /// Based on the exact edge length. See [`cell_centroid_distance_at_resolution`]
+    /// Based on the exact edge length. See [`H3Edge::cell_centroid_distance_m_at_resolution`]
     /// for a resolution based variant.
     pub fn cell_centroid_distance_m(&self) -> f64 {
         cell_centroid_distance_m_by_edge_length(self.exact_length_m())

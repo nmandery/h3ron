@@ -2,9 +2,9 @@
 //! # Features
 //!
 //! * **use-serde**: serde support.
-//! * **compression**: enables the [`collections::compressed`] module.
-//! * **rayon**: Enables [`collections::ThreadPartitionedMap`].
-//! * **roaring**: Enables [`collections::H3Treemap`] based on the `roaring` crate.
+//! * **compression**: enables the `collections::compressed` module.
+//! * **rayon**: Enables `collections::ThreadPartitionedMap`.
+//! * **roaring**: Enables `collections::H3Treemap` based on the `roaring` crate.
 //! * **io**: Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
 //! during development.
 #![warn(
