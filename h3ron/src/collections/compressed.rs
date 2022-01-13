@@ -87,14 +87,15 @@ where
 
             // keep the same bits of the h3indexes together to improve compression
             // when the h3indexes are closely together.
-            buf[pos] = (h3index >> (7 * 8) & 255) as u8;
-            buf[pos + byte_offset] = (h3index >> (6 * 8) & 255) as u8;
-            buf[pos + (2 * byte_offset)] = (h3index >> (5 * 8) & 255) as u8;
-            buf[pos + (3 * byte_offset)] = (h3index >> (4 * 8) & 255) as u8;
-            buf[pos + (4 * byte_offset)] = (h3index >> (3 * 8) & 255) as u8;
-            buf[pos + (5 * byte_offset)] = (h3index >> (2 * 8) & 255) as u8;
-            buf[pos + (6 * byte_offset)] = (h3index >> 8 & 255) as u8;
-            buf[pos + (7 * byte_offset)] = (h3index & 255) as u8;
+            let h3index_bytes = h3index.to_le_bytes();
+            buf[pos] = h3index_bytes[0];
+            buf[pos + byte_offset] = h3index_bytes[1];
+            buf[pos + (2 * byte_offset)] = h3index_bytes[2];
+            buf[pos + (3 * byte_offset)] = h3index_bytes[3];
+            buf[pos + (4 * byte_offset)] = h3index_bytes[4];
+            buf[pos + (5 * byte_offset)] = h3index_bytes[5];
+            buf[pos + (6 * byte_offset)] = h3index_bytes[6];
+            buf[pos + (7 * byte_offset)] = h3index_bytes[7];
         }
 
         let compressed = index_slice.len() >= 4;
@@ -214,14 +215,16 @@ impl Default for Decompressor {
 fn h3index_from_block_buf(buf: &[u8], pos: usize, num_indexes: usize) -> u64 {
     assert!(pos < num_indexes);
     assert!(buf.len() >= (num_indexes * size_of::<u64>() / size_of::<u8>()));
-    (u64::from(buf[pos]) << (7 * 8))
-        + (u64::from(buf[pos + num_indexes]) << (6 * 8))
-        + (u64::from(buf[pos + (2 * num_indexes)]) << (5 * 8))
-        + (u64::from(buf[pos + (3 * num_indexes)]) << (4 * 8))
-        + (u64::from(buf[pos + (4 * num_indexes)]) << (3 * 8))
-        + (u64::from(buf[pos + (5 * num_indexes)]) << (2 * 8))
-        + (u64::from(buf[pos + (6 * num_indexes)]) << 8)
-        + u64::from(buf[pos + (7 * num_indexes)])
+    u64::from_le_bytes([
+        buf[pos],
+        buf[pos + num_indexes],
+        buf[pos + (2 * num_indexes)],
+        buf[pos + (3 * num_indexes)],
+        buf[pos + (4 * num_indexes)],
+        buf[pos + (5 * num_indexes)],
+        buf[pos + (6 * num_indexes)],
+        buf[pos + (7 * num_indexes)],
+    ])
 }
 
 pub struct DecompressedIter<'a, 'b, T> {
