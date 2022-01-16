@@ -82,7 +82,7 @@ where
                         let coordinates: Vec<_> = way
                             .nodes
                             .iter()
-                            .filter_map(|node_id| nodeid_coordinates.get(node_id).cloned())
+                            .filter_map(|node_id| nodeid_coordinates.get(node_id).copied())
                             .collect();
                         if coordinates.len() >= 2 {
                             let h3indexes: Vec<_> =
