@@ -4,7 +4,7 @@ use geo_types::LineString;
 use serde::{Deserialize, Serialize};
 
 use h3ron::to_geo::{ToLineString, ToMultiLineString};
-use h3ron::{H3Cell, H3Edge, Index};
+use h3ron::{ExactLength, H3Cell, H3Edge, Index};
 
 use crate::error::Error;
 
@@ -103,6 +103,17 @@ impl<W> Path<W> {
                 cells.dedup();
                 cells.shrink_to_fit();
                 cells
+            }
+        }
+    }
+
+    /// calculate the length of the path in meters using the exact length of the
+    /// contained edges
+    pub fn length_m(&self) -> f64 {
+        match self {
+            Path::OriginIsDestination(_, _) => 0.0,
+            Path::EdgeSequence(edges, _) => {
+                edges.iter().map(|edge| edge.exact_length_m()).sum::<f64>()
             }
         }
     }
