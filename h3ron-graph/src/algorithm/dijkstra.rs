@@ -9,7 +9,7 @@ use num_traits::Zero;
 use h3ron::collections::compressed::Decompressor;
 use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::H3EdgesBuilder;
-use h3ron::{H3Cell, H3Edge};
+use h3ron::{H3Cell, H3Edge, Index};
 
 use crate::algorithm::path::Path;
 use crate::error::Error;
@@ -295,6 +295,7 @@ where
                 DijkstraEdge::Single(h3edge) => h3edges.push(*h3edge),
                 DijkstraEdge::Long(longedge) => {
                     for h3edge in decompressor.decompress_block(&longedge.edge_path)? {
+                        h3edge.validate()?;
                         h3edges.push(h3edge);
                     }
                 }
