@@ -14,8 +14,8 @@ use h3ron_h3_sys::H3Index;
 
 use crate::index::{HasH3Resolution, Index};
 use crate::to_geo::{ToLineString, ToMultiLineString};
-use crate::util::geoboundary_to_coordinates;
 use crate::{Error, ExactLength, FromH3Index, H3Cell, ToCoordinate};
+use crate::iter::GeoBoundaryIter;
 
 /// H3 Index representing an Unidirectional H3 edge
 #[derive(PartialOrd, PartialEq, Clone, Hash, Eq, Ord, Copy)]
@@ -177,9 +177,7 @@ impl H3Edge {
             h3ron_h3_sys::getH3UnidirectionalEdgeBoundary(self.0, mu.as_mut_ptr());
             mu.assume_init()
         };
-        geoboundary_to_coordinates(&gb)
-            .drain(0..(gb.numVerts as usize))
-            .collect()
+        GeoBoundaryIter::new(&gb, false).collect()
     }
 }
 
@@ -397,8 +395,14 @@ mod tests {
     #[test]
     fn boundary_linestring() {
         let edge = H3Edge::new(0x149283080ddbffff);
-        dbg!(edge.boundary_linestring());
-        dbg!(edge.to_linestring().unwrap());
+        let boundary_ls = edge.boundary_linestring();
+        assert_eq!(boundary_ls.0.len(), 2);
+        dbg!(&boundary_ls);
+
+        let ls = edge.to_linestring().unwrap();
+        assert_eq!(ls.0.len(), 2);
+        dbg!(&ls);
+        assert_ne!(ls, boundary_ls);
     }
 
     #[test]

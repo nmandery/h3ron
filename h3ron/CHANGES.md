@@ -24,6 +24,8 @@ python extension.
 - Allow faster creation of `H3Treemap` from unsorted iterators by using `H3Treemap::from_iter_with_sort`.
 - Add `IndexBlock` to store `Index` vectors in compressed form. This replaces the former `CompressedIndexVec` and also
   provides a better compression ratio.
+- Add `h3ron::iter::BoundaryBuilder` and `h3ron::iter::GeoBoundaryIter`. Switching `ToPolygon` for `H3Cell` to using these. 
+  The result is 5-10% reduction in run time.
 
 ### Changed
 

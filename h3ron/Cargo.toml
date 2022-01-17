@@ -79,3 +79,7 @@ harness = false
 [[bench]]
 name = "indexblock"
 harness = false
+
+[[bench]]
+name = "cell_boundary"
+harness = false

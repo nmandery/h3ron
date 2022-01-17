@@ -19,13 +19,20 @@
 //! * [`H3EdgesBuilder`]
 //! * [`continuous_cells_to_edges`]
 //!
+//! # Cell boundaries
+//!
+//! * [`GeoBoundaryBuilder`]
+//! * [`GeoBoundaryIter`]
+//!
 
-mod edge;
-mod kring;
-mod neighbor;
-mod resolution;
-
+pub use boundary::{GeoBoundaryBuilder, GeoBoundaryIter};
 pub use edge::{continuous_cells_to_edges, CellsToEdgesIter, H3EdgesBuilder};
 pub use kring::KRingBuilder;
 pub use neighbor::*;
 pub use resolution::change_cell_resolution;
+
+mod boundary;
+mod edge;
+mod kring;
+mod neighbor;
+mod resolution;

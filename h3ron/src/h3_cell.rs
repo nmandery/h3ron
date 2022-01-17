@@ -1,11 +1,11 @@
 use std::convert::TryFrom;
 use std::ffi::CString;
-use std::mem::MaybeUninit;
+use std::fmt::{self, Debug, Formatter};
+use std::ops::Deref;
 use std::os::raw::c_int;
 use std::str::FromStr;
 
-use geo_types::{Coordinate, LineString, Point, Polygon};
-
+use geo_types::{Coordinate, Point, Polygon};
 #[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -14,10 +14,9 @@ use h3ron_h3_sys::{GeoCoord, H3Index};
 use crate::collections::indexvec::IndexVec;
 use crate::error::Error;
 use crate::index::{HasH3Resolution, Index};
-use crate::util::{coordinate_to_geocoord, geoboundary_to_coordinates, point_to_geocoord};
+use crate::iter::GeoBoundaryBuilder;
+use crate::util::{coordinate_to_geocoord, point_to_geocoord};
 use crate::{max_k_ring_size, ExactArea, FromH3Index, H3Edge, ToCoordinate, ToPolygon};
-use std::fmt::{self, Debug, Formatter};
-use std::ops::Deref;
 
 /// H3 Index representing a H3 Cell (hexagon)
 #[derive(PartialOrd, PartialEq, Clone, Hash, Eq, Ord, Copy)]
@@ -330,15 +329,9 @@ impl FromStr for H3Cell {
 impl ToPolygon for H3Cell {
     /// the polygon spanning the area of the index
     fn to_polygon(&self) -> Polygon<f64> {
-        let gb = unsafe {
-            let mut mu = MaybeUninit::<h3ron_h3_sys::GeoBoundary>::uninit();
-            h3ron_h3_sys::h3ToGeoBoundary(self.0, mu.as_mut_ptr());
-            mu.assume_init()
-        };
-
-        let mut coordinates = geoboundary_to_coordinates(&gb);
-        coordinates.push(coordinates.first().copied().unwrap());
-        Polygon::new(LineString::from(coordinates), vec![])
+        GeoBoundaryBuilder::new()
+            .iter_cell_boundary_vertices(self, true)
+            .into()
     }
 }
 
