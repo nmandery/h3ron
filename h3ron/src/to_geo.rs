@@ -4,7 +4,7 @@ use std::os::raw::c_int;
 use geo::algorithm::euclidean_distance::EuclideanDistance;
 use geo_types::{Coordinate, LineString, MultiLineString, Point, Polygon};
 
-use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, radsToDegs, H3Index, LinkedGeoPolygon};
+use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, H3Index, LinkedGeoPolygon};
 
 use crate::algorithm::smoothen_h3_linked_polygon;
 use crate::collections::indexvec::IndexVec;
@@ -180,8 +180,8 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>>
                 let mut cur_linked_geo_coord = linked_loop.first.as_ref();
                 while let Some(linked_coord) = cur_linked_geo_coord {
                     coordinates.push((
-                        radsToDegs(linked_coord.vertex.lon),
-                        radsToDegs(linked_coord.vertex.lat),
+                        (linked_coord.vertex.lon as f64).to_degrees(),
+                        (linked_coord.vertex.lat as f64).to_degrees(),
                     ));
                     cur_linked_geo_coord = linked_coord.next.as_ref();
                 }

@@ -338,14 +338,14 @@ impl ToPolygon for H3Cell {
 impl ToCoordinate for H3Cell {
     /// the centroid coordinate of the h3 index
     fn to_coordinate(&self) -> Coordinate<f64> {
-        unsafe {
+        let gc = unsafe {
             let mut gc = GeoCoord { lat: 0.0, lon: 0.0 };
             h3ron_h3_sys::h3ToGeo(self.0, &mut gc);
-
-            Coordinate {
-                x: h3ron_h3_sys::radsToDegs(gc.lon),
-                y: h3ron_h3_sys::radsToDegs(gc.lat),
-            }
+            gc
+        };
+        Coordinate {
+            x: (gc.lon as f64).to_degrees(),
+            y: (gc.lat as f64).to_degrees(),
         }
     }
 }

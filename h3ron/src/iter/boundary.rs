@@ -3,7 +3,7 @@ use std::ptr::addr_of_mut;
 
 use geo_types::{Coordinate, LineString, Polygon};
 
-use h3ron_h3_sys::{h3ToGeoBoundary, radsToDegs, GeoBoundary};
+use h3ron_h3_sys::{h3ToGeoBoundary, GeoBoundary};
 
 use crate::{H3Cell, Index};
 
@@ -69,12 +69,10 @@ impl<'b> GeoBoundaryIter<'b> {
     #[inline(always)]
     fn get_coordinate(&self, pos: usize) -> Coordinate<f64> {
         assert!(pos < self.num_verts());
-        Coordinate::from(unsafe {
-            (
-                radsToDegs(self.geo_boundary.verts[pos].lon),
-                radsToDegs(self.geo_boundary.verts[pos].lat),
-            )
-        })
+        Coordinate::from((
+            (self.geo_boundary.verts[pos].lon as f64).to_degrees(),
+            (self.geo_boundary.verts[pos].lat as f64).to_degrees(),
+        ))
     }
 }
 

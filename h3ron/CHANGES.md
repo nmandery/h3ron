@@ -36,6 +36,8 @@ python extension.
 - Remove the generic hasher parameter from `ThreadPartitionedMap`. Also make the number of partitions not CPU dependent
   but instead using a generic usize parameter (using const_generics).
 - Cleanup/rename feature gates - see main page of documentation.
+- Switch from using H3 `radsToDegs` and `degsToRads` to rusts `f64::to_degrees` and `f64::to_radians` as this appears
+  slightly faster in benchmarks.
 
 ### Removed
 
