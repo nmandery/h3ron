@@ -75,10 +75,12 @@ harness = false
 [[bench]]
 name = "collections_insert_get"
 harness = false
+required-features = ["compression"]
 
 [[bench]]
 name = "indexblock"
 harness = false
+required-features = ["compression"]
 
 [[bench]]
 name = "cell_boundary"
