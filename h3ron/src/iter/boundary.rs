@@ -98,14 +98,14 @@ impl<'b> Iterator for GeoBoundaryIter<'b> {
     }
 }
 
-impl<'b> Into<Polygon<f64>> for GeoBoundaryIter<'b> {
-    fn into(mut self) -> Polygon<f64> {
-        self.close_ring = true;
-        self.pos = 0; // rewind
-        let mut exterior = Vec::with_capacity(self.num_verts() + 1);
-        for coord in self {
+impl<'b> From<GeoBoundaryIter<'b>> for Polygon<f64> {
+    fn from(mut gb_iter: GeoBoundaryIter<'b>) -> Self {
+        gb_iter.close_ring = true;
+        gb_iter.pos = 0; // rewind
+        let mut exterior = Vec::with_capacity(gb_iter.num_verts() + 1);
+        for coord in gb_iter {
             exterior.push(coord);
         }
-        Polygon::new(LineString::from(exterior), Vec::with_capacity(0))
+        Self::new(LineString::from(exterior), Vec::with_capacity(0))
     }
 }

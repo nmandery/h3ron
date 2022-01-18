@@ -100,6 +100,7 @@ impl WeightFeatureField for i32 {
 
 impl WeightFeatureField for u32 {
     fn register_weight_fields(layer: &Layer) -> Result<(), Error> {
+        #[allow(clippy::use_self)]
         let weight_field_defn = FieldDefn::new(WEIGHT_FIELD_NAME, OGRFieldType::OFTInteger)?;
         weight_field_defn.add_to_layer(layer)?;
         Ok(())
