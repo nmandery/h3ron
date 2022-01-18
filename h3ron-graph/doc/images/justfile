@@ -1,0 +1,3 @@
+render:
+    dot -Tsvg -Kdot -o prepared_h3_edge_graph.svg prepared_h3_edge_graph.dot
+    dot -Tsvg -Kdot -o edges-and-longedges.svg edges-and-longedges.dot

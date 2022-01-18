@@ -1,0 +1,42 @@
+# renderer:
+#    without longedge: circo
+#    with longedge: dot
+
+digraph {
+
+
+  "h3edge" [
+shape=plaintext,
+   label=<
+     <table border="0" cellborder="1" cellspacing="0" cellpadding="7">
+       <tr><td bgcolor="lightblue">H3 edge</td><td port="p">uint64</td></tr>
+     </table>>
+  ];
+
+  "attributes" [
+shape=plaintext,
+   label=<
+     <table border="0" cellborder="1" cellspacing="0" cellpadding="7">
+       <tr><td bgcolor="lightblue" port="p">Attributes</td><td>implementation specific</td></tr>
+     </table>>
+  ];
+
+
+  "longedge" [
+shape=plaintext,
+   label=<
+     <table border="0" cellborder="1" cellspacing="0" cellpadding="7">
+        <tr><td bgcolor="indianred1" port="p">In H3 Edge</td><td>uint64</td></tr>
+        <tr><td bgcolor="indianred1" port="p">Out H3 Edge</td><td>uint64</td></tr>
+
+        <tr><td bgcolor="indianred1" port="p">Contained Edges</td><td>Compressed bitmap</td></tr>
+        <tr><td bgcolor="indianred1" port="p">Contained Edge Sequence</td><td>Compressed uint64 vector</td></tr>
+        <tr><td bgcolor="indianred1" port="p">Aggregated attributes</td><td>implementation specific</td></tr>
+     </table>>
+  ];
+
+
+
+    h3edge:p -> attributes:p;
+    h3edge:p -> longedge:p [style=dashed];
+}

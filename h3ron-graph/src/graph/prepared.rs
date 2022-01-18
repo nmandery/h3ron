@@ -46,6 +46,8 @@ where
 const MIN_LONGEDGE_LENGTH: usize = 2;
 
 /// a prepared graph which can be used for routing
+///
+/// Consequent H3Edges without
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PreparedH3EdgeGraph<W: Send + Sync> {
     edges: ThreadPartitionedMap<H3Edge, OwnedEdgeValue<W>, 4>,

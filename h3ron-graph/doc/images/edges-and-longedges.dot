@@ -1,0 +1,26 @@
+# layout engine: dot
+
+digraph {
+    node [shape=hexagon, height=0.5, width=0.6];
+    edge [color=steelblue3];
+
+    "c1" -> "c2";
+    "c2" -> "c3";
+    "c3" -> "c4";
+    "c4" -> "c5";
+
+    "c5" -> "c6";
+    "c6" -> "c7";
+    "c7" -> "c8";
+    "c8" -> "c9";
+    "c9" -> "c10";
+
+    "c5" -> "c11";
+    "c11" -> "c12";
+    "c12" -> "c13";
+    "c13" -> "c14";
+
+    "c1" -> "c5" [color="indianred1", penwidth=2]
+    "c5" -> "c10" [ color="indianred1", penwidth=2]
+    "c5" -> "c14" [color="indianred1", penwidth=2]
+}
