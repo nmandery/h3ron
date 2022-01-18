@@ -13,9 +13,9 @@ use serde::{Deserialize, Serialize};
 use h3ron_h3_sys::H3Index;
 
 use crate::index::{HasH3Resolution, Index};
+use crate::iter::GeoBoundaryIter;
 use crate::to_geo::{ToLineString, ToMultiLineString};
 use crate::{Error, ExactLength, FromH3Index, H3Cell, ToCoordinate};
-use crate::iter::GeoBoundaryIter;
 
 /// H3 Index representing an Unidirectional H3 edge
 #[derive(PartialOrd, PartialEq, Clone, Hash, Eq, Ord, Copy)]
@@ -297,10 +297,21 @@ impl Deref for H3Edge {
     }
 }
 
-#[inline]
+/// avoid repeated calculations by using this constant of the
+/// result of `3.0_f64.sqrt()`.
+const F64_SQRT_3: f64 = 1.7320508075688772_f64;
+
+/// the height of two equilateral triangles with a shared side calculated using
+/// the `edge_length`.
+///     .
+///    /_\
+///    \ /
+///     `
+///
+/// For one triangle:  `h = (edge_length / 2.0) * 3.0.sqrt()`
+#[inline(always)]
 fn cell_centroid_distance_m_by_edge_length(edge_length: f64) -> f64 {
-    // the height of two triangles
-    2.0 * (edge_length / 2.0) * 3.0_f64.sqrt()
+    edge_length * F64_SQRT_3
 }
 
 /// convert an iterator of subsequent H3Cell-tuples `(origin_cell, destination_cell)` generated
