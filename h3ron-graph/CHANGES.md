@@ -20,7 +20,7 @@ python extension.
 
 ### Changed
 
-* Upgraded gdal from 0.10 to 0.11
+* Upgraded gdal from 0.10 to 0.12
 * Re-export algorithm traits from `algorithm` module.
 - The replacement of `CompressedIndexVec` with `IndexBlock` in `h3ron` required making a few `LongEdge` failable.
 
