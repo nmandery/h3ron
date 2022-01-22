@@ -5,7 +5,7 @@
 //!
 //! # Resolution handling
 //!
-//! * [`change_cell_resolution`]
+//! * [`change_resolution`]
 //!
 //! # Grid traversal
 //!
@@ -29,7 +29,7 @@ pub use boundary::{GeoBoundaryBuilder, GeoBoundaryIter};
 pub use edge::{continuous_cells_to_edges, CellsToEdgesIter, H3EdgesBuilder};
 pub use kring::KRingBuilder;
 pub use neighbor::*;
-pub use resolution::change_cell_resolution;
+pub use resolution::change_resolution;
 
 mod boundary;
 mod edge;

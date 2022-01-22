@@ -39,6 +39,8 @@ python extension.
 - Switch from using H3 `radsToDegs` and `degsToRads` to rusts `f64::to_degrees` and `f64::to_radians` as this appears
   slightly faster in benchmarks.
 - Switch to rust edition 2021
+- Rename `change_cell_resolution` to `change_resolution` and make generic over all `Index + FromH3Index` types. This
+  allows usage with `H3Cell` and `H3Edge`.
 
 ### Removed
 

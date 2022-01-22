@@ -4,7 +4,7 @@ use geo::algorithm::simplify::Simplify;
 use geo_types::{MultiPolygon, Polygon};
 
 use h3ron::collections::H3CellSet;
-use h3ron::iter::change_cell_resolution;
+use h3ron::iter::change_resolution;
 use h3ron::{H3Cell, ToLinkedPolygons};
 
 use crate::error::Error;
@@ -34,7 +34,7 @@ where
     I::Item: Borrow<H3Cell>,
 {
     let t_res = cell_iter_resolution.saturating_sub(reduce_resolution_by);
-    let mut cells: H3CellSet = change_cell_resolution(cell_iter.into_iter(), t_res).collect();
+    let mut cells: H3CellSet = change_resolution(cell_iter.into_iter(), t_res).collect();
     let cell_vec: Vec<_> = cells.drain().collect();
     let mp = MultiPolygon::from(
         cell_vec

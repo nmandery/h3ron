@@ -8,7 +8,7 @@ use rayon::prelude::*;
 
 use crate::algorithm::dijkstra::edge_dijkstra;
 use h3ron::collections::{H3CellMap, H3Treemap};
-use h3ron::iter::change_cell_resolution;
+use h3ron::iter::change_resolution;
 use h3ron::{H3Cell, HasH3Resolution};
 
 use crate::algorithm::path::Path;
@@ -259,7 +259,7 @@ where
     I::Item: Borrow<H3Cell>,
 {
     let mut destinations: H3Treemap<H3Cell> = Default::default();
-    for destination in change_cell_resolution(destination_cells, graph.h3_resolution()) {
+    for destination in change_resolution(destination_cells, graph.h3_resolution()) {
         let gap_bridged = graph.gap_bridged_corresponding_node_filtered(
             &destination,
             num_gap_cells_to_graph,
@@ -301,7 +301,7 @@ where
     // maps cells to their closest found neighbors in the graph
     let mut origin_cell_map = H3CellMap::default();
 
-    for cell in change_cell_resolution(origin_cells, graph.h3_resolution()) {
+    for cell in change_resolution(origin_cells, graph.h3_resolution()) {
         let gap_bridged = graph.gap_bridged_corresponding_node_filtered(
             &cell,
             num_gap_cells_to_graph,
