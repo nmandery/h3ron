@@ -11,6 +11,9 @@ python extension.
 
 ## h3ron-ndarray Unreleased
 
+### Changed
+- Switch to rust edition 2021
+
 ## h3ron-ndarray 0.13.0 - 2021-11-01
 ### Added
 - `Transform.transform_coordinate` method.

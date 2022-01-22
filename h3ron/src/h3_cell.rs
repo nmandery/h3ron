@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
@@ -361,7 +360,6 @@ impl Deref for H3Cell {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
-    use std::convert::{TryFrom, TryInto};
     use std::str::FromStr;
 
     #[cfg(feature = "use-serde")]

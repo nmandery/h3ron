@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::ops::Add;
 
 use geo::bounding_rect::BoundingRect;

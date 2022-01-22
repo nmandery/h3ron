@@ -23,6 +23,7 @@ python extension.
 * Upgraded gdal from 0.10 to 0.12
 * Re-export algorithm traits from `algorithm` module.
 - The replacement of `CompressedIndexVec` with `IndexBlock` in `h3ron` required making a few `LongEdge` failable.
+- Switch to rust edition 2021
 
 ## h3ron-graph 0.2.0 - 2021-11-06
 

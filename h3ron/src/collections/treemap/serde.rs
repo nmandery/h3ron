@@ -56,8 +56,6 @@ impl<'de, T> Deserialize<'de> for H3Treemap<T> {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use crate::collections::H3Treemap;
     use crate::H3Cell;
 

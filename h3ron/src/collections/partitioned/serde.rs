@@ -1,6 +1,5 @@
 use std::fmt;
 use std::hash::Hash;
-use std::iter::FromIterator;
 use std::marker::PhantomData;
 
 use serde::de::{MapAccess, Visitor};
@@ -73,8 +72,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::iter::FromIterator;
-
     use crate::collections::ThreadPartitionedMap;
 
     #[test]

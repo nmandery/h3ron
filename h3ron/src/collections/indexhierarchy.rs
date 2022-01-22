@@ -1,4 +1,4 @@
-use std::iter::{repeat_with, FromIterator};
+use std::iter::repeat_with;
 use std::marker::PhantomData;
 
 #[cfg(feature = "use-serde")]

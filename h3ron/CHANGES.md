@@ -38,6 +38,7 @@ python extension.
 - Cleanup/rename feature gates - see main page of documentation.
 - Switch from using H3 `radsToDegs` and `degsToRads` to rusts `f64::to_degrees` and `f64::to_radians` as this appears
   slightly faster in benchmarks.
+- Switch to rust edition 2021
 
 ### Removed
 

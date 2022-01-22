@@ -1,7 +1,6 @@
 use std::borrow::BorrowMut;
 use std::convert::TryInto;
 use std::hash::{BuildHasher, Hash, Hasher};
-use std::iter::FromIterator;
 
 use rayon::prelude::*;
 
@@ -410,8 +409,6 @@ impl<I: Index + Hash + Eq + Send + Sync, V: Send + Sync, const N: usize> Contain
 
 #[cfg(test)]
 mod tests {
-    use std::iter::FromIterator;
-
     use crate::collections::ThreadPartitionedMap;
     use crate::H3Edge;
     use crate::Index;

@@ -11,6 +11,8 @@ python extension.
 
 
 ## h3ron-h3-sys Unreleased
+### Changed
+- Switch to rust edition 2021
 
 ## h3ron-h3-sys [0.12.0] - 2021-08-10
 ### Changed

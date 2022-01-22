@@ -1,6 +1,5 @@
 // This example can also be used to build the benchmark data for `route_germany`.
 
-use std::convert::TryFrom;
 use std::fs::File;
 use std::path::Path;
 

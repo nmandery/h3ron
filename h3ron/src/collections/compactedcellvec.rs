@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::iter::FromIterator;
 use std::ops::RangeInclusive;
 
 #[cfg(feature = "use-serde")]

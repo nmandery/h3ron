@@ -67,8 +67,6 @@ pub fn local_ij_to_h3(origin_index: &H3Cell, coordij: &CoordIj) -> Result<H3Cell
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use crate::experimental::{h3_to_local_ij, local_ij_to_h3};
     use crate::h3_cell::H3Cell;
 

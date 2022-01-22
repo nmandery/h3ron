@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use crate::{Error, Index, H3_MAX_RESOLUTION};
 
 const H3_PER_DIGIT_OFFSET: u8 = 3;
@@ -134,8 +132,6 @@ impl Iterator for ResolutionDirectionIter {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use crate::{H3Cell, H3Edge};
 
     use super::*;

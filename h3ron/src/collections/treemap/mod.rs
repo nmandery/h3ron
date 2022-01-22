@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::iter::FromIterator;
 use std::marker::PhantomData;
 
 use roaring::RoaringTreemap;
@@ -154,8 +153,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use crate::H3Cell;
 
     use super::H3Treemap;

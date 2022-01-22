@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::convert::TryFrom;
 
 use geo_types::LineString;
 use serde::{Deserialize, Serialize};

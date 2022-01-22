@@ -1,5 +1,4 @@
 use std::borrow::Borrow;
-use std::iter::FromIterator;
 use std::marker::PhantomData;
 use std::mem::size_of;
 
@@ -294,9 +293,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-    use std::iter::FromIterator;
-
     use crate::collections::compressed::Decompressor;
     use crate::H3Cell;
 

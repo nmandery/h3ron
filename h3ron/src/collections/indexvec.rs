@@ -1,6 +1,5 @@
 use crate::{Error, FromH3Index, Index};
 use h3ron_h3_sys::H3Index;
-use std::convert::TryFrom;
 use std::marker::PhantomData;
 
 /// A `H3Index`-Vec intended to interface between libh3 by providing

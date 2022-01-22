@@ -249,8 +249,6 @@ pub fn res0_indexes() -> IndexVec<H3Cell> {
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use geo::Coordinate;
     use geo_types::LineString;
 

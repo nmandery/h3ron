@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
-use h3ron::collections::compressed::IndexBlock;
 
+use h3ron::collections::compressed::IndexBlock;
 use h3ron::H3Cell;
 
 fn criterion_benchmark(c: &mut Criterion) {

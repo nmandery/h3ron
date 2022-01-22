@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::ffi::CString;
 use std::fmt::{self, Debug, Formatter};
 use std::mem::MaybeUninit;
