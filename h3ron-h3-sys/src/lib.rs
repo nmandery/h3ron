@@ -1,6 +1,6 @@
 //! low-level bindings to H3
 //!
-//! This crate includes the C sources for libh3, so compiling it requires a c-compiler and the `cmake`
+//! This crate includes the C sources for libh3, so compiling it requires a C toolchain and the `cmake`
 //! build tool.
 //!
 #![allow(non_upper_case_globals)]

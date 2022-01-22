@@ -1,3 +1,5 @@
+//! This crate depends on the `h3ron-h3-sys` crate, which includes the C sources for libh3. So
+//! compiling requires a C toolchain and the `cmake` build tool.
 //!
 //! # Features
 //!
