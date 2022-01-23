@@ -26,6 +26,7 @@ python extension.
   provides a better compression ratio.
 - Add `h3ron::iter::BoundaryBuilder` and `h3ron::iter::GeoBoundaryIter`. Switching `ToPolygon` for `H3Cell` to using these. 
   The result is 5-10% reduction in run time.
+- Add `h3ron::iter::change_resolution_tuple`.
 
 ### Changed
 
