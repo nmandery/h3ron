@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-graph"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Graph algorithms on edges of th3 H3 spatial indexing system"
 edition = "2021"
@@ -26,7 +26,7 @@ num-traits = "0.2"
 
 [dependencies.h3ron]
 path = "../h3ron"
-version = "0.13.0" # for publishing on crates.io
+version = "0.14.0" # for publishing on crates.io
 features = ["rayon", "compression", "roaring", "use-serde"]
 
 [dependencies.osmpbfreader]
