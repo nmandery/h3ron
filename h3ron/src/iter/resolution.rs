@@ -59,6 +59,10 @@ where
         }
         None
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
 }
 
 /// Returns an iterator to change the resolution of the given cells to the `output_h3_resolution`. The
@@ -128,6 +132,10 @@ where
             }
         }
         None
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
     }
 }
 
