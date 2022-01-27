@@ -11,7 +11,7 @@ use h3ron::H3Cell;
 fn criterion_benchmark(c: &mut Criterion) {
     let cells = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 10)
         .unwrap()
-        .k_ring(2000)
+        .k_ring(1000)
         .iter()
         .collect::<Vec<_>>();
     let value = 78u8;
