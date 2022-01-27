@@ -15,7 +15,7 @@ python extension.
 
 * Refactored `GetGapBridgedCellNodes` trait to `NearestGraphNodes`
 
-## h3ron-graph 0.3.0 
+## h3ron-graph 0.3.0 - 2022-01-23
 
 ### Added
 

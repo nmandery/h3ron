@@ -11,6 +11,8 @@ python extension.
 
 ## h3ron Unreleased
 
+## h3ron 0.14.0 - 2022-01-23
+
 ### Added
 
 - Add `H3Edge::from_cells` as an alternative way to build edges to `H3Cell::unidirectional_edge_to`.

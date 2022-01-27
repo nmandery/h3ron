@@ -11,6 +11,7 @@ python extension.
 
 ## h3ron-ndarray Unreleased
 
+## h3ron-ndarray 0.14.0 - 2022-01-23
 ### Changed
 - Switch to rust edition 2021
 
