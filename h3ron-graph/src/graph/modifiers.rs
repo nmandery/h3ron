@@ -35,7 +35,7 @@ where
     G: GetCellNode + GetEdge<EdgeWeightType = W> + HasH3Resolution,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
-    fn get_cell_node(&self, cell: &H3Cell) -> Option<&NodeType> {
+    fn get_cell_node(&self, cell: &H3Cell) -> Option<NodeType> {
         if self.cells_to_exclude.contains(cell) {
             None
         } else {

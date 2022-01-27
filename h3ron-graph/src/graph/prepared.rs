@@ -124,8 +124,8 @@ where
 }
 
 impl<W: Send + Sync> GetCellNode for PreparedH3EdgeGraph<W> {
-    fn get_cell_node(&self, cell: &H3Cell) -> Option<&NodeType> {
-        self.graph_nodes.get(cell)
+    fn get_cell_node(&self, cell: &H3Cell) -> Option<NodeType> {
+        self.graph_nodes.get(cell).copied()
     }
 }
 

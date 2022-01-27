@@ -9,9 +9,9 @@ use h3ron::{H3Cell, HasH3Resolution, Index};
 
 use crate::algorithm::path::Path;
 use crate::algorithm::shortest_path::{ShortestPathManyToMany, ShortestPathOptions};
+use crate::algorithm::NearestGraphNodes;
 use crate::error::Error;
 use crate::graph::modifiers::ExcludeCells;
-use crate::graph::node::GetGapBridgedCellNodes;
 use crate::graph::{GetCellNode, GetEdge};
 
 #[derive(Serialize, Deserialize)]
@@ -76,7 +76,7 @@ where
     G: GetEdge<EdgeWeightType = W>
         + GetCellNode
         + HasH3Resolution
-        + GetGapBridgedCellNodes
+        + NearestGraphNodes
         + Sync
         + ShortestPathManyToMany<W>,
 {

@@ -25,7 +25,7 @@ pub trait GetStats {
 }
 
 pub trait GetCellNode {
-    fn get_cell_node(&self, cell: &H3Cell) -> Option<&NodeType>;
+    fn get_cell_node(&self, cell: &H3Cell) -> Option<NodeType>;
 }
 
 pub trait IterateCellNodes<'a> {

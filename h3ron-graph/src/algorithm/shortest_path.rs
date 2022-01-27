@@ -12,8 +12,8 @@ use h3ron::iter::change_resolution;
 use h3ron::{H3Cell, HasH3Resolution};
 
 use crate::algorithm::path::Path;
+use crate::algorithm::NearestGraphNodes;
 use crate::error::Error;
-use crate::graph::node::GetGapBridgedCellNodes;
 use crate::graph::{GetCellNode, GetEdge};
 
 ///
@@ -114,7 +114,7 @@ where
 
 impl<W, G> ShortestPathManyToMany<W> for G
 where
-    G: GetEdge<EdgeWeightType = W> + GetCellNode + HasH3Resolution + GetGapBridgedCellNodes + Sync,
+    G: GetEdge<EdgeWeightType = W> + GetCellNode + HasH3Resolution + NearestGraphNodes + Sync,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn shortest_path_many_to_many_map<I, OPT, PM, O>(
@@ -189,7 +189,7 @@ where
 
 impl<W, G> ShortestPath<W> for G
 where
-    G: GetEdge<EdgeWeightType = W> + GetCellNode + HasH3Resolution + GetGapBridgedCellNodes,
+    G: GetEdge<EdgeWeightType = W> + GetCellNode + HasH3Resolution + NearestGraphNodes,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn shortest_path<I, OPT>(
@@ -254,23 +254,21 @@ fn filtered_destination_cells<G, I>(
     origins_treemap: &H3Treemap<H3Cell>,
 ) -> Result<H3Treemap<H3Cell>, Error>
 where
-    G: GetCellNode + GetGapBridgedCellNodes + HasH3Resolution,
+    G: GetCellNode + NearestGraphNodes + HasH3Resolution,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {
     let mut destinations: H3Treemap<H3Cell> = Default::default();
     for destination in change_resolution(destination_cells, graph.h3_resolution()) {
-        let gap_bridged = graph.gap_bridged_corresponding_node_filtered(
-            &destination,
-            num_gap_cells_to_graph,
+        for (graph_cell, node_type, _) in
+            graph.nearest_graph_nodes(&destination, num_gap_cells_to_graph)
+        {
             // destinations which are origins at the same time are always allowed as they can
             // always be reached even when they are not a destination in the graph.
-            |graph_cell, node_type| {
-                node_type.is_destination() || origins_treemap.contains(graph_cell)
-            },
-        );
-        if let Some(graph_cell) = gap_bridged.corresponding_cell_in_graph() {
-            destinations.insert(graph_cell);
+            if node_type.is_destination() || origins_treemap.contains(&graph_cell) {
+                destinations.insert(graph_cell);
+                break;
+            }
         }
     }
 
@@ -294,7 +292,7 @@ fn filtered_origin_cells<G, I>(
     origin_cells: I,
 ) -> Vec<(H3Cell, Vec<H3Cell>)>
 where
-    G: GetCellNode + GetGapBridgedCellNodes + HasH3Resolution,
+    G: GetCellNode + NearestGraphNodes + HasH3Resolution,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {
@@ -302,16 +300,14 @@ where
     let mut origin_cell_map = H3CellMap::default();
 
     for cell in change_resolution(origin_cells, graph.h3_resolution()) {
-        let gap_bridged = graph.gap_bridged_corresponding_node_filtered(
-            &cell,
-            num_gap_cells_to_graph,
-            |_, node_type| node_type.is_origin(),
-        );
-        if let Some(graph_cell) = gap_bridged.corresponding_cell_in_graph() {
-            origin_cell_map
-                .entry(graph_cell)
-                .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(gap_bridged.cell()))
-                .or_insert_with(|| vec![gap_bridged.cell()]);
+        for (graph_cell, node_type, _) in graph.nearest_graph_nodes(&cell, num_gap_cells_to_graph) {
+            if node_type.is_origin() {
+                origin_cell_map
+                    .entry(graph_cell)
+                    .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(cell))
+                    .or_insert_with(|| vec![cell]);
+                break;
+            }
         }
     }
     origin_cell_map.drain().collect()

@@ -11,6 +11,12 @@ python extension.
 
 ## h3ron-graph Unreleased
 
+### Changed
+
+* Refactored `GetGapBridgedCellNodes` trait to `NearestGraphNodes`
+
+## h3ron-graph 0.3.0 
+
 ### Added
 
 * added `WithinWeightThreshold` and `WithinWeightThresholdMany` traits.
