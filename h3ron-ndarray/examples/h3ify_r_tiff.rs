@@ -47,7 +47,7 @@ fn main() {
     results.iter().for_each(|(_value, index_stack)| {
         for cell in index_stack.iter_compacted_cells() {
             let mut ft = Feature::new(&defn).unwrap();
-            ft.set_geometry(cell.to_polygon().to_gdal().unwrap())
+            ft.set_geometry(cell.to_polygon().unwrap().to_gdal().unwrap())
                 .unwrap();
             ft.set_field_string("h3index", &cell.to_string()).unwrap();
             ft.set_field_integer("h3res", cell.resolution() as i32)

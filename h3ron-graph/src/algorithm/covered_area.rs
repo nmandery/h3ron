@@ -11,6 +11,8 @@ use crate::error::Error;
 
 /// calculates a [`MultiPolygon`] of the area covered by a graph
 pub trait CoveredArea {
+    type Error;
+
     /// calculates a [`MultiPolygon`] of the area covered by a graph
     ///
     /// As the resulting geometry will be quite complex, it is recommended
@@ -20,7 +22,7 @@ pub trait CoveredArea {
     ///
     /// A slight simplification will be applied to the output geometry and
     /// eventual holes will be removed.
-    fn covered_area(&self, reduce_resolution_by: u8) -> Result<MultiPolygon<f64>, Error>;
+    fn covered_area(&self, reduce_resolution_by: u8) -> Result<MultiPolygon<f64>, Self::Error>;
 }
 
 /// calculates a [`MultiPolygon`] of the area covered by a [`H3Cell`] iterator.
@@ -34,12 +36,13 @@ where
     I::Item: Borrow<H3Cell>,
 {
     let t_res = cell_iter_resolution.saturating_sub(reduce_resolution_by);
-    let mut cells: H3CellSet = change_resolution(cell_iter.into_iter(), t_res).collect();
+    let mut cells =
+        change_resolution(cell_iter.into_iter(), t_res).collect::<Result<H3CellSet, _>>()?;
     let cell_vec: Vec<_> = cells.drain().collect();
     let mp = MultiPolygon::from(
         cell_vec
             // remove the number of vertices by smoothing
-            .to_linked_polygons(true)
+            .to_linked_polygons(true)?
             .drain(..)
             // reduce the number of vertices again and discard all holes
             .map(|p| Polygon::new(p.exterior().simplify(&0.000001), vec![]))

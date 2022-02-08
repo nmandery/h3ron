@@ -56,7 +56,7 @@ impl TryFrom<u8> for H3Direction {
             4 => Self::IAxesDigit,
             5 => Self::IkAxesDigit,
             6 => Self::IjAxesDigit,
-            v => return Err(Error::InvalidH3Direction(v)),
+            v => return Err(Error::DirectionInvalid(v)),
         })
     }
 }
@@ -80,10 +80,7 @@ impl H3Direction {
         target_resolution: u8,
     ) -> Result<Self, Error> {
         if target_resolution > index.resolution() {
-            return Err(Error::MixedResolutions(
-                index.resolution(),
-                target_resolution,
-            ));
+            return Err(Error::ResMismatch);
         }
         direction(index.h3index() as u64, offset(target_resolution))
     }
@@ -132,7 +129,7 @@ impl Iterator for ResolutionDirectionIter {
 
 #[cfg(test)]
 mod tests {
-    use crate::{H3Cell, H3Edge};
+    use crate::{H3Cell, H3DirectedEdge};
 
     use super::*;
 
@@ -173,7 +170,7 @@ mod tests {
         assert_eq!(direction, H3Direction::KAxesDigit);
     }
 
-    #[should_panic(expected = "MixedResolutions")]
+    #[should_panic(expected = "ResMismatch")]
     #[test]
     fn can_fail_from_wrong_resolution() {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
@@ -193,7 +190,7 @@ mod tests {
     #[test]
     fn children_directions() {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
-        let children = cell.get_children(cell.resolution() + 1);
+        let children = cell.get_children(cell.resolution() + 1).unwrap();
         for (i, child) in children.iter().enumerate() {
             let direction = H3Direction::direction(&child);
             assert_eq!(direction as usize, i);
@@ -203,13 +200,13 @@ mod tests {
     #[test]
     fn children_edge_directions() {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
-        let children = cell.get_children(cell.resolution() + 1);
+        let children = cell.get_children(cell.resolution() + 1).unwrap();
         let center_child = children.first().unwrap();
         for (i, child) in children.iter().enumerate() {
             if child == center_child {
                 continue;
             }
-            let edge = child.unidirectional_edge_to(center_child).unwrap();
+            let edge = child.directed_edge_to(center_child).unwrap();
             let direction = H3Direction::direction(&edge);
             assert_eq!(direction as usize, i);
         }
@@ -238,7 +235,7 @@ mod tests {
 
     #[test]
     fn iter_directions_over_resolutions_edge() {
-        let edge = H3Edge::new(0x149283080ddbffff);
+        let edge = H3DirectedEdge::new(0x149283080ddbffff);
         let directions = H3Direction::iter_directions_over_resolutions(&edge)
             .collect::<Result<Vec<_>, _>>()
             .unwrap();

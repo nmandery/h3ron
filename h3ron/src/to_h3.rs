@@ -6,7 +6,7 @@ use geo_types::{Coordinate, Geometry, Line, Polygon};
 
 use crate::collections::indexvec::IndexVec;
 use crate::error::check_valid_h3_resolution;
-use crate::{line, polyfill, Error, H3Cell, Index};
+use crate::{line, polygon_to_cells, Error, H3Cell, Index};
 use std::convert::TryInto;
 
 /// convert to indexes at the given resolution
@@ -20,7 +20,7 @@ pub trait ToH3Cells {
 impl ToH3Cells for Polygon<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
-        Ok(polyfill(self, h3_resolution))
+        polygon_to_cells(self, h3_resolution)
     }
 }
 
@@ -45,7 +45,7 @@ impl ToH3Cells for MultiPoint<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         let mut outvec = vec![];
         for pt in &self.0 {
-            outvec.push(H3Cell::from_coordinate(&pt.0, h3_resolution)?.h3index());
+            outvec.push(H3Cell::from_coordinate(pt.0, h3_resolution)?.h3index());
         }
         outvec.try_into()
     }
@@ -54,7 +54,7 @@ impl ToH3Cells for MultiPoint<f64> {
 impl ToH3Cells for Coordinate<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
-        vec![H3Cell::from_coordinate(self, h3_resolution)?.h3index()].try_into()
+        vec![H3Cell::from_coordinate(*self, h3_resolution)?.h3index()].try_into()
     }
 }
 

@@ -410,16 +410,18 @@ impl<I: Index + Hash + Eq + Send + Sync, V: Send + Sync, const N: usize> Contain
 #[cfg(test)]
 mod tests {
     use crate::collections::ThreadPartitionedMap;
-    use crate::H3Edge;
+    use crate::H3DirectedEdge;
     use crate::Index;
 
     #[test]
     fn from_and_to_vec_h3edge() {
-        let in_vec: Vec<_> = (0_u64..1_000_000).map(|i| (H3Edge::new(i), i)).collect();
+        let in_vec: Vec<_> = (0_u64..1_000_000)
+            .map(|i| (H3DirectedEdge::new(i), i))
+            .collect();
         let mut tpm: ThreadPartitionedMap<_, _, 6> =
             ThreadPartitionedMap::from_iter(in_vec.clone());
         assert_eq!(tpm.len(), 1_000_000);
-        assert_eq!(tpm.get(&H3Edge::new(613777)), Some(&613777));
+        assert_eq!(tpm.get(&H3DirectedEdge::new(613777)), Some(&613777));
         let mut out_vec: Vec<_> = tpm.drain().collect();
         out_vec.sort_unstable_by(|a, b| a.0.cmp(&b.0));
         assert_eq!(in_vec, out_vec);

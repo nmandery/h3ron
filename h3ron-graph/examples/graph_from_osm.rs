@@ -4,10 +4,10 @@ use std::fs::File;
 use std::path::Path;
 
 use clap::{App, Arg};
-use h3ron::H3Edge;
 use ordered_float::OrderedFloat;
 
 use h3ron::io::serialize_into;
+use h3ron::H3DirectedEdge;
 use h3ron_graph::formats::osm::osmpbfreader::Tags;
 use h3ron_graph::formats::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder, WayAnalyzer};
 use h3ron_graph::graph::{GetStats, H3EdgeGraphBuilder, PreparedH3EdgeGraph};
@@ -46,7 +46,7 @@ impl WayAnalyzer<OrderedFloat<f64>> for MyWayAnalyzer {
 
     fn way_edge_properties(
         &self,
-        _edge: H3Edge,
+        _edge: H3DirectedEdge,
         way_properties: &Self::WayProperties,
     ) -> EdgeProperties<OrderedFloat<f64>> {
         // use the edge to make the WayProperties relative to the length of the edge (`cell_centroid_distance_m`)
@@ -98,7 +98,7 @@ fn main() {
     println!("Preparing graph");
     let prepared_graph = PreparedH3EdgeGraph::try_from(graph).expect("preparing the graph failed");
 
-    let stats = prepared_graph.get_stats();
+    let stats = prepared_graph.get_stats().unwrap();
     println!(
         "Created a prepared graph ({} nodes, {} edges, {} long-edges)",
         stats.num_nodes,

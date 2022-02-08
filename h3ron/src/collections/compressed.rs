@@ -298,12 +298,12 @@ mod tests {
 
     use super::IndexBlock;
 
-    fn make_kring(k: u32) -> Vec<H3Cell> {
+    fn make_grid_disk(k: u32) -> Vec<H3Cell> {
         let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
-        idx.k_ring(k).into()
+        idx.grid_disk(k).unwrap().into()
     }
 
-    fn kring_indexblock_roundtrip(cells: Vec<H3Cell>) -> IndexBlock<H3Cell> {
+    fn grid_disk_indexblock_roundtrip(cells: Vec<H3Cell>) -> IndexBlock<H3Cell> {
         let compressed_cells = IndexBlock::from(cells.as_slice());
 
         println!(
@@ -325,39 +325,39 @@ mod tests {
     }
 
     #[test]
-    fn test_indexblock_roundtrip_kring1() {
-        let civ = kring_indexblock_roundtrip(make_kring(1));
+    fn test_indexblock_roundtrip_grid_disk1() {
+        let civ = grid_disk_indexblock_roundtrip(make_grid_disk(1));
         assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
     }
 
     #[test]
-    fn test_indexblock_roundtrip_kring8() {
-        let civ = kring_indexblock_roundtrip(make_kring(8));
+    fn test_indexblock_roundtrip_grid_disk8() {
+        let civ = grid_disk_indexblock_roundtrip(make_grid_disk(8));
         assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
     }
 
     #[test]
-    fn test_indexblock_roundtrip_kring50() {
-        let civ = kring_indexblock_roundtrip(make_kring(50));
+    fn test_indexblock_roundtrip_grid_disk50() {
+        let civ = grid_disk_indexblock_roundtrip(make_grid_disk(50));
         assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
     }
 
     #[test]
     fn test_indexblock_roundtrip_2_cells() {
-        let cells = make_kring(1).iter().take(2).copied().collect();
-        let _civ = kring_indexblock_roundtrip(cells);
+        let cells = make_grid_disk(1).iter().take(2).copied().collect();
+        let _civ = grid_disk_indexblock_roundtrip(cells);
     }
 
     #[test]
     fn test_indexblock_from_iter() {
-        let ib: IndexBlock<H3Cell> = IndexBlock::from_iter(make_kring(3).iter());
+        let ib: IndexBlock<H3Cell> = IndexBlock::from_iter(make_grid_disk(3).iter());
         assert!(!ib.is_empty());
         assert!(ib.is_compressed());
     }
 
     #[test]
     fn test_indexblock_iter() {
-        let ring = make_kring(5);
+        let ring = make_grid_disk(5);
         assert!(ring.len() > 10);
         let ib: IndexBlock<H3Cell> = IndexBlock::from(ring.as_slice());
         assert_eq!(ring.len(), ib.iter_uncompressed().unwrap().count());
@@ -366,7 +366,7 @@ mod tests {
     #[cfg(feature = "use-serde")]
     #[test]
     fn serde_roundtrip() {
-        let ib = IndexBlock::from(make_kring(3).as_slice());
+        let ib = IndexBlock::from(make_grid_disk(3).as_slice());
         let byte_data = bincode::serialize(&ib).unwrap();
         let ib_de = bincode::deserialize::<IndexBlock<H3Cell>>(&byte_data).unwrap();
 

@@ -7,9 +7,10 @@ use h3ron::collections::compressed::IndexBlock;
 use h3ron::H3Cell;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let cells = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 10)
+    let cells = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 10)
         .unwrap()
-        .k_ring(200)
+        .grid_disk(200)
+        .unwrap()
         .iter()
         .collect::<Vec<_>>();
 

@@ -23,10 +23,9 @@ pub use partitioned::ThreadPartitionedMap;
 #[cfg(feature = "roaring")]
 pub use treemap::H3Treemap;
 
-use crate::{H3Cell, H3Edge, Index};
+use crate::{H3Cell, H3DirectedEdge, Index};
 
 pub mod compactedcellvec;
-pub mod indexhierarchy;
 pub mod indexvec;
 
 #[cfg(feature = "lz4_flex")]
@@ -44,7 +43,7 @@ pub trait ContainsIndex<I: Index> {
 
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
 pub type HashSet<V> = hashbrown::HashSet<V, RandomState>;
-pub type H3EdgeMap<V> = HashMap<H3Edge, V>;
+pub type H3EdgeMap<V> = HashMap<H3DirectedEdge, V>;
 pub type H3CellMap<V> = HashMap<H3Cell, V>;
 pub type H3CellSet = HashSet<H3Cell>;
 

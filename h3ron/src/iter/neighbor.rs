@@ -1,5 +1,5 @@
-use crate::iter::KRingBuilder;
-use crate::H3Cell;
+use crate::iter::GridDiskBuilder;
+use crate::{Error, H3Cell};
 use std::borrow::Borrow;
 
 /// A `H3Cell` and one of its neighboring cells, combined with associated generic values.
@@ -16,7 +16,7 @@ pub struct NeighborCell<'a, T> {
     /// The value of the neighbor of the current cell
     pub neighbor_value: &'a T,
 
-    /// The distance between `cell` and `neighbor_cell` in cells. See [`H3Cell::k_ring`].
+    /// The distance between `cell` and `neighbor_cell` in cells. See [`H3Cell::grid_disk`].
     pub k: u32,
 }
 
@@ -36,7 +36,7 @@ pub struct CellNeighborsIterator<'a, I, F, T> {
     neighbor_default_value: Option<&'a T>,
 
     /// iterates over the neighbors of the current cell which are still to visit.
-    k_ring_builder: KRingBuilder,
+    k_ring_builder: GridDiskBuilder,
 }
 
 /// See [`neighbors_within_distance_window_or_default`].
@@ -47,7 +47,7 @@ where
     F: Fn(&H3Cell) -> Option<&'a T> + 'a,
     T: 'a,
 {
-    type Item = NeighborCell<'a, T>;
+    type Item = Result<NeighborCell<'a, T>, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -57,13 +57,13 @@ where
                     if let Some(neighbor_value) =
                         (self.get_cell_value_fn)(&neighbor_cell).or(self.neighbor_default_value)
                     {
-                        return Some(NeighborCell {
+                        return Some(Ok(NeighborCell {
                             cell: *cell,
                             cell_value: *value,
                             neighbor_cell,
                             neighbor_value,
                             k: neighbor_k,
-                        });
+                        }));
                     }
                 }
                 self.current_cell_key_value = None;
@@ -71,7 +71,9 @@ where
             if let Some(cell) = self.cell_iter.next() {
                 if let Some(cell_value) = (self.get_cell_value_fn)(cell.borrow()) {
                     self.current_cell_key_value = Some((*cell.borrow(), cell_value));
-                    self.k_ring_builder.build_k_ring(cell.borrow());
+                    if let Err(e) = self.k_ring_builder.build_grid_disk(cell.borrow()) {
+                        return Some(Err(e));
+                    }
                 }
             } else {
                 return None;
@@ -88,7 +90,7 @@ where
 /// `get_cell_value_fn`. In case `neighbor_default_value` is `None`, that neighbor will be skipped.
 ///
 /// `k_min` and `k_max` control the radius in which the neighbors will be iterated. Also
-/// see [`H3Cell::k_ring`].
+/// see [`H3Cell::grid_disk`].
 ///
 /// This implementation trys to avoid memory allocations during iteration.
 pub fn neighbors_within_distance_window_or_default<'a, I, F, T>(
@@ -97,19 +99,19 @@ pub fn neighbors_within_distance_window_or_default<'a, I, F, T>(
     k_min: u32,
     k_max: u32,
     neighbor_default_value: Option<&'a T>,
-) -> CellNeighborsIterator<'a, I, F, T>
+) -> Result<CellNeighborsIterator<'a, I, F, T>, Error>
 where
     I: Iterator,
     I::Item: Borrow<H3Cell> + 'a,
     F: Fn(&H3Cell) -> Option<&'a T> + 'a,
 {
-    CellNeighborsIterator {
+    Ok(CellNeighborsIterator {
         cell_iter,
         get_cell_value_fn,
         current_cell_key_value: None,
         neighbor_default_value,
-        k_ring_builder: KRingBuilder::new(k_min, k_max),
-    }
+        k_ring_builder: GridDiskBuilder::create(k_min, k_max)?,
+    })
 }
 
 /// Simplified wrapper for [`neighbors_within_distance_window_or_default`].
@@ -119,7 +121,7 @@ pub fn neighbors_within_distance_window<'a, I, F, T>(
     get_cell_value_fn: F,
     k_min: u32,
     k_max: u32,
-) -> CellNeighborsIterator<'a, I, F, T>
+) -> Result<CellNeighborsIterator<'a, I, F, T>, Error>
 where
     I: Iterator,
     I::Item: Borrow<H3Cell> + 'a,
@@ -134,7 +136,7 @@ pub fn neighbors_within_distance<'a, I, F, T>(
     cell_iter: I,
     get_cell_value_fn: F,
     k_max: u32,
-) -> CellNeighborsIterator<'a, I, F, T>
+) -> Result<CellNeighborsIterator<'a, I, F, T>, Error>
 where
     I: Iterator,
     I::Item: Borrow<H3Cell> + 'a,
@@ -161,15 +163,19 @@ mod tests {
 
     #[test]
     fn test_neighbors_within_distance_window() {
-        let cell = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
         let hm = cell
-            .k_ring(2) // one k more than required
+            .grid_disk(2)
+            .unwrap() // one k more than required
             .drain()
             .map(|cell| (cell, 6))
             .collect::<HashMap<_, _>>();
 
         let mut n_neighbors = 0_usize;
-        for neighbor in neighbors_within_distance_window(once(cell), |cell| hm.get(cell), 1, 1) {
+        for neighbor in
+            neighbors_within_distance_window(once(cell), |cell| hm.get(cell), 1, 1).unwrap()
+        {
+            let neighbor = neighbor.unwrap();
             n_neighbors += 1;
             assert_eq!(neighbor.cell, cell);
             assert_ne!(cell, neighbor.neighbor_cell);
@@ -180,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_neighbors_within_distance_window_or_default() {
-        let cell = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
         let mut hm: HashMap<H3Cell, u32> = Default::default();
         hm.insert(cell, 4_u32);
 
@@ -191,7 +197,10 @@ mod tests {
             1,
             1,
             Some(&6),
-        ) {
+        )
+        .unwrap()
+        {
+            let neighbor = neighbor.unwrap();
             n_neighbors += 1;
             assert_eq!(neighbor.cell, cell);
             assert_ne!(cell, neighbor.neighbor_cell);
@@ -204,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_neighbors_within_distance_window_or_default_empty() {
-        let cell = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
         let hm: HashMap<H3Cell, u32> = Default::default();
 
         let n_neighbors = neighbors_within_distance_window_or_default(
@@ -214,6 +223,7 @@ mod tests {
             1,
             Some(&6),
         )
+        .unwrap()
         .count();
         assert_eq!(n_neighbors, 0);
     }

@@ -3,22 +3,22 @@ use std::ptr::addr_of_mut;
 
 use geo_types::{Coordinate, LineString, Polygon};
 
-use h3ron_h3_sys::{h3ToGeoBoundary, GeoBoundary};
+use h3ron_h3_sys::{cellToBoundary, CellBoundary};
 
 use crate::{H3Cell, Index};
 
-pub struct GeoBoundaryBuilder {
-    geo_boundary: GeoBoundary,
+pub struct CellBoundaryBuilder {
+    cell_boundary: CellBoundary,
 }
 
-impl GeoBoundaryBuilder {
+impl CellBoundaryBuilder {
     pub fn new() -> Self {
-        let geo_boundary = unsafe {
-            let mut mu = MaybeUninit::<GeoBoundary>::uninit();
+        let cell_boundary = unsafe {
+            let mut mu = MaybeUninit::<CellBoundary>::uninit();
             (*mu.as_mut_ptr()).numVerts = 0;
             mu.assume_init()
         };
-        Self { geo_boundary }
+        Self { cell_boundary }
     }
 
     /// iterate over the coordinates of the boundary vertices.
@@ -28,31 +28,31 @@ impl GeoBoundaryBuilder {
         &mut self,
         cell: &H3Cell,
         close_ring: bool,
-    ) -> GeoBoundaryIter {
+    ) -> CellBoundaryIter {
         unsafe {
-            h3ToGeoBoundary(cell.h3index(), addr_of_mut!(self.geo_boundary));
+            cellToBoundary(cell.h3index(), addr_of_mut!(self.cell_boundary)); // TODO: handle error
         };
-        GeoBoundaryIter::new(&self.geo_boundary, close_ring)
+        CellBoundaryIter::new(&self.cell_boundary, close_ring)
     }
 }
 
-impl Default for GeoBoundaryBuilder {
+impl Default for CellBoundaryBuilder {
     fn default() -> Self {
         Self::new()
     }
 }
 
-pub struct GeoBoundaryIter<'b> {
-    geo_boundary: &'b GeoBoundary,
+pub struct CellBoundaryIter<'b> {
+    cell_boundary: &'b CellBoundary,
     close_ring: bool,
     pos: usize,
 }
 
-impl<'b> GeoBoundaryIter<'b> {
-    /// the `geo_boundary` must be initialized
-    pub const fn new(geo_boundary: &'b GeoBoundary, close_ring: bool) -> Self {
+impl<'b> CellBoundaryIter<'b> {
+    /// the `cell_boundary` must be initialized
+    pub const fn new(cell_boundary: &'b CellBoundary, close_ring: bool) -> Self {
         Self {
-            geo_boundary,
+            cell_boundary,
             close_ring,
             pos: 0,
         }
@@ -63,20 +63,20 @@ impl<'b> GeoBoundaryIter<'b> {
     /// Does not include the extra vertex which is returned when `close_ring` is set
     /// to true.
     pub const fn num_verts(&self) -> usize {
-        self.geo_boundary.numVerts as usize
+        self.cell_boundary.numVerts as usize
     }
 
     #[inline(always)]
     fn get_coordinate(&self, pos: usize) -> Coordinate<f64> {
         assert!(pos < self.num_verts());
         Coordinate::from((
-            (self.geo_boundary.verts[pos].lon as f64).to_degrees(),
-            (self.geo_boundary.verts[pos].lat as f64).to_degrees(),
+            (self.cell_boundary.verts[pos].lng as f64).to_degrees(),
+            (self.cell_boundary.verts[pos].lat as f64).to_degrees(),
         ))
     }
 }
 
-impl<'b> Iterator for GeoBoundaryIter<'b> {
+impl<'b> Iterator for CellBoundaryIter<'b> {
     type Item = Coordinate<f64>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -98,8 +98,8 @@ impl<'b> Iterator for GeoBoundaryIter<'b> {
     }
 }
 
-impl<'b> From<GeoBoundaryIter<'b>> for Polygon<f64> {
-    fn from(mut gb_iter: GeoBoundaryIter<'b>) -> Self {
+impl<'b> From<CellBoundaryIter<'b>> for Polygon<f64> {
+    fn from(mut gb_iter: CellBoundaryIter<'b>) -> Self {
         gb_iter.close_ring = true;
         gb_iter.pos = 0; // rewind
         let mut exterior = Vec::with_capacity(gb_iter.num_verts() + 1);

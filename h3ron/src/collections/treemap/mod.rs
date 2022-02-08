@@ -161,7 +161,7 @@ mod tests {
     fn iter() {
         let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
         let mut treemap = H3Treemap::default();
-        for cell in idx.k_ring(1).iter() {
+        for cell in idx.grid_disk(1).unwrap().iter() {
             treemap.insert(cell);
         }
         assert_eq!(treemap.iter().count(), 7);

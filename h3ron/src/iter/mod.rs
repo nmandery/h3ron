@@ -10,30 +10,30 @@
 //!
 //! # Grid traversal
 //!
-//! * [`KRingBuilder`]
+//! * [`GridDiskBuilder`]
 //! * [`neighbors_within_distance_window_or_default`]
 //! * [`neighbors_within_distance_window`]
 //! * [`neighbors_within_distance`]
 //!
 //! # Edges
 //!
-//! * [`H3EdgesBuilder`]
+//! * [`H3DirectedEdgesBuilder`]
 //! * [`continuous_cells_to_edges`]
 //!
 //! # Cell boundaries
 //!
-//! * [`GeoBoundaryBuilder`]
-//! * [`GeoBoundaryIter`]
+//! * [`CellBoundaryBuilder`]
+//! * [`CellBoundaryIter`]
 //!
 
-pub use boundary::{GeoBoundaryBuilder, GeoBoundaryIter};
-pub use edge::{continuous_cells_to_edges, CellsToEdgesIter, H3EdgesBuilder};
-pub use kring::KRingBuilder;
+pub use boundary::{CellBoundaryBuilder, CellBoundaryIter};
+pub use edge::{continuous_cells_to_edges, CellsToEdgesIter, H3DirectedEdgesBuilder};
+pub use grid_disk::GridDiskBuilder;
 pub use neighbor::*;
 pub use resolution::{change_resolution, change_resolution_tuple};
 
 mod boundary;
 mod edge;
-mod kring;
+mod grid_disk;
 mod neighbor;
 mod resolution;

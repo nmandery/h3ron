@@ -132,7 +132,7 @@ where
         O: Send + Ord + Clone,
     {
         let filtered_origin_cells =
-            filtered_origin_cells(self, options.num_gap_cells_to_graph(), origin_cells);
+            filtered_origin_cells(self, options.num_gap_cells_to_graph(), origin_cells)?;
         if filtered_origin_cells.is_empty() {
             return Ok(Default::default());
         }
@@ -208,7 +208,7 @@ where
                 self,
                 options.num_gap_cells_to_graph(),
                 std::iter::once(origin_cell),
-            );
+            )?;
             if let Some(first_fo) = filtered_origin_cells.first() {
                 first_fo.0
             } else {
@@ -260,8 +260,9 @@ where
 {
     let mut destinations: H3Treemap<H3Cell> = Default::default();
     for destination in change_resolution(destination_cells, graph.h3_resolution()) {
+        let destination = destination?;
         for (graph_cell, node_type, _) in
-            graph.nearest_graph_nodes(&destination, num_gap_cells_to_graph)
+            graph.nearest_graph_nodes(&destination, num_gap_cells_to_graph)?
         {
             // destinations which are origins at the same time are always allowed as they can
             // always be reached even when they are not a destination in the graph.
@@ -290,7 +291,7 @@ fn filtered_origin_cells<G, I>(
     graph: &G,
     num_gap_cells_to_graph: u32,
     origin_cells: I,
-) -> Vec<(H3Cell, Vec<H3Cell>)>
+) -> Result<Vec<(H3Cell, Vec<H3Cell>)>, Error>
 where
     G: GetCellNode + NearestGraphNodes + HasH3Resolution,
     I: IntoIterator,
@@ -300,7 +301,10 @@ where
     let mut origin_cell_map = H3CellMap::default();
 
     for cell in change_resolution(origin_cells, graph.h3_resolution()) {
-        for (graph_cell, node_type, _) in graph.nearest_graph_nodes(&cell, num_gap_cells_to_graph) {
+        let cell = cell?;
+        for (graph_cell, node_type, _) in
+            graph.nearest_graph_nodes(&cell, num_gap_cells_to_graph)?
+        {
             if node_type.is_origin() {
                 origin_cell_map
                     .entry(graph_cell)
@@ -310,7 +314,7 @@ where
             }
         }
     }
-    origin_cell_map.drain().collect()
+    Ok(origin_cell_map.drain().collect())
 }
 
 #[cfg(test)]
@@ -324,9 +328,9 @@ mod tests {
     #[test]
     fn test_shortest_path_same_origin_and_destination() {
         let res = 8;
-        let origin = H3Cell::from_coordinate(&Coordinate::from((23.3, 12.3)), res).unwrap();
-        let edge = origin.unidirectional_edges().first().unwrap();
-        let destination = edge.destination_index_unchecked();
+        let origin = H3Cell::from_coordinate(Coordinate::from((23.3, 12.3)), res).unwrap();
+        let edge = origin.directed_edges().unwrap().first().unwrap();
+        let destination = edge.destination_cell().unwrap();
 
         // build a micro-graph
         let prepared_graph: PreparedH3EdgeGraph<_> = {

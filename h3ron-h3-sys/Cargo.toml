@@ -23,6 +23,10 @@ exclude = [
 
 [lib]
 
+[dependencies.geo-types]
+version = "0.7"
+optional = true
+
 [build-dependencies]
 bindgen = "^0.59"
 cmake = "^0.1"

@@ -9,7 +9,7 @@ use osmpbfreader::{OsmPbfReader, Tags};
 
 use h3ron::collections::HashMap;
 use h3ron::iter::continuous_cells_to_edges;
-use h3ron::H3Edge;
+use h3ron::H3DirectedEdge;
 
 use crate::error::Error;
 use crate::graph::{H3EdgeGraph, H3EdgeGraphBuilder};
@@ -35,7 +35,7 @@ pub trait WayAnalyzer<T> {
     /// return the weight for a single `H3Edge`
     fn way_edge_properties(
         &self,
-        edge: H3Edge,
+        edge: H3DirectedEdge,
         way_properties: &Self::WayProperties,
     ) -> EdgeProperties<T>;
 }

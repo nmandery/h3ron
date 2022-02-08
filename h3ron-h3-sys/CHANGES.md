@@ -12,6 +12,10 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 
+### Migration to H3 v4.0.0
+
+* Added `geo-types` feature.
+
 ## h3ron-h3-sys 0.13.0 - 2022-01-23
 ### Changed
 - Switch to rust edition 2021

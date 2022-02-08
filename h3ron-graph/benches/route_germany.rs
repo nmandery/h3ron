@@ -26,19 +26,19 @@ fn load_bench_graph() -> PreparedH3EdgeGraph<OrderedFloat<f64>> {
 
 fn route_across_germany(routing_graph: &PreparedH3EdgeGraph<OrderedFloat<f64>>) {
     let origin_cell = H3Cell::from_coordinate(
-        &Coordinate::from((9.834909439086914, 47.68708804564653)), // Wangen im Allgäu
+        Coordinate::from((9.834909439086914, 47.68708804564653)), // Wangen im Allgäu
         routing_graph.h3_resolution(),
     )
     .unwrap();
 
     let destination_cells = vec![
         H3Cell::from_coordinate(
-            &Coordinate::from((7.20600128173828, 53.3689915114596)), // Emden
+            Coordinate::from((7.20600128173828, 53.3689915114596)), // Emden
             routing_graph.h3_resolution(),
         )
         .unwrap(),
         H3Cell::from_coordinate(
-            &Coordinate::from((13.092269897460938, 54.3153216473314)), // Stralsund
+            Coordinate::from((13.092269897460938, 54.3153216473314)), // Stralsund
             routing_graph.h3_resolution(),
         )
         .unwrap(),
