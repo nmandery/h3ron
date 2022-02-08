@@ -354,7 +354,7 @@ impl ToPolygon for H3Cell {
     /// the polygon spanning the area of the index
     fn to_polygon(&self) -> Result<Polygon<f64>, Self::Error> {
         Ok(CellBoundaryBuilder::new()
-            .iter_cell_boundary_vertices(self, true)
+            .iter_cell_boundary_vertices(self, true)?
             .into())
     }
 }

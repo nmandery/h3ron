@@ -16,7 +16,6 @@ pub trait Index: Sized + PartialEq + FromH3Index {
     fn validate(&self) -> Result<(), Error>;
 
     /// Gets the index resolution (0-15)
-    /// TODO: move to trait, edge + cell
     fn resolution(&self) -> u8 {
         (unsafe { h3ron_h3_sys::getResolution(self.h3index()) }) as u8
     }

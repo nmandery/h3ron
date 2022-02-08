@@ -5,7 +5,7 @@ use geo_types::{Coordinate, LineString, Polygon};
 
 use h3ron_h3_sys::{cellToBoundary, CellBoundary};
 
-use crate::{H3Cell, Index};
+use crate::{Error, H3Cell, Index};
 
 pub struct CellBoundaryBuilder {
     cell_boundary: CellBoundary,
@@ -28,11 +28,11 @@ impl CellBoundaryBuilder {
         &mut self,
         cell: &H3Cell,
         close_ring: bool,
-    ) -> CellBoundaryIter {
-        unsafe {
-            cellToBoundary(cell.h3index(), addr_of_mut!(self.cell_boundary)); // TODO: handle error
-        };
-        CellBoundaryIter::new(&self.cell_boundary, close_ring)
+    ) -> Result<CellBoundaryIter, Error> {
+        Error::check_returncode(unsafe {
+            cellToBoundary(cell.h3index(), addr_of_mut!(self.cell_boundary))
+        })?;
+        Ok(CellBoundaryIter::new(&self.cell_boundary, close_ring))
     }
 }
 

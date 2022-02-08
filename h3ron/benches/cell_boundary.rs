@@ -22,7 +22,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.bench_function("iter boundary builder iter", |bencher| {
         let mut builder = CellBoundaryBuilder::new();
         bencher.iter(|| {
-            let _cnt = builder.iter_cell_boundary_vertices(&cell, true).count();
+            let _cnt = builder
+                .iter_cell_boundary_vertices(&cell, true)
+                .unwrap()
+                .count();
         });
     });
     group.finish();
