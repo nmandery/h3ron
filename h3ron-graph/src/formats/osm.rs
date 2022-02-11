@@ -30,14 +30,14 @@ pub trait WayAnalyzer<T> {
     type WayProperties;
 
     /// analyze the tags of an Way and return `Some` when this way should be used
-    fn analyze_way_tags(&self, tags: &Tags) -> Option<Self::WayProperties>;
+    fn analyze_way_tags(&self, tags: &Tags) -> Result<Option<Self::WayProperties>, Error>;
 
     /// return the weight for a single `H3Edge`
     fn way_edge_properties(
         &self,
         edge: H3DirectedEdge,
         way_properties: &Self::WayProperties,
-    ) -> EdgeProperties<T>;
+    ) -> Result<EdgeProperties<T>, Error>;
 }
 
 /// Builds [`H3EdgeGraph`] instances from .osm.pbf files.
@@ -78,7 +78,7 @@ where
                     nodeid_coordinates.insert(node.id, coordinate);
                 }
                 osmpbfreader::OsmObj::Way(way) => {
-                    if let Some(way_props) = self.way_analyzer.analyze_way_tags(&way.tags) {
+                    if let Some(way_props) = self.way_analyzer.analyze_way_tags(&way.tags)? {
                         let coordinates: Vec<_> = way
                             .nodes
                             .iter()
@@ -92,7 +92,7 @@ where
                             for edge_result in continuous_cells_to_edges(h3indexes) {
                                 let edge = edge_result?;
                                 let edge_props =
-                                    self.way_analyzer.way_edge_properties(edge, &way_props);
+                                    self.way_analyzer.way_edge_properties(edge, &way_props)?;
 
                                 self.graph.add_edge(edge, edge_props.weight)?;
                                 if edge_props.is_bidirectional {
