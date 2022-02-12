@@ -17,9 +17,9 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 
 ### Changed
 
-* Adapt to migration to H3 v4 in h3ron. This means many functions now become failable.
 * Refactored `GetGapBridgedCellNodes` trait to `NearestGraphNodes`
-* Make path transformation functions failable
+* Make OSM parsing failable.
+* Make path transformation functions failable.
 
 ## h3ron-graph 0.3.0 - 2022-01-23
 
