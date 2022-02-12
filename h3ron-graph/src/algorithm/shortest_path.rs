@@ -87,13 +87,13 @@ where
         I::Item: Borrow<H3Cell>,
         OPT: ShortestPathOptions + Send + Sync,
     {
-        self.shortest_path_many_to_many_map(origin_cells, destination_cells, options, |path| path)
+        self.shortest_path_many_to_many_map(origin_cells, destination_cells, options, Ok)
     }
 
     /// Returns found paths, transformed by the `path_map_fn` and keyed by the
     /// origin cell.
     ///
-    /// `path_map_fn` can be used to directly convert the paths to a less memory intensive
+    /// `path_transform_fn` can be used to directly convert the paths to a less memory intensive
     /// type.
     ///
     /// All cells must be in the h3 resolution of the graph.
@@ -102,13 +102,13 @@ where
         origin_cells: I,
         destination_cells: I,
         options: &OPT,
-        path_map_fn: PM,
+        path_transform_fn: PM,
     ) -> Result<H3CellMap<Vec<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
         OPT: ShortestPathOptions + Send + Sync,
-        PM: Fn(Path<W>) -> O + Send + Sync,
+        PM: Fn(Path<W>) -> Result<O, Error> + Send + Sync,
         O: Send + Ord + Clone;
 }
 
@@ -122,13 +122,13 @@ where
         origin_cells: I,
         destination_cells: I,
         options: &OPT,
-        path_map_fn: PM,
+        path_transform_fn: PM,
     ) -> Result<H3CellMap<Vec<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
         OPT: ShortestPathOptions + Send + Sync,
-        PM: Fn(Path<W>) -> O + Send + Sync,
+        PM: Fn(Path<W>) -> Result<O, Error> + Send + Sync,
         O: Send + Ord + Clone,
     {
         let filtered_origin_cells =
@@ -161,30 +161,54 @@ where
         for par_result in filtered_origin_cells
             .par_iter()
             .map(|(graph_connected_origin_cell, output_origin_cells)| {
-                let paths: Result<Vec<_>, _> = edge_dijkstra(
+                shortest_path_many_worker(
                     self,
                     graph_connected_origin_cell,
                     &filtered_destination_cells,
-                    options.num_destinations_to_reach(),
+                    output_origin_cells.as_slice(),
+                    options,
+                    &path_transform_fn,
                 )
-                .map(|mut paths| {
-                    let mapped_paths: Vec<_> = paths.drain(..).map(&path_map_fn).collect();
-
-                    output_origin_cells
-                        .iter()
-                        .map(|out_cell| (*out_cell, mapped_paths.clone()))
-                        .collect::<Vec<_>>()
-                });
-                paths
             })
-            .collect::<Vec<_>>()
+            .collect::<Result<Vec<_>, _>>()?
         {
-            for (out_cell, mapped_paths) in par_result? {
+            for (out_cell, mapped_paths) in par_result {
                 cellmap.insert(out_cell, mapped_paths);
             }
         }
         Ok(cellmap)
     }
+}
+
+fn shortest_path_many_worker<G, W, OPT, PM, O>(
+    graph: &G,
+    origin_cell: &H3Cell,
+    destination_cells: &H3Treemap<H3Cell>,
+    output_origin_cells: &[H3Cell],
+    options: &OPT,
+    path_transform_fn: PM,
+) -> Result<Vec<(H3Cell, Vec<O>)>, Error>
+where
+    G: GetEdge<EdgeWeightType = W>,
+    W: Add + Copy + Ord + Zero,
+    PM: Fn(Path<W>) -> Result<O, Error>,
+    O: Clone,
+    OPT: ShortestPathOptions,
+{
+    let paths = edge_dijkstra(
+        graph,
+        origin_cell,
+        destination_cells,
+        options.num_destinations_to_reach(),
+    )?
+    .drain(..)
+    .map(path_transform_fn)
+    .collect::<Result<Vec<O>, _>>()?;
+
+    Ok(output_origin_cells
+        .iter()
+        .map(|out_cell| (*out_cell, paths.clone()))
+        .collect::<Vec<_>>())
 }
 
 impl<W, G> ShortestPath<W> for G

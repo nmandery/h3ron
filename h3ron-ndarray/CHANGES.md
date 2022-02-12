@@ -16,6 +16,7 @@ structs to stay somewhat consistent [with the changes made in H3](https://github
 as well as making most functions return `Result<T, Error>` as H3 now returns error codes in most functions of its API.
 
 ### Changed
+* Adapt to migration to H3 v4 in h3ron. This means many functions now become failable.
 
 ## h3ron-ndarray 0.14.0 - 2022-01-23
 ### Changed

@@ -50,7 +50,7 @@ where
             destination_cells,
             exclude_cells,
             options,
-            |path| path,
+            Ok,
         )
     }
 
@@ -60,14 +60,14 @@ where
         destination_cells: I,
         exclude_cells: &H3Treemap<H3Cell>,
         options: &OPT,
-        path_map_fn: PM,
+        path_transform_fn: PM,
     ) -> Result<HashMap<H3Cell, ExclusionDiff<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
         OPT: ShortestPathOptions + Send + Sync,
         O: Send + Ord + Clone,
-        PM: Fn(Path<W>) -> O + Send + Sync;
+        PM: Fn(Path<W>) -> Result<O, Error> + Send + Sync;
 }
 
 impl<G, W> DifferentialShortestPath<W> for G
@@ -86,14 +86,14 @@ where
         destination_cells: I,
         exclude_cells: &H3Treemap<H3Cell>,
         options: &OPT,
-        path_map_fn: PM,
+        path_transform_fn: PM,
     ) -> Result<HashMap<H3Cell, ExclusionDiff<O>>, Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell>,
         OPT: ShortestPathOptions + Send + Sync,
         O: Send + Ord + Clone,
-        PM: Fn(Path<W>) -> O + Send + Sync,
+        PM: Fn(Path<W>) -> Result<O, Error> + Send + Sync,
     {
         if exclude_cells.is_empty() {
             return Err(Error::Other("exclude_cells must not be empty".to_string()));
@@ -112,7 +112,7 @@ where
             &origin_cells,
             &destination_cells,
             options,
-            &path_map_fn,
+            &path_transform_fn,
         )?;
 
         let exclude_wrapper = ExcludeCells::new(self, exclude_cells);
@@ -120,7 +120,7 @@ where
             &origin_cells,
             &destination_cells,
             options,
-            path_map_fn,
+            path_transform_fn,
         )?;
 
         let mut out_diffs = H3CellMap::with_capacity(paths_before.len());
