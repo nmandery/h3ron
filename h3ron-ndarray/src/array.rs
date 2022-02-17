@@ -6,7 +6,7 @@ use geo_types::{Coordinate, Rect};
 use log::debug;
 use ndarray::{parallel::prelude::*, ArrayView2, Axis};
 
-use h3ron::{collections::CompactedCellVec, polyfill, ToCoordinate};
+use h3ron::{collections::CompactedCellVec, polygon_to_cells, ToCoordinate};
 
 use crate::resolution::{nearest_h3_resolution, ResolutionSearchMode};
 use crate::{error::Error, transform::Transform};
@@ -15,6 +15,7 @@ use crate::{error::Error, transform::Transform};
 //use rayon::prelude::*;
 
 /// The order of the axis in the two-dimensional array
+#[derive(Copy, Clone)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum AxisOrder {
     /// `X,Y` ordering
@@ -248,17 +249,6 @@ where
         )
     }
 
-    fn finalize_chunk_map(&self, chunk_map: &mut HashMap<&T, CompactedCellVec>, compact: bool) {
-        chunk_map.iter_mut().for_each(|(_value, compacted_vec)| {
-            if compact {
-                compacted_vec.compact();
-            } else {
-                compacted_vec.dedup();
-            }
-            compacted_vec.shrink_to_fit();
-        });
-    }
-
     pub fn to_h3(
         &self,
         h3_resolution: u8,
@@ -292,42 +282,17 @@ where
                 // the window in geographical coordinates
                 let window_box = self.transform * &array_window;
 
-                let mut chunk_h3_map = HashMap::<&T, CompactedCellVec>::new();
-                for cell in polyfill(&window_box.to_polygon(), h3_resolution).drain() {
-                    // find the array element for the coordinate of the h3ron index
-                    let arr_coord = {
-                        let transformed = &inverse_transform * cell.to_coordinate();
-
-                        match self.axis_order {
-                            AxisOrder::XY => [
-                                transformed.x.floor() as usize,
-                                transformed.y.floor() as usize,
-                            ],
-                            AxisOrder::YX => [
-                                transformed.y.floor() as usize,
-                                transformed.x.floor() as usize,
-                            ],
-                        }
-                    };
-                    if let Some(value) = self.arr.get(arr_coord) {
-                        if let Some(nodata) = self.nodata_value {
-                            if nodata == value {
-                                continue;
-                            }
-                        }
-                        chunk_h3_map
-                            .entry(value)
-                            .or_insert_with(CompactedCellVec::new)
-                            .add_cell(cell, false);
-                    }
-                }
-
-                // do an early compacting to free a bit of memory
-                self.finalize_chunk_map(&mut chunk_h3_map, compact);
-
-                chunk_h3_map
+                convert_array_window(
+                    self.arr,
+                    window_box,
+                    &inverse_transform,
+                    self.axis_order,
+                    self.nodata_value,
+                    h3_resolution,
+                    compact,
+                )
             })
-            .collect::<Vec<_>>();
+            .collect::<Result<Vec<_>, _>>()?;
 
         // combine the results from all chunks
         let mut h3_map = HashMap::new();
@@ -336,13 +301,76 @@ where
                 h3_map
                     .entry(value)
                     .or_insert_with(CompactedCellVec::new)
-                    .append(&mut compacted_vec, false);
+                    .append(&mut compacted_vec, false)?;
             }
         }
 
-        self.finalize_chunk_map(&mut h3_map, compact);
+        finalize_chunk_map(&mut h3_map, compact)?;
         Ok(h3_map)
     }
+}
+
+fn convert_array_window<'a, T>(
+    arr: &'a ArrayView2<'a, T>,
+    window_box: Rect<f64>,
+    inverse_transform: &Transform,
+    axis_order: AxisOrder,
+    nodata_value: &Option<T>,
+    h3_resolution: u8,
+    compact: bool,
+) -> Result<HashMap<&'a T, CompactedCellVec>, Error>
+where
+    T: Sized + PartialEq + Sync + Eq + Hash,
+{
+    let mut chunk_h3_map = HashMap::<&T, CompactedCellVec>::new();
+    for cell in polygon_to_cells(&window_box.to_polygon(), h3_resolution)?.drain() {
+        // find the array element for the coordinate of the h3ron index
+        let arr_coord = {
+            let transformed = inverse_transform * cell.to_coordinate()?;
+
+            match axis_order {
+                AxisOrder::XY => [
+                    transformed.x.floor() as usize,
+                    transformed.y.floor() as usize,
+                ],
+                AxisOrder::YX => [
+                    transformed.y.floor() as usize,
+                    transformed.x.floor() as usize,
+                ],
+            }
+        };
+        if let Some(value) = arr.get(arr_coord) {
+            if let Some(nodata) = nodata_value {
+                if nodata == value {
+                    continue;
+                }
+            }
+            chunk_h3_map
+                .entry(value)
+                .or_insert_with(CompactedCellVec::new)
+                .add_cell(cell, false)?;
+        }
+    }
+
+    // do an early compacting to free a bit of memory
+    finalize_chunk_map(&mut chunk_h3_map, compact)?;
+
+    Ok(chunk_h3_map)
+}
+
+fn finalize_chunk_map<T>(
+    chunk_map: &mut HashMap<&T, CompactedCellVec>,
+    compact: bool,
+) -> Result<(), Error> {
+    for (_, compacted_vec) in chunk_map.iter_mut() {
+        if compact {
+            compacted_vec.compact()?;
+        } else {
+            compacted_vec.dedup()?;
+        }
+        compacted_vec.shrink_to_fit();
+    }
+    Ok(())
 }
 
 #[cfg(test)]

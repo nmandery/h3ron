@@ -4,36 +4,48 @@ use std::os::raw::c_int;
 use geo::algorithm::euclidean_distance::EuclideanDistance;
 use geo_types::{Coordinate, LineString, MultiLineString, Point, Polygon};
 
-use h3ron_h3_sys::{destroyLinkedPolygon, h3SetToLinkedGeo, H3Index, LinkedGeoPolygon};
+use h3ron_h3_sys::H3Index;
 
 use crate::algorithm::smoothen_h3_linked_polygon;
 use crate::collections::indexvec::IndexVec;
 use crate::collections::CompactedCellVec;
-use crate::{Error, H3Cell, Index};
+use crate::{Error, H3Cell};
 
 pub trait ToPolygon {
-    fn to_polygon(&self) -> Polygon<f64>;
+    type Error;
+
+    fn to_polygon(&self) -> Result<Polygon<f64>, Self::Error>;
 }
 
 pub trait ToCoordinate {
-    fn to_coordinate(&self) -> Coordinate<f64>;
+    type Error;
+
+    fn to_coordinate(&self) -> Result<Coordinate<f64>, Self::Error>;
 }
 
 pub trait ToLineString {
-    fn to_linestring(&self) -> Result<LineString<f64>, Error>;
+    type Error;
+
+    fn to_linestring(&self) -> Result<LineString<f64>, Self::Error>;
 }
 
 pub trait ToMultiLineString {
-    fn to_multilinestring(&self) -> Result<MultiLineString<f64>, Error>;
+    type Error;
+
+    fn to_multilinestring(&self) -> Result<MultiLineString<f64>, Self::Error>;
 }
 
 /// join hexagon polygons to larger polygons where hexagons are touching each other
 pub trait ToLinkedPolygons {
-    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>>;
+    type Error;
+
+    fn to_linked_polygons(&self, smoothen: bool) -> Result<Vec<Polygon<f64>>, Self::Error>;
 }
 
 impl ToLinkedPolygons for Vec<H3Cell> {
-    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
+    type Error = Error;
+
+    fn to_linked_polygons(&self, smoothen: bool) -> Result<Vec<Polygon<f64>>, Self::Error> {
         let mut cells = self.clone();
         cells.sort_unstable();
         cells.dedup();
@@ -42,7 +54,9 @@ impl ToLinkedPolygons for Vec<H3Cell> {
 }
 
 impl ToLinkedPolygons for IndexVec<H3Cell> {
-    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
+    type Error = Error;
+
+    fn to_linked_polygons(&self, smoothen: bool) -> Result<Vec<Polygon<f64>>, Self::Error> {
         let mut cells = self.iter().collect::<Vec<_>>();
         cells.sort_unstable();
         cells.dedup();
@@ -51,14 +65,20 @@ impl ToLinkedPolygons for IndexVec<H3Cell> {
 }
 
 impl ToLinkedPolygons for CompactedCellVec {
-    fn to_linked_polygons(&self, smoothen: bool) -> Vec<Polygon<f64>> {
-        self.finest_resolution_contained()
-            .map_or_else(Vec::new, |res| {
-                let mut cells: Vec<_> = self.iter_uncompacted_cells(res).collect();
+    type Error = Error;
+
+    fn to_linked_polygons(&self, smoothen: bool) -> Result<Vec<Polygon<f64>>, Self::Error> {
+        match self.finest_resolution_contained() {
+            Some(resolution) => {
+                let mut cells: Vec<_> = self
+                    .iter_uncompacted_cells(resolution)
+                    .collect::<Result<Vec<_>, _>>()?;
                 cells.sort_unstable();
                 cells.dedup();
                 to_linked_polygons(&cells, smoothen)
-            })
+            }
+            None => Ok(Vec::new()),
+        }
     }
 }
 
@@ -72,22 +92,26 @@ impl ToLinkedPolygons for CompactedCellVec {
 ///
 /// This algorithm still needs some optimization to improve the runtime.
 pub trait ToAlignedLinkedPolygons {
+    type Error;
+
     fn to_aligned_linked_polygons(
         &self,
         align_to_h3_resolution: u8,
         smoothen: bool,
-    ) -> Vec<Polygon<f64>>;
+    ) -> Result<Vec<Polygon<f64>>, Self::Error>;
 }
 
 impl ToAlignedLinkedPolygons for Vec<H3Cell> {
+    type Error = Error;
+
     fn to_aligned_linked_polygons(
         &self,
         align_to_h3_resolution: u8,
         smoothen: bool,
-    ) -> Vec<Polygon<f64>> {
+    ) -> Result<Vec<Polygon<f64>>, Self::Error> {
         let mut cells_grouped = H3CellMap::default();
         for cell in self.iter() {
-            let parent_cell = cell.get_parent_unchecked(align_to_h3_resolution);
+            let parent_cell = cell.get_parent(align_to_h3_resolution)?;
             cells_grouped
                 .entry(parent_cell)
                 .or_insert_with(Self::new)
@@ -102,7 +126,7 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
                 //
 
                 let parent_poly_vertices: Vec<_> = parent_cell
-                    .to_polygon()
+                    .to_polygon()?
                     .exterior()
                     .0
                     .iter()
@@ -111,13 +135,13 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
 
                 // edge length of the child indexes
                 let edge_length = {
-                    let ring = cells[0].to_polygon();
+                    let ring = cells[0].to_polygon()?;
                     let p1 = Point::from(ring.exterior().0[0]);
                     let p2 = Point::from(ring.exterior().0[1]);
                     p1.euclidean_distance(&p2)
                 };
 
-                for poly in to_linked_polygons(&cells, true).drain(..) {
+                for poly in to_linked_polygons(&cells, true)?.drain(..) {
                     let points_new: Vec<_> = poly
                         .exterior()
                         .0
@@ -136,10 +160,10 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
                     ));
                 }
             } else {
-                polygons.append(&mut to_linked_polygons(&cells, false));
+                polygons.append(&mut to_linked_polygons(&cells, false)?);
             }
         }
-        polygons
+        Ok(polygons)
     }
 }
 
@@ -149,12 +173,12 @@ impl ToAlignedLinkedPolygons for Vec<H3Cell> {
 /// H3 artifacts.
 ///
 /// for this case, the slice must already be deduplicated, and all h3 cells must be the same resolutions
-pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>> {
+pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Result<Vec<Polygon<f64>>, Error> {
     if cells.is_empty() {
-        return vec![];
+        return Ok(vec![]);
     }
     unsafe {
-        let mut lgp = LinkedGeoPolygon {
+        let mut lgp = h3ron_h3_sys::LinkedGeoPolygon {
             first: std::ptr::null_mut(),
             last: std::ptr::null_mut(),
             next: std::ptr::null_mut(),
@@ -162,7 +186,7 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>>
         // the following requires `repr(transparent)` on H3Cell
         let h3index_slice =
             std::slice::from_raw_parts(cells.as_ptr().cast::<H3Index>(), cells.len());
-        h3SetToLinkedGeo(
+        h3ron_h3_sys::cellsToLinkedMultiPolygon(
             h3index_slice.as_ptr(),
             h3index_slice.len() as c_int,
             &mut lgp,
@@ -180,7 +204,7 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>>
                 let mut cur_linked_geo_coord = linked_loop.first.as_ref();
                 while let Some(linked_coord) = cur_linked_geo_coord {
                     coordinates.push((
-                        (linked_coord.vertex.lon as f64).to_degrees(),
+                        (linked_coord.vertex.lng as f64).to_degrees(),
                         (linked_coord.vertex.lat as f64).to_degrees(),
                     ));
                     cur_linked_geo_coord = linked_coord.next.as_ref();
@@ -208,8 +232,8 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Vec<Polygon<f64>>
             }
             cur_linked_geo_polygon = poly.next.as_ref();
         }
-        destroyLinkedPolygon(&mut lgp);
-        polygons
+        h3ron_h3_sys::destroyLinkedMultiPolygon(&mut lgp);
+        Ok(polygons)
     }
 }
 
@@ -221,11 +245,11 @@ mod tests {
 
     #[test]
     fn donut_linked_polygon() {
-        let ring = H3Cell::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
+        let ring = H3Cell::from_coordinate(Coordinate::from((23.3, 12.3)), 6)
             .unwrap()
-            .hex_ring(1)
+            .grid_ring_unsafe(1)
             .unwrap();
-        let polygons = ring.to_linked_polygons(false);
+        let polygons = ring.to_linked_polygons(false).unwrap();
         assert_eq!(polygons.len(), 1);
         assert_eq!(polygons[0].exterior().0.len(), 19);
         assert_eq!(polygons[0].interiors().len(), 1);

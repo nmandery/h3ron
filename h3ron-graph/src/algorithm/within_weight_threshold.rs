@@ -9,6 +9,7 @@ use h3ron::collections::H3CellMap;
 use h3ron::H3Cell;
 
 use crate::algorithm::dijkstra::edge_dijkstra_weight_threshold;
+use crate::error::Error;
 use crate::graph::GetEdge;
 
 /// Find all cells connected to the graph around a origin cell within a given threshold
@@ -19,7 +20,7 @@ pub trait WithinWeightThreshold<W> {
         &self,
         origin_cell: H3Cell,
         weight_threshold: W,
-    ) -> H3CellMap<W>;
+    ) -> Result<H3CellMap<W>, Error>;
 }
 
 impl<W, G> WithinWeightThreshold<W> for G
@@ -31,7 +32,7 @@ where
         &self,
         origin_cell: H3Cell,
         weight_threshold: W,
-    ) -> H3CellMap<W> {
+    ) -> Result<H3CellMap<W>, Error> {
         edge_dijkstra_weight_threshold(self, &origin_cell, weight_threshold)
     }
 }
@@ -48,7 +49,7 @@ pub trait WithinWeightThresholdMany<W> {
         origin_cells: I,
         weight_threshold: W,
         agg_fn: AGG,
-    ) -> H3CellMap<W>
+    ) -> Result<H3CellMap<W>, Error>
     where
         I: IntoParallelIterator,
         I::Item: Borrow<H3Cell>,
@@ -65,7 +66,7 @@ where
         origin_cells: I,
         weight_threshold: W,
         agg_fn: AGG,
-    ) -> H3CellMap<W>
+    ) -> Result<H3CellMap<W>, Error>
     where
         I: IntoParallelIterator,
         I::Item: Borrow<H3Cell>,
@@ -74,7 +75,7 @@ where
         origin_cells
             .into_par_iter()
             .map(|item| self.cells_within_weight_threshold(*item.borrow(), weight_threshold))
-            .reduce_with(|cellmap1, cellmap2| {
+            .try_reduce_with(|cellmap1, cellmap2| {
                 // select the source and target maps, to move the contents of the map with fewer elements, to the map
                 // with more elements. This should save quite a few hashing operations.
                 let (source_cellmap, mut target_cellmap) = if cellmap1.len() < cellmap2.len() {
@@ -93,9 +94,9 @@ where
                         }
                     };
                 }
-                target_cellmap
+                Ok(target_cellmap)
             })
-            .unwrap_or_default()
+            .unwrap_or_else(|| Ok(Default::default()))
     }
 }
 
@@ -134,8 +135,10 @@ mod tests {
     #[test]
     fn test_cells_within_weight_threshold() {
         let (cell_sequence, prepared_graph) = line_graph(10);
-        assert!(prepared_graph.get_stats().num_edges > 10);
-        let within_threshold = prepared_graph.cells_within_weight_threshold(cell_sequence[0], 30);
+        assert!(prepared_graph.get_stats().unwrap().num_edges > 10);
+        let within_threshold = prepared_graph
+            .cells_within_weight_threshold(cell_sequence[0], 30)
+            .unwrap();
         assert_eq!(within_threshold.len(), 4);
         let weights: Vec<_> = within_threshold.values().copied().collect();
         assert!(weights.contains(&0));
@@ -147,7 +150,7 @@ mod tests {
     #[test]
     fn test_cells_within_weight_threshold_many() {
         let (cell_sequence, prepared_graph) = line_graph(10);
-        assert!(prepared_graph.get_stats().num_edges > 20);
+        assert!(prepared_graph.get_stats().unwrap().num_edges > 20);
 
         let origin_cells = vec![
             cell_sequence[0],
@@ -155,16 +158,18 @@ mod tests {
             cell_sequence[10],
         ];
 
-        let within_threshold = prepared_graph.cells_within_weight_threshold_many(
-            &origin_cells,
-            30,
-            // use the minimum weight encountered
-            |existing, new| {
-                if new < *existing {
-                    *existing = new
-                }
-            },
-        );
+        let within_threshold = prepared_graph
+            .cells_within_weight_threshold_many(
+                &origin_cells,
+                30,
+                // use the minimum weight encountered
+                |existing, new| {
+                    if new < *existing {
+                        *existing = new
+                    }
+                },
+            )
+            .unwrap();
         assert_eq!(within_threshold.len(), 9);
         let weights_freq = within_threshold
             .iter()

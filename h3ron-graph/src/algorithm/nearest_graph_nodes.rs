@@ -1,3 +1,4 @@
+use crate::error::Error;
 use crate::graph::node::NodeType;
 use crate::graph::GetCellNode;
 use h3ron::H3Cell;
@@ -11,7 +12,7 @@ pub trait NearestGraphNodes {
         &self,
         cell: &H3Cell,
         max_distance_k: u32,
-    ) -> NearestGraphNodesGetCellIter<Self>
+    ) -> Result<NearestGraphNodesGetCellIter<Self>, Error>
     where
         Self: Sized;
 }
@@ -51,17 +52,17 @@ where
         &self,
         cell: &H3Cell,
         max_distance_k: u32,
-    ) -> NearestGraphNodesGetCellIter<G> {
-        let mut neighbors = cell.k_ring_distances(0, max_distance_k);
+    ) -> Result<NearestGraphNodesGetCellIter<G>, Error> {
+        let mut neighbors = cell.grid_disk_distances(0, max_distance_k)?;
 
         // reverse the order to gave the nearest neighbors first
         neighbors.sort_unstable_by_key(|neighbor| max_distance_k - neighbor.0);
 
-        NearestGraphNodesGetCellIter {
+        Ok(NearestGraphNodesGetCellIter {
             graph: self,
             neighbors_reversed: neighbors,
             found_max_k: max_distance_k,
-        }
+        })
     }
 }
 
@@ -83,12 +84,12 @@ mod tests {
     fn nearest_finds_given_cell_first() {
         let cell = H3Cell::new(0x89283080ddbffff_u64);
         let mut cellset = H3CellSet::new();
-        for ring_cell in cell.k_ring(3).iter() {
+        for ring_cell in cell.grid_disk(3).unwrap().iter() {
             cellset.insert(ring_cell);
         }
-        assert_eq!(cellset.nearest_graph_nodes(&cell, 3).count(), 1);
+        assert_eq!(cellset.nearest_graph_nodes(&cell, 3).unwrap().count(), 1);
         assert_eq!(
-            cellset.nearest_graph_nodes(&cell, 3).next(),
+            cellset.nearest_graph_nodes(&cell, 3).unwrap().next(),
             Some((cell, NodeType::OriginAndDestination, 0))
         );
     }
@@ -98,15 +99,15 @@ mod tests {
         let cell = H3Cell::new(0x89283080ddbffff_u64);
         let mut cellset = H3CellSet::new();
         let mut expected = H3CellSet::new();
-        for (_, ring_cell) in cell.k_ring_distances(2, 3).iter().take(2) {
+        for (_, ring_cell) in cell.grid_disk_distances(2, 3).unwrap().iter().take(2) {
             cellset.insert(*ring_cell);
             expected.insert(*ring_cell);
         }
-        for (_, ring_cell) in cell.k_ring_distances(4, 5).iter().take(2) {
+        for (_, ring_cell) in cell.grid_disk_distances(4, 5).unwrap().iter().take(2) {
             cellset.insert(*ring_cell);
         }
-        assert_eq!(cellset.nearest_graph_nodes(&cell, 8).count(), 2);
-        for (nearest_cell, _, _) in cellset.nearest_graph_nodes(&cell, 8) {
+        assert_eq!(cellset.nearest_graph_nodes(&cell, 8).unwrap().count(), 2);
+        for (nearest_cell, _, _) in cellset.nearest_graph_nodes(&cell, 8).unwrap() {
             assert!(expected.contains(&nearest_cell));
         }
     }

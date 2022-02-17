@@ -84,11 +84,11 @@ mod tests {
 
     #[test]
     fn smooth_donut_linked_polygon() {
-        let ring = H3Cell::from_coordinate(&Coordinate::from((23.3, 12.3)), 6)
+        let ring = H3Cell::from_coordinate(Coordinate::from((23.3, 12.3)), 6)
             .unwrap()
-            .hex_ring(4)
+            .grid_ring_unsafe(4)
             .unwrap();
-        let polygons = ring.to_linked_polygons(false);
+        let polygons = ring.to_linked_polygons(false).unwrap();
         assert_eq!(polygons.len(), 1);
 
         //let gj_in = geojson::Value::from(&polygons[0]);

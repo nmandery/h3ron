@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::error::Error;
 use std::marker::PhantomData;
 
 use roaring::RoaringTreemap;
@@ -123,6 +124,29 @@ where
             phantom_data: Default::default(),
         }
     }
+
+    /// create this struct from an iterator over results. The iterator is consumed
+    /// and sorted in memory before creating the Treemap - this can greatly
+    /// reduce the creation time.
+    ///
+    /// Requires accumulating the whole iterator in memory for a short while.
+    pub fn from_result_iter_with_sort<E, I>(iter: I) -> Result<Self, E>
+    where
+        E: Error,
+        I: IntoIterator<Item = Result<T, E>>,
+    {
+        // pre-sort for improved creation-speed of the RoaringTreemap
+        let mut h3indexes = iter
+            .into_iter()
+            .map(|c| c.map(|c| c.h3index() as u64))
+            .collect::<Result<Vec<_>, E>>()?;
+        h3indexes.sort_unstable();
+
+        Ok(Self {
+            treemap: RoaringTreemap::from_sorted_iter(h3indexes.drain(..)).unwrap(),
+            phantom_data: Default::default(),
+        })
+    }
 }
 
 impl<I: Index> ContainsIndex<I> for H3Treemap<I> {
@@ -161,7 +185,7 @@ mod tests {
     fn iter() {
         let idx = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
         let mut treemap = H3Treemap::default();
-        for cell in idx.k_ring(1).iter() {
+        for cell in idx.grid_disk(1).unwrap().iter() {
             treemap.insert(cell);
         }
         assert_eq!(treemap.iter().count(), 7);

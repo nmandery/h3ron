@@ -3,8 +3,9 @@ use std::ops::Add;
 
 use num_traits::Zero;
 
+use crate::error::Error;
 use h3ron::collections::H3Treemap;
-use h3ron::{H3Cell, H3Edge, HasH3Resolution};
+use h3ron::{H3Cell, H3DirectedEdge, HasH3Resolution};
 
 use crate::graph::node::NodeType;
 use crate::graph::{EdgeWeight, GetCellNode, GetEdge};
@@ -51,13 +52,13 @@ where
 {
     type EdgeWeightType = G::EdgeWeightType;
 
-    fn get_edge(&self, edge: &H3Edge) -> Option<EdgeWeight<Self::EdgeWeightType>> {
-        if self
-            .cells_to_exclude
-            .contains(&edge.destination_index_unchecked())
-        {
-            None
-        } else if let Some(edge_value) = self.inner_graph.get_edge(edge) {
+    fn get_edge(
+        &self,
+        edge: &H3DirectedEdge,
+    ) -> Result<Option<EdgeWeight<Self::EdgeWeightType>>, Error> {
+        if self.cells_to_exclude.contains(&edge.destination_cell()?) {
+            Ok(None)
+        } else if let Some(edge_value) = self.inner_graph.get_edge(edge)? {
             // remove the longedge when it contains any excluded cell
             let filtered_longedge_opt =
                 if let Some((longedge, longedge_weight)) = edge_value.longedge {
@@ -70,12 +71,12 @@ where
                     None
                 };
 
-            Some(EdgeWeight {
+            Ok(Some(EdgeWeight {
                 weight: edge_value.weight,
                 longedge: filtered_longedge_opt,
-            })
+            }))
         } else {
-            None
+            Ok(None)
         }
     }
 }

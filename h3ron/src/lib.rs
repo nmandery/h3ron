@@ -25,28 +25,25 @@ use std::os::raw::c_int;
 
 use geo_types::{LineString, Polygon};
 
-use h3ron_h3_sys::{GeoCoord, GeoPolygon, Geofence, H3Index};
+use h3ron_h3_sys::{GeoLoop, GeoPolygon, H3Index, LatLng};
 pub use to_geo::{
     to_linked_polygons, ToAlignedLinkedPolygons, ToCoordinate, ToLinkedPolygons, ToPolygon,
 };
 pub use {
-    error::Error, h3_cell::H3Cell, h3_direction::H3Direction, h3_edge::H3Edge,
+    cell::H3Cell, directed_edge::H3DirectedEdge, direction::H3Direction, error::Error,
     index::HasH3Resolution, index::Index, to_h3::ToH3Cells,
 };
 
 use crate::collections::indexvec::IndexVec;
-use crate::error::check_same_resolution;
-use crate::util::linestring_to_geocoords;
 
 #[macro_use]
-mod util;
 pub mod algorithm;
+mod cell;
 pub mod collections;
+mod directed_edge;
+mod direction;
 pub mod error;
 pub mod experimental;
-mod h3_cell;
-mod h3_direction;
-mod h3_edge;
 mod index;
 #[cfg(feature = "io")]
 pub mod io;
@@ -68,147 +65,126 @@ impl FromH3Index for H3Index {
     }
 }
 
-/// trait for types with a measurable area
-pub trait ExactArea {
-    /// Retrieves the exact area of `self` in square meters
-    fn exact_area_m2(&self) -> f64;
-
-    /// Retrieves the exact area of `self` in square kilometers
-    fn exact_area_km2(&self) -> f64;
-
-    /// Retrieves the exact area of `self` in square radians
-    fn exact_area_rads2(&self) -> f64;
-}
-
-/// trait for types with a measurable length
-pub trait ExactLength {
-    /// Retrieves the exact length of `self` in meters
-    fn exact_length_m(&self) -> f64;
-
-    /// Retrieves the exact length of `self` in kilometers
-    fn exact_length_km(&self) -> f64;
-
-    /// Retrieves the exact length of `self` in radians
-    fn exact_length_rads(&self) -> f64;
-}
-
-unsafe fn to_geofence(ring: &mut Vec<GeoCoord>) -> Geofence {
-    Geofence {
+fn to_geoloop(ring: &mut Vec<LatLng>) -> GeoLoop {
+    GeoLoop {
         numVerts: ring.len() as c_int,
         verts: ring.as_mut_ptr(),
     }
 }
 
-pub fn max_polyfill_size(poly: &Polygon<f64>, h3_resolution: u8) -> usize {
-    unsafe {
-        let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(poly.exterior());
-        let mut interiors: Vec<Vec<GeoCoord>> = poly
-            .interiors()
-            .iter()
-            .map(|ls| linestring_to_geocoords(ls))
-            .collect();
+fn with_geopolygon<F, O>(poly: &Polygon<f64>, inner_fn: F) -> O
+where
+    F: Fn(&GeoPolygon) -> O,
+{
+    let mut exterior: Vec<LatLng> = linestring_to_latlng_vec(poly.exterior());
+    let mut interiors: Vec<Vec<LatLng>> = poly
+        .interiors()
+        .iter()
+        .map(linestring_to_latlng_vec)
+        .collect();
 
-        let mut holes: Vec<Geofence> = interiors.iter_mut().map(|ring| to_geofence(ring)).collect();
+    let mut holes: Vec<GeoLoop> = interiors.iter_mut().map(to_geoloop).collect();
 
-        let gp = GeoPolygon {
-            geofence: to_geofence(&mut exterior),
-            numHoles: holes.len() as c_int,
-            holes: holes.as_mut_ptr(),
-        };
-
-        h3ron_h3_sys::maxPolyfillSize(&gp, c_int::from(h3_resolution)) as usize
-    }
+    let geo_polygon = GeoPolygon {
+        geoloop: to_geoloop(&mut exterior),
+        numHoles: holes.len() as c_int,
+        holes: holes.as_mut_ptr(),
+    };
+    inner_fn(&geo_polygon)
 }
 
-pub fn polyfill(poly: &Polygon<f64>, h3_resolution: u8) -> IndexVec<H3Cell> {
-    unsafe {
-        let mut exterior: Vec<GeoCoord> = linestring_to_geocoords(poly.exterior());
-        let mut interiors: Vec<Vec<GeoCoord>> = poly
-            .interiors()
-            .iter()
-            .map(|ls| linestring_to_geocoords(ls))
-            .collect();
+#[inline]
+fn linestring_to_latlng_vec(ls: &LineString<f64>) -> Vec<LatLng> {
+    ls.points_iter().map(LatLng::from).collect()
+}
 
-        let mut holes: Vec<Geofence> = interiors.iter_mut().map(|ring| to_geofence(ring)).collect();
+fn max_polygon_to_cells_size_internal(gp: &GeoPolygon, h3_resolution: u8) -> Result<usize, Error> {
+    let mut cells_size: i64 = 0;
+    Error::check_returncode(unsafe {
+        h3ron_h3_sys::maxPolygonToCellsSize(gp, c_int::from(h3_resolution), 0, &mut cells_size)
+    })?;
+    Ok(cells_size as usize)
+}
 
-        let gp = GeoPolygon {
-            geofence: to_geofence(&mut exterior),
-            numHoles: holes.len() as c_int,
-            holes: holes.as_mut_ptr(),
-        };
+pub fn max_polygon_to_cells_size(poly: &Polygon<f64>, h3_resolution: u8) -> Result<usize, Error> {
+    with_geopolygon(poly, |gp| {
+        max_polygon_to_cells_size_internal(gp, h3_resolution)
+    })
+}
 
-        let num_hexagons = h3ron_h3_sys::maxPolyfillSize(&gp, c_int::from(h3_resolution));
+pub fn polygon_to_cells(poly: &Polygon<f64>, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
+    with_geopolygon(poly, |gp| {
+        match max_polygon_to_cells_size_internal(gp, h3_resolution) {
+            Ok(cells_size) => {
+                // pre-allocate for the expected number of hexagons
+                let mut index_vec = IndexVec::with_length(cells_size as usize);
 
-        // pre-allocate for the expected number of hexagons
-        let mut index_vec = IndexVec::with_length(num_hexagons as usize);
-
-        h3ron_h3_sys::polyfill(&gp, c_int::from(h3_resolution), index_vec.as_mut_ptr());
-        index_vec
-    }
+                match Error::check_returncode(unsafe {
+                    h3ron_h3_sys::polygonToCells(
+                        gp,
+                        c_int::from(h3_resolution),
+                        0,
+                        index_vec.as_mut_ptr(),
+                    )
+                }) {
+                    Ok(()) => Ok(index_vec),
+                    Err(e) => Err(e),
+                }
+            }
+            Err(e) => Err(e),
+        }
+    })
 }
 
 ///
 /// the input vec must be deduplicated and all cells must be at the same resolution
-pub fn compact(cells: &[H3Cell]) -> IndexVec<H3Cell> {
+pub fn compact_cells(cells: &[H3Cell]) -> Result<IndexVec<H3Cell>, Error> {
     let mut index_vec = IndexVec::with_length(cells.len());
-    unsafe {
+    Error::check_returncode(unsafe {
         // the following requires `repr(transparent)` on H3Cell
         let h3index_slice =
             std::slice::from_raw_parts(cells.as_ptr().cast::<H3Index>(), cells.len());
-        h3ron_h3_sys::compact(
+        h3ron_h3_sys::compactCells(
             h3index_slice.as_ptr(),
             index_vec.as_mut_ptr(),
-            cells.len() as c_int,
-        );
-    }
-    index_vec
-}
-
-/// maximum number of cells needed for the `k_ring`
-#[inline]
-pub fn max_k_ring_size(k: u32) -> usize {
-    unsafe { h3ron_h3_sys::maxKringSize(k as c_int) as usize }
-}
-
-/// Number of cells in a line connecting two cells
-pub fn line_size(start: H3Cell, end: H3Cell) -> Result<usize, Error> {
-    check_same_resolution(start, end)?;
-    line_size_not_checked(start, end)
-}
-
-fn line_size_not_checked(start: H3Cell, end: H3Cell) -> Result<usize, Error> {
-    let size = unsafe { h3ron_h3_sys::h3LineSize(start.h3index(), end.h3index()) };
-    if size < 0 {
-        Err(Error::LineNotComputable)
-    } else {
-        Ok(size as usize)
-    }
-}
-
-fn line_between_cells_not_checked(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>, Error> {
-    let num_indexes = line_size_not_checked(start, end)?;
-    let mut index_vec = IndexVec::with_length(num_indexes);
-    let retval =
-        unsafe { h3ron_h3_sys::h3Line(start.h3index(), end.h3index(), index_vec.as_mut_ptr()) };
-    if retval != 0 {
-        return Err(Error::LineNotComputable);
-    }
+            cells.len() as i64,
+        )
+    })?;
     Ok(index_vec)
 }
 
-/// Line of h3 indexes connecting two indexes
+/// maximum number of cells needed for the `k_ring`
+pub fn max_grid_disk_size(k: u32) -> Result<usize, Error> {
+    let mut max_size: i64 = 0;
+    Error::check_returncode(unsafe { h3ron_h3_sys::maxGridDiskSize(k as i32, &mut max_size) })?;
+    Ok(max_size as usize)
+}
+
+/// Number of cells in a line connecting two cells
+pub fn grid_path_cells_size(start: H3Cell, end: H3Cell) -> Result<usize, Error> {
+    let mut cells_size: i64 = 0;
+    Error::check_returncode(unsafe {
+        h3ron_h3_sys::gridPathCellsSize(start.h3index(), end.h3index(), &mut cells_size)
+    })?;
+    Ok(cells_size as usize)
+}
+
+/// Line of h3 indexes connecting two cells
 ///
 /// # Arguments
 ///
 /// * `start`- start cell
 /// * `end` - end cell
 ///
-/// # Errors
-///
-/// The function can fail if `start` and `end` have different resolutions
-pub fn line_between_cells(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>, Error> {
-    check_same_resolution(start, end)?;
-    line_between_cells_not_checked(start, end)
+pub fn grid_path_cells(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>, Error> {
+    let cells_size = grid_path_cells_size(start, end)?;
+    let mut index_vec = IndexVec::with_length(cells_size);
+
+    Error::check_returncode(unsafe {
+        h3ron_h3_sys::gridPathCells(start.h3index(), end.h3index(), index_vec.as_mut_ptr())
+    })?;
+
+    Ok(index_vec)
 }
 
 /// Generate h3 cells along the given linestring
@@ -222,28 +198,26 @@ pub fn line_between_cells(start: H3Cell, end: H3Cell) -> Result<IndexVec<H3Cell>
 pub fn line(linestring: &LineString<f64>, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
     let mut cells_out = IndexVec::new();
     for coords in linestring.0.windows(2) {
-        let start_index = H3Cell::from_coordinate(&coords[0], h3_resolution)?;
-        let end_index = H3Cell::from_coordinate(&coords[1], h3_resolution)?;
+        let start_index = H3Cell::from_coordinate(coords[0], h3_resolution)?;
+        let end_index = H3Cell::from_coordinate(coords[1], h3_resolution)?;
 
-        let mut segment_indexes = line_between_cells_not_checked(start_index, end_index)?;
-        if segment_indexes.is_empty() {
-            continue;
+        for cell in grid_path_cells(start_index, end_index)?.iter() {
+            cells_out.push(cell)
         }
-        cells_out.append(&mut segment_indexes);
     }
     cells_out.dedup();
     Ok(cells_out)
 }
 
-/// res0IndexCount returns the number of resolution 0 indexes
-pub fn res0_index_count() -> u8 {
-    unsafe { h3ron_h3_sys::res0IndexCount() as u8 }
+/// `res0_cell_count` returns the number of resolution 0 indexes
+pub fn res0_cell_count() -> u8 {
+    unsafe { h3ron_h3_sys::res0CellCount() as u8 }
 }
 
 /// provides all base cells in H3Index format
-pub fn res0_indexes() -> IndexVec<H3Cell> {
-    let mut index_vec = IndexVec::with_length(res0_index_count() as usize);
-    unsafe { h3ron_h3_sys::getRes0Indexes(index_vec.as_mut_ptr()) };
+pub fn res0_cells() -> IndexVec<H3Cell> {
+    let mut index_vec = IndexVec::with_length(res0_cell_count() as usize);
+    unsafe { h3ron_h3_sys::getRes0Cells(index_vec.as_mut_ptr()) };
     index_vec
 }
 
@@ -252,7 +226,7 @@ mod tests {
     use geo::Coordinate;
     use geo_types::LineString;
 
-    use crate::{line, line_between_cells, res0_index_count, res0_indexes, H3Cell};
+    use crate::{grid_path_cells, line, res0_cell_count, res0_cells, H3Cell};
 
     #[test]
     fn line_across_multiple_faces() {
@@ -261,7 +235,7 @@ mod tests {
         let end = H3Cell::try_from(0x851d9b1bfffffff_u64).unwrap();
 
         // Line not computable across multiple icosa faces
-        assert!(line_between_cells(start, end).is_err());
+        assert!(grid_path_cells(start, end).is_err());
     }
 
     #[test]
@@ -278,11 +252,11 @@ mod tests {
 
     #[test]
     fn test_res0_index_count() {
-        assert_eq!(res0_index_count(), 122);
+        assert_eq!(res0_cell_count(), 122);
     }
 
     #[test]
     fn test_res0_indexes() {
-        assert_eq!(res0_indexes().iter().count(), res0_index_count() as usize);
+        assert_eq!(res0_cells().iter().count(), res0_cell_count() as usize);
     }
 }

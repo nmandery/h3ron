@@ -4,7 +4,7 @@ use geo_types::LineString;
 use serde::{Deserialize, Serialize};
 
 use h3ron::to_geo::{ToLineString, ToMultiLineString};
-use h3ron::{ExactLength, H3Cell, H3Edge, Index};
+use h3ron::{H3Cell, H3DirectedEdge, Index};
 
 use crate::error::Error;
 
@@ -19,7 +19,7 @@ pub enum Path<W> {
     /// The edges in the vec are expected to be consecutive.
     ///
     /// The cost is the total cost summed for all of the edges.
-    EdgeSequence(Vec<H3Edge>, W),
+    EdgeSequence(Vec<H3DirectedEdge>, W),
 }
 
 impl<W> Path<W> {
@@ -41,20 +41,26 @@ impl<W> Path<W> {
     pub fn origin_cell(&self) -> Result<H3Cell, Error> {
         match self {
             Self::OriginIsDestination(cell, _) => Ok(*cell),
-            Self::EdgeSequence(edges, _) => edges
-                .first()
-                .map(|edge| edge.origin_index_unchecked())
-                .ok_or(Error::EmptyPath),
+            Self::EdgeSequence(edges, _) => {
+                if let Some(edge) = edges.first() {
+                    Ok(edge.origin_cell()?)
+                } else {
+                    Err(Error::EmptyPath)
+                }
+            }
         }
     }
 
     pub fn destination_cell(&self) -> Result<H3Cell, Error> {
         match self {
             Self::OriginIsDestination(cell, _) => Ok(*cell),
-            Self::EdgeSequence(edges, _) => edges
-                .last()
-                .map(|edge| edge.destination_index_unchecked())
-                .ok_or(Error::EmptyPath),
+            Self::EdgeSequence(edges, _) => {
+                if let Some(edge) = edges.last() {
+                    Ok(edge.destination_cell()?)
+                } else {
+                    Err(Error::EmptyPath)
+                }
+            }
         }
     }
 
@@ -83,37 +89,41 @@ impl<W> Path<W> {
         }
     }
 
-    pub fn edges(&self) -> &[H3Edge] {
+    pub fn edges(&self) -> &[H3DirectedEdge] {
         match self {
             Self::EdgeSequence(edges, _) => edges.as_slice(),
             Self::OriginIsDestination(_, _) => &[],
         }
     }
 
-    /// return a vec of all [`H3Cells`] the path passes through.
-    pub fn cells(&self) -> Vec<H3Cell> {
+    /// return a vec of all [`H3Cell`] the path passes through.
+    pub fn cells(&self) -> Result<Vec<H3Cell>, Error> {
         match self {
-            Path::OriginIsDestination(cell, _) => vec![*cell],
+            Path::OriginIsDestination(cell, _) => Ok(vec![*cell]),
             Path::EdgeSequence(edges, _) => {
                 let mut cells = Vec::with_capacity(edges.len() + 1);
                 for edge in edges.iter() {
-                    cells.push(edge.origin_index_unchecked());
-                    cells.push(edge.destination_index_unchecked());
+                    cells.push(edge.origin_cell()?);
+                    cells.push(edge.destination_cell()?);
                 }
                 cells.dedup();
                 cells.shrink_to_fit();
-                cells
+                Ok(cells)
             }
         }
     }
 
     /// calculate the length of the path in meters using the exact length of the
     /// contained edges
-    pub fn length_m(&self) -> f64 {
+    pub fn length_m(&self) -> Result<f64, Error> {
         match self {
-            Path::OriginIsDestination(_, _) => 0.0,
+            Path::OriginIsDestination(_, _) => Ok(0.0),
             Path::EdgeSequence(edges, _) => {
-                edges.iter().map(|edge| edge.exact_length_m()).sum::<f64>()
+                let mut length_m = 0.0;
+                for edge in edges {
+                    length_m += edge.exact_length_m()?;
+                }
+                Ok(length_m)
             }
         }
     }
@@ -159,15 +169,15 @@ fn index_or_zero(cell: Result<H3Cell, Error>) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use h3ron::{H3Edge, Index};
+    use h3ron::{H3DirectedEdge, Index};
 
     use super::Path;
 
     #[test]
     fn paths_deterministic_ordering() {
-        let r1 = Path::EdgeSequence(vec![H3Edge::new(0x1176b49474ffffff)], 1);
-        let r2 = Path::EdgeSequence(vec![H3Edge::new(0x1476b49474ffffff)], 3);
-        let r3 = Path::EdgeSequence(vec![H3Edge::new(0x1476b4b2c2ffffff)], 3);
+        let r1 = Path::EdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)], 1);
+        let r2 = Path::EdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)], 3);
+        let r3 = Path::EdgeSequence(vec![H3DirectedEdge::new(0x1476b4b2c2ffffff)], 3);
         let mut paths = vec![r3.clone(), r1.clone(), r2.clone()];
         paths.sort_unstable();
         assert_eq!(paths[0], r1);

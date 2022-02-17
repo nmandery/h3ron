@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use crate::collections::indexvec::IndexVec;
 use crate::collections::H3CellSet;
 use crate::collections::HashSet;
-use crate::H3Cell;
-use crate::{compact, Index, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
+use crate::{compact_cells, Index, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
+use crate::{Error, H3Cell};
 
 const H3_RESOLUTION_RANGE_USIZE: RangeInclusive<usize> =
     (H3_MIN_RESOLUTION as usize)..=(H3_MAX_RESOLUTION as usize);
@@ -34,7 +34,7 @@ impl<'a> CompactedCellVec {
     /// Indexes get moved, see [`Vec::append`]
     ///
     /// will trigger a re-compacting when compact is true
-    pub fn append(&mut self, other: &mut Self, compact: bool) {
+    pub fn append(&mut self, other: &mut Self, compact: bool) -> Result<(), Error> {
         let mut resolutions_touched = Vec::new();
         for resolution in H3_RESOLUTION_RANGE_USIZE {
             if !other.cells_by_resolution[resolution].is_empty() {
@@ -45,27 +45,34 @@ impl<'a> CompactedCellVec {
         }
         if compact {
             if let Some(max_res) = resolutions_touched.iter().max() {
-                self.compact_from_resolution_up(*max_res, &resolutions_touched);
+                self.compact_from_resolution_up(*max_res, &resolutions_touched)?;
             }
         }
+        Ok(())
     }
 
-    pub fn compact(&mut self) {
+    pub fn compact(&mut self) -> Result<(), Error> {
         self.compact_from_resolution_up(
             H3_MAX_RESOLUTION as usize,
             &H3_RESOLUTION_RANGE_USIZE.collect::<Vec<_>>(),
-        );
+        )
     }
 
     /// append the contents of a vector. The caller is responsible to ensure that
     /// the append cells all are at resolution `resolution`.
     ///
     /// Cells get moved, this is the same API as [`Vec::append`].
-    pub fn append_to_resolution(&mut self, resolution: u8, cells: &mut Vec<H3Cell>, compact: bool) {
+    pub fn append_to_resolution(
+        &mut self,
+        resolution: u8,
+        cells: &mut Vec<H3Cell>,
+        compact: bool,
+    ) -> Result<(), Error> {
         self.cells_by_resolution[resolution as usize].append(cells);
         if compact {
-            self.compact_from_resolution_up(resolution as usize, &[]);
+            self.compact_from_resolution_up(resolution as usize, &[])?;
         }
+        Ok(())
     }
 
     /// shrink the underlying vec to fit using [`Vec::shrink_to_fit`].
@@ -116,17 +123,18 @@ impl<'a> CompactedCellVec {
     ///
     /// will trigger a re-compacting when `compact` is set
     #[inline]
-    pub fn add_cell(&mut self, cell: H3Cell, compact: bool) {
+    pub fn add_cell(&mut self, cell: H3Cell, compact: bool) -> Result<(), Error> {
         let res = cell.resolution() as usize;
         self.cells_by_resolution[res].push(cell);
         if compact {
-            self.compact_from_resolution_up(res, &[]);
+            self.compact_from_resolution_up(res, &[])?;
         }
+        Ok(())
     }
 
     ///
     ///
-    pub fn add_cells<I>(&mut self, cells: I, compact: bool)
+    pub fn add_cells<I>(&mut self, cells: I, compact: bool) -> Result<(), Error>
     where
         I: IntoIterator,
         I::Item: Borrow<H3Cell> + Index,
@@ -144,9 +152,10 @@ impl<'a> CompactedCellVec {
                 self.compact_from_resolution_up(
                     *rr,
                     &resolutions_touched.drain().collect::<Vec<usize>>(),
-                );
+                )?;
             }
         }
+        Ok(())
     }
 
     /// iterate over the compacted (or not, depending on if `compact` was called) contents
@@ -183,12 +192,12 @@ impl<'a> CompactedCellVec {
     }
 
     /// deduplicate the internal cell vectors
-    pub fn dedup(&mut self) {
+    pub fn dedup(&mut self) -> Result<(), Error> {
         self.cells_by_resolution.iter_mut().for_each(|cells| {
             cells.sort_unstable();
             cells.dedup();
         });
-        self.purge_children();
+        self.purge_children()
     }
 
     /// the finest resolution contained
@@ -207,7 +216,11 @@ impl<'a> CompactedCellVec {
     /// former finer resolution added no new cells to
     /// the parent resolution unless include_resolutions
     /// forces the recompacting of a given resolution
-    fn compact_from_resolution_up(&mut self, resolution: usize, include_resolutions: &[usize]) {
+    fn compact_from_resolution_up(
+        &mut self,
+        resolution: usize,
+        include_resolutions: &[usize],
+    ) -> Result<(), Error> {
         let mut resolutions_touched = include_resolutions.iter().copied().collect::<HashSet<_>>();
         resolutions_touched.insert(resolution);
 
@@ -220,18 +233,18 @@ impl<'a> CompactedCellVec {
             let mut cells_to_compact = std::mem::take(&mut self.cells_by_resolution[res]);
             cells_to_compact.sort_unstable();
             cells_to_compact.dedup();
-            let compacted = compact(&cells_to_compact);
+            let compacted = compact_cells(&cells_to_compact)?;
             for cell in compacted.iter() {
                 let res = cell.resolution() as usize;
                 resolutions_touched.insert(res);
                 self.cells_by_resolution[res].push(cell);
             }
         }
-        self.purge_children();
+        self.purge_children()
     }
 
     /// purge children of cells already contained in lower resolutions
-    fn purge_children(&mut self) {
+    fn purge_children(&mut self) -> Result<(), Error> {
         let mut lowest_resolution = None;
         for (r, cells) in self.cells_by_resolution.iter().enumerate() {
             if lowest_resolution.is_none() && !cells.is_empty() {
@@ -247,18 +260,22 @@ impl<'a> CompactedCellVec {
                 .collect::<H3CellSet>();
 
             for r in (lowest_res + 1)..=(H3_MAX_RESOLUTION as usize) {
-                let mut orig_cells = std::mem::take(&mut self.cells_by_resolution[r]);
-                orig_cells.drain(..).for_each(|cell| {
-                    let is_parent_known = (lowest_res..r).any(|parent_res| {
-                        known_cells.contains(&cell.get_parent_unchecked(parent_res as u8))
-                    });
+                for cell in std::mem::take(&mut self.cells_by_resolution[r]) {
+                    let mut is_parent_known = false;
+                    for parent_res in lowest_res..r {
+                        if known_cells.contains(&cell.get_parent(parent_res as u8)?) {
+                            is_parent_known = true;
+                            break;
+                        }
+                    }
                     if !is_parent_known {
                         known_cells.insert(cell);
                         self.cells_by_resolution[r].push(cell);
                     }
-                });
+                }
             }
         }
+        Ok(())
     }
 }
 
@@ -268,6 +285,7 @@ impl Default for CompactedCellVec {
     }
 }
 
+/*
 impl FromIterator<H3Cell> for CompactedCellVec {
     fn from_iter<T: IntoIterator<Item = H3Cell>>(iter: T) -> Self {
         let mut cv = Self::new();
@@ -277,12 +295,16 @@ impl FromIterator<H3Cell> for CompactedCellVec {
     }
 }
 
-impl From<Vec<H3Cell>> for CompactedCellVec {
-    fn from(mut in_vec: Vec<H3Cell>) -> Self {
+ */
+
+impl TryFrom<Vec<H3Cell>> for CompactedCellVec {
+    type Error = Error;
+
+    fn try_from(mut in_vec: Vec<H3Cell>) -> Result<Self, Self::Error> {
         let mut cv = Self::new();
-        cv.add_cells(in_vec.drain(..), false);
-        cv.compact();
-        cv
+        cv.add_cells(in_vec.drain(..), false)?;
+        cv.compact()?;
+        Ok(cv)
     }
 }
 
@@ -319,7 +341,7 @@ pub struct CompactedCellVecUncompactedIterator<'a> {
 }
 
 impl<'a> Iterator for CompactedCellVecUncompactedIterator<'a> {
-    type Item = H3Cell;
+    type Item = Result<H3Cell, Error>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.current_resolution <= self.iteration_resolution {
@@ -327,17 +349,21 @@ impl<'a> Iterator for CompactedCellVecUncompactedIterator<'a> {
                 let value = self.compacted_vec.cells_by_resolution[self.current_resolution]
                     .get(self.current_pos);
                 self.current_pos += 1;
-                return value.copied();
+                return value.copied().map(Ok);
             } else if let Some(next) = self.current_uncompacted.pop() {
-                return Some(next);
+                return Some(Ok(next));
             } else if let Some(next_parent) = self.compacted_vec.cells_by_resolution
                 [self.current_resolution]
                 .get(self.current_pos)
             {
-                self.current_uncompacted =
-                    next_parent.get_children(self.iteration_resolution as u8);
-                self.current_pos += 1;
-                continue;
+                match next_parent.get_children(self.iteration_resolution as u8) {
+                    Ok(current_uncompacted) => {
+                        self.current_uncompacted = current_uncompacted;
+                        self.current_pos += 1;
+                        continue;
+                    }
+                    Err(e) => return Some(Err(e)),
+                }
             }
             self.current_resolution += 1;
             self.current_pos = 0;
@@ -360,7 +386,8 @@ mod tests {
         let mut cv = CompactedCellVec::new();
         assert!(cv.is_empty());
         assert_eq!(cv.len(), 0);
-        cv.add_cell(0x89283080ddbffff_u64.try_into().unwrap(), false);
+        cv.add_cell(0x89283080ddbffff_u64.try_into().unwrap(), false)
+            .unwrap();
         assert!(!cv.is_empty());
         assert_eq!(cv.len(), 1);
     }
@@ -369,7 +396,8 @@ mod tests {
     #[test]
     fn compactedvec_serde_roundtrip() {
         let mut cv = CompactedCellVec::new();
-        cv.add_cell(0x89283080ddbffff_u64.try_into().unwrap(), false);
+        cv.add_cell(0x89283080ddbffff_u64.try_into().unwrap(), false)
+            .unwrap();
         let serialized_data = serialize(&cv).unwrap();
 
         let cv_2: CompactedCellVec = deserialize(&serialized_data).unwrap();

@@ -1,7 +1,8 @@
 use serde::Serialize;
 
+use crate::error::Error;
 pub use h3edge::{H3EdgeGraph, H3EdgeGraphBuilder};
-use h3ron::{H3Cell, H3Edge};
+use h3ron::{H3Cell, H3DirectedEdge};
 use node::NodeType;
 pub use prepared::PreparedH3EdgeGraph;
 
@@ -21,7 +22,7 @@ pub struct GraphStats {
 }
 
 pub trait GetStats {
-    fn get_stats(&self) -> GraphStats;
+    fn get_stats(&self) -> Result<GraphStats, Error>;
 }
 
 pub trait GetCellNode {
@@ -36,7 +37,10 @@ pub trait IterateCellNodes<'a> {
 pub trait GetEdge {
     type EdgeWeightType;
 
-    fn get_edge(&self, edge: &H3Edge) -> Option<EdgeWeight<Self::EdgeWeightType>>;
+    fn get_edge(
+        &self,
+        edge: &H3DirectedEdge,
+    ) -> Result<Option<EdgeWeight<Self::EdgeWeightType>>, Error>;
 }
 
 #[derive(Clone)]

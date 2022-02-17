@@ -32,6 +32,10 @@ Graph algorithms on edges of the H3 spatial indexing system.
 
 [Documentation](https://docs.rs/h3ron-graph) | [Changelog](h3ron-graph/CHANGES.md)
 
+### [h3ron-playground](h3ron-playground)
+
+Toy-crate to test out ideas. Not published to crates.io.
+
 ## Python bindings
 
 Python bindings for parts of the functionalities are available in the `h3ronpy` extension now located in an [own repository](https://github.com/nmandery/h3ronpy).

@@ -28,4 +28,7 @@ pub enum Error {
 
     #[error("path is segmented into multiple parts")]
     SegmentedPath,
+
+    #[error("unknown error: {0}")]
+    UnknownWithMessage(String),
 }

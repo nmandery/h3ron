@@ -35,45 +35,35 @@ impl Add for CoordIj {
     }
 }
 
-pub fn h3_to_local_ij(origin_index: &H3Cell, index: &H3Cell) -> Result<CoordIj, Error> {
-    unsafe {
-        let mut cij = h3ron_h3_sys::CoordIJ { i: 0, j: 0 };
-        if h3ron_h3_sys::experimentalH3ToLocalIj(origin_index.h3index(), index.h3index(), &mut cij)
-            == 0
-        {
-            Ok(CoordIj { i: cij.i, j: cij.j })
-        } else {
-            Err(Error::NoLocalIjCoordinates)
-        }
-    }
+pub fn h3_to_local_ij(origin_cell: &H3Cell, index: &H3Cell) -> Result<CoordIj, Error> {
+    let mut cij = h3ron_h3_sys::CoordIJ { i: 0, j: 0 };
+    Error::check_returncode(unsafe {
+        h3ron_h3_sys::experimentalH3ToLocalIj(origin_cell.h3index(), index.h3index(), &mut cij)
+    })?;
+    Ok(CoordIj { i: cij.i, j: cij.j })
 }
 
-pub fn local_ij_to_h3(origin_index: &H3Cell, coordij: &CoordIj) -> Result<H3Cell, Error> {
-    unsafe {
-        let cij = h3ron_h3_sys::CoordIJ {
-            i: coordij.i,
-            j: coordij.j,
-        };
-        let mut h3_index_out: H3Index = 0;
-        if h3ron_h3_sys::experimentalLocalIjToH3(origin_index.h3index(), &cij, &mut h3_index_out)
-            == 0
-        {
-            Ok(H3Cell::new(h3_index_out))
-        } else {
-            Err(Error::NoLocalIjCoordinates)
-        }
-    }
+pub fn local_ij_to_h3(origin_cell: &H3Cell, coordij: &CoordIj) -> Result<H3Cell, Error> {
+    let cij = h3ron_h3_sys::CoordIJ {
+        i: coordij.i,
+        j: coordij.j,
+    };
+    let mut h3_index_out: H3Index = 0;
+    Error::check_returncode(unsafe {
+        h3ron_h3_sys::experimentalLocalIjToH3(origin_cell.h3index(), &cij, &mut h3_index_out)
+    })?;
+    Ok(H3Cell::new(h3_index_out))
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::cell::H3Cell;
     use crate::experimental::{h3_to_local_ij, local_ij_to_h3};
-    use crate::h3_cell::H3Cell;
 
     #[test]
     fn test_local_ij() {
         let origin_cell = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
-        let ring = origin_cell.k_ring(1);
+        let ring = origin_cell.grid_disk(1).unwrap();
         assert_ne!(ring.iter().count(), 0);
         let other_cell = ring.iter().find(|i| *i != origin_cell).unwrap();
 

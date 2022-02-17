@@ -11,6 +11,56 @@ python extension.
 
 ## h3ron Unreleased
 
+This version includes the migration from H3 version 3.x to 4.x. This includes some renaming of functions and
+structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc1)
+as well as making most functions return `Result<T, Error>` as H3 now returns error codes in most functions of its API.
+
+### Added
+
+* Added `H3Treemap::from_result_iter_with_sort` for easier construction from iterators yielding `Result`
+
+### Changed
+
+* **Migration to H3 v4.0**
+  * Many functions are now failable and return `Result<T, Error>`.
+  * Renaming of functions and structs:
+    * `res0_index_count` -> `res0_cell_count`
+    * `res0_indexes` -> `res0_cells`
+    * `iter::GeoBoundaryBuilder` -> `iter::CellBoundaryBuilder`
+    * `max_polyfill_size` -> `max_polygon_to_cells_size`
+    * `polyfill` -> `polygon_to_cells`
+    * `compact` -> `compact_cells`
+    * `line_size` -> `grid_path_cells_size`
+    * `line_between_cells` -> `grid_path_cells`
+    * `Index` trait
+      * moved all hierarchy traversal functions to `H3Cell`
+    * `H3Cell`
+      * `get_base_cell` -> `get_base_cell_number`
+      * `area_m2` -> `area_avg_m2`
+      * `area_km2` -> `area_avg_km2`
+      * `unidirectional_edges` -> `directed_edges`
+      * `is_neighbor_to` -> `are_neighbor_cells`
+      * `hex_ring` -> `grid_ring_unsafe`
+      * `distance_to` -> `grid_distance_to`
+      * `exact_area_m2` -> `area_m2`
+      * `exact_area_km2` -> `area_km2`
+      * `exact_area_rads2` -> `area_rads2`
+      * `hex_range_distances` -> `grid_disk_distances_unsafe`
+      * `k_ring_distances` -> `grid_disk_distances`
+    * `H3Edge` -> `H3DirectedEdge`
+      * `edge_length_km` -> `edge_length_avg_km`
+      * `edge_length_m` -> `edge_length_avg_m`
+      * `cell_centroid_distance_m_at_resolution` -> `cell_centroid_distance_avg_m_at_resolution`
+      * `destination_index` -> `destination_cell`
+      * `origin_index` -> `origin_cell`
+      * `cell_indexes` -> `cells`
+    * undirectional edge -> directed edge
+  * Adapted `Error` to the error codes now defined in H3.
+  * Most `*_unchecked` methods are gone now as H3 returns natively error codes.
+
+* The `ExactArea` trait was removed as it was only implemented for `H3Cell`. The methods
+  have been added the `H3Cell`. The same for `ExactLength` and `H3Edge`.
+
 ## h3ron 0.14.0 - 2022-01-23
 
 ### Added

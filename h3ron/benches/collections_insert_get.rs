@@ -4,14 +4,14 @@ use std::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
 
-use h3ron::collections::indexhierarchy::IndexHierarchyMap;
 use h3ron::collections::{H3CellMap, H3Treemap, RandomState, ThreadPartitionedMap};
 use h3ron::H3Cell;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let cells = H3Cell::from_coordinate(&Coordinate::from((12.3, 45.4)), 10)
+    let cells = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 10)
         .unwrap()
-        .k_ring(1000)
+        .grid_disk(1000)
+        .unwrap()
         .iter()
         .collect::<Vec<_>>();
     let value = 78u8;
@@ -43,14 +43,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             });
         },
     );
-    group.bench_function(
-        format!("IndexHierarchyMap::from_iter (n={})", cells.len()),
-        |bencher| {
-            bencher.iter(|| {
-                IndexHierarchyMap::from_iter(cells.iter().map(|cell| (*cell, value)));
-            });
-        },
-    );
     group.bench_function(format!("H3CellMap.get (len={})", cells.len()), |bencher| {
         let map = H3CellMap::from_iter(cells.iter().map(|cell| (*cell, value)));
         bencher.iter(|| map.get(&cells[0]).unwrap());
@@ -60,13 +52,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         |bencher| {
             let map = H3Treemap::from_iter(cells.iter());
             bencher.iter(|| map.contains(&cells[0]));
-        },
-    );
-    group.bench_function(
-        format!("IndexHierarchyMap.get (len={})", cells.len()),
-        |bencher| {
-            let map = IndexHierarchyMap::from_iter(cells.iter().map(|cell| (*cell, value)));
-            bencher.iter(|| map.get(&cells[0]).unwrap());
         },
     );
     group.bench_function(format!("BTreeMap.get (len={})", cells.len()), |bencher| {

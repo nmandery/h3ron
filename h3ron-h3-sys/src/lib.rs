@@ -11,4 +11,7 @@
 // https://github.com/rust-lang/rust-bindgen/issues/1651
 #![allow(deref_nullptr)]
 
+#[cfg(feature = "geo-types")]
+pub mod geo;
+
 include!(concat!(env!("OUT_DIR"), "/bindings.rs"));

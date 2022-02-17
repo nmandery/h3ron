@@ -4,10 +4,11 @@ use std::fs::File;
 use std::path::Path;
 
 use clap::{App, Arg};
-use h3ron::H3Edge;
 use ordered_float::OrderedFloat;
 
 use h3ron::io::serialize_into;
+use h3ron::H3DirectedEdge;
+use h3ron_graph::error::Error;
 use h3ron_graph::formats::osm::osmpbfreader::Tags;
 use h3ron_graph::formats::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder, WayAnalyzer};
 use h3ron_graph::graph::{GetStats, H3EdgeGraphBuilder, PreparedH3EdgeGraph};
@@ -17,9 +18,9 @@ struct MyWayAnalyzer {}
 impl WayAnalyzer<OrderedFloat<f64>> for MyWayAnalyzer {
     type WayProperties = (OrderedFloat<f64>, bool);
 
-    fn analyze_way_tags(&self, tags: &Tags) -> Option<Self::WayProperties> {
+    fn analyze_way_tags(&self, tags: &Tags) -> Result<Option<Self::WayProperties>, Error> {
         // https://wiki.openstreetmap.org/wiki/Key:highway or https://wiki.openstreetmap.org/wiki/DE:Key:highway
-        if let Some(highway_value) = tags.get("highway") {
+        let props = if let Some(highway_value) = tags.get("highway") {
             match highway_value.to_lowercase().as_str() {
                 "motorway" | "motorway_link" | "trunk" | "trunk_link" | "primary"
                 | "primary_link" => Some(3.0.into()),
@@ -41,20 +42,21 @@ impl WayAnalyzer<OrderedFloat<f64>> for MyWayAnalyzer {
             })
         } else {
             None
-        }
+        };
+        Ok(props)
     }
 
     fn way_edge_properties(
         &self,
-        _edge: H3Edge,
+        _edge: H3DirectedEdge,
         way_properties: &Self::WayProperties,
-    ) -> EdgeProperties<OrderedFloat<f64>> {
+    ) -> Result<EdgeProperties<OrderedFloat<f64>>, Error> {
         // use the edge to make the WayProperties relative to the length of the edge (`cell_centroid_distance_m`)
         // or whatever else is desired
-        EdgeProperties {
+        Ok(EdgeProperties {
             is_bidirectional: way_properties.1,
             weight: way_properties.0,
-        }
+        })
     }
 }
 
@@ -98,7 +100,7 @@ fn main() {
     println!("Preparing graph");
     let prepared_graph = PreparedH3EdgeGraph::try_from(graph).expect("preparing the graph failed");
 
-    let stats = prepared_graph.get_stats();
+    let stats = prepared_graph.get_stats().unwrap();
     println!(
         "Created a prepared graph ({} nodes, {} edges, {} long-edges)",
         stats.num_nodes,

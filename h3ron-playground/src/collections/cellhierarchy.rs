@@ -1,10 +1,9 @@
 use std::iter::repeat_with;
-use std::marker::PhantomData;
 
 #[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::{H3Direction, Index};
+use h3ron::{H3Cell, H3Direction};
 
 // there are only 122 res0 nodes, but the `Array` trait in tinyvec is only implemented for smaller counts
 // and powers of two. So 128 is the next possible value.
@@ -23,19 +22,15 @@ const RES0_NODES_CAPACITY: usize = 128;
     feature = "use-serde",
     serde(bound(serialize = "V: Serialize", deserialize = "V: Deserialize<'de>",))
 )]
-pub struct IndexHierarchyMap<T: Index, V> {
+pub struct H3CellHierarchyMap<V> {
     res0_nodes: tinyvec::ArrayVec<[Option<Box<IndexHierarchyMapNode<V>>>; RES0_NODES_CAPACITY]>,
-    phantom: PhantomData<T>,
 }
 
-impl<T: Index, V> Default for IndexHierarchyMap<T, V> {
+impl<V> Default for H3CellHierarchyMap<V> {
     fn default() -> Self {
         let mut res0_nodes = tinyvec::ArrayVec::new();
         res0_nodes.fill(repeat_with(|| None));
-        Self {
-            res0_nodes,
-            phantom: PhantomData::default(),
-        }
+        Self { res0_nodes }
     }
 }
 
@@ -86,7 +81,7 @@ impl<V> IndexHierarchyMapNode<V> {
 // TODO: get-multiple using toposort
 // TODO: https://github.com/serde-rs/serde/issues/1503
 
-impl<T: Index, V> IndexHierarchyMap<T, V> {
+impl<V> H3CellHierarchyMap<V> {
     /// count the number of values in this tree
     pub fn count(&self) -> usize {
         let mut count = 0;
@@ -101,9 +96,9 @@ impl<T: Index, V> IndexHierarchyMap<T, V> {
     }
 
     /// get the value for the given index
-    pub fn get(&self, index: &T) -> Option<&V> {
-        let mut node = self.res0_nodes[index.base_cell_number() as usize].as_ref();
-        let mut directions = H3Direction::iter_directions_over_resolutions(index);
+    pub fn get(&self, cell: &H3Cell) -> Option<&V> {
+        let mut node = self.res0_nodes[cell.get_base_cell_number() as usize].as_ref();
+        let mut directions = H3Direction::iter_directions_over_resolutions(cell);
         loop {
             match node {
                 Some(indexmapnode) => match directions.next() {
@@ -117,9 +112,9 @@ impl<T: Index, V> IndexHierarchyMap<T, V> {
         }
     }
 
-    fn replace(&mut self, index: T, value: Option<V>) -> Option<V> {
+    fn replace(&mut self, cell: H3Cell, value: Option<V>) -> Option<V> {
         let mut node = {
-            let base_cell_idx = index.base_cell_number() as usize;
+            let base_cell_idx = cell.get_base_cell_number() as usize;
             match self.res0_nodes[base_cell_idx].as_mut() {
                 Some(ims) => ims,
                 None => {
@@ -129,7 +124,7 @@ impl<T: Index, V> IndexHierarchyMap<T, V> {
                 }
             }
         };
-        let mut directions = H3Direction::iter_directions_over_resolutions(&index);
+        let mut directions = H3Direction::iter_directions_over_resolutions(&cell);
         loop {
             match directions.next() {
                 Some(direction) => {
@@ -147,7 +142,7 @@ impl<T: Index, V> IndexHierarchyMap<T, V> {
         }
     }
 
-    pub fn insert(&mut self, index: T, value: V) -> Option<V> {
+    pub fn insert(&mut self, index: H3Cell, value: V) -> Option<V> {
         self.replace(index, Some(value))
     }
 
@@ -155,7 +150,7 @@ impl<T: Index, V> IndexHierarchyMap<T, V> {
     ///
     /// After removing many values, the size of the whole map can be
     /// reduced by calling `prune`
-    pub fn remove(&mut self, index: T) -> Option<V> {
+    pub fn remove(&mut self, index: H3Cell) -> Option<V> {
         self.replace(index, None)
     }
 
@@ -188,8 +183,8 @@ fn prune<V>(it: core::slice::IterMut<Option<Box<IndexHierarchyMapNode<V>>>>) -> 
     count
 }
 
-impl<T: Index, V> FromIterator<(T, V)> for IndexHierarchyMap<T, V> {
-    fn from_iter<I: IntoIterator<Item = (T, V)>>(iter: I) -> Self {
+impl<V> FromIterator<(H3Cell, V)> for H3CellHierarchyMap<V> {
+    fn from_iter<I: IntoIterator<Item = (H3Cell, V)>>(iter: I) -> Self {
         let mut map = Self::default();
         for (k, v) in iter {
             map.insert(k, v);
@@ -200,26 +195,26 @@ impl<T: Index, V> FromIterator<(T, V)> for IndexHierarchyMap<T, V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::collections::indexhierarchy::{IndexHierarchyMap, RES0_NODES_CAPACITY};
-    use crate::{res0_index_count, H3Cell, Index};
+    use crate::collections::cellhierarchy::{H3CellHierarchyMap, RES0_NODES_CAPACITY};
+    use h3ron::{res0_cell_count, H3Cell, Index};
 
     #[test]
     fn assert_res0_index_count_is_unchanged() {
         // ensure to be informed in case of the unlikely event the number
         // of base cells changes.
-        assert!(res0_index_count() as usize <= RES0_NODES_CAPACITY);
+        assert!(res0_cell_count() as usize <= RES0_NODES_CAPACITY);
     }
 
     #[test]
     fn treemap_get_from_empty() {
-        let map: IndexHierarchyMap<H3Cell, u8> = IndexHierarchyMap::default();
+        let map: H3CellHierarchyMap<u8> = H3CellHierarchyMap::default();
         assert_eq!(map.get(&H3Cell::new(0x89283080ddbffff_u64)), None);
     }
 
     #[test]
     fn map_insert_get_remove() {
         let cell = H3Cell::new(0x89283080ddbffff_u64);
-        let mut map: IndexHierarchyMap<H3Cell, u8> = IndexHierarchyMap::default();
+        let mut map: H3CellHierarchyMap<u8> = H3CellHierarchyMap::default();
         assert_eq!(map.insert(cell, 54u8), None);
         assert_eq!(map.count(), 1);
         assert!(!map.is_empty());
@@ -231,7 +226,7 @@ mod tests {
 
     #[test]
     fn map_count_empty() {
-        let map: IndexHierarchyMap<H3Cell, u8> = IndexHierarchyMap::default();
+        let map: H3CellHierarchyMap<u8> = H3CellHierarchyMap::default();
         assert_eq!(map.count(), 0);
         assert!(map.is_empty());
     }

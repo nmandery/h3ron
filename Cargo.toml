@@ -5,6 +5,7 @@ members = [
     "h3ron",
     "h3ron-ndarray",
     "h3ron-graph",
+    "h3ron-playground",
 ]
 [profile.release]
 debug = true # for flamegraph

@@ -8,8 +8,8 @@ use num_traits::Zero;
 
 use h3ron::collections::compressed::Decompressor;
 use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
-use h3ron::iter::H3EdgesBuilder;
-use h3ron::{H3Cell, H3Edge, Index};
+use h3ron::iter::H3DirectedEdgesBuilder;
+use h3ron::{H3Cell, H3DirectedEdge, Index};
 
 use crate::algorithm::path::Path;
 use crate::error::Error;
@@ -18,28 +18,30 @@ use crate::graph::GetEdge;
 
 #[derive(Clone)]
 enum DijkstraEdge<'a> {
-    Single(H3Edge),
+    Single(H3DirectedEdge),
     Long(&'a LongEdge),
 }
 
 impl<'a> DijkstraEdge<'a> {
     #[allow(dead_code)]
-    fn origin_cell(&self) -> H3Cell {
-        match self {
-            Self::Single(h3edge) => h3edge.origin_index_unchecked(),
-            Self::Long(longedge) => longedge.origin_cell(),
-        }
+    fn origin_cell(&self) -> Result<H3Cell, Error> {
+        let cell = match self {
+            Self::Single(h3edge) => h3edge.origin_cell()?,
+            Self::Long(longedge) => longedge.origin_cell()?,
+        };
+        Ok(cell)
     }
 
-    fn destination_cell(&self) -> H3Cell {
-        match self {
-            Self::Single(h3edge) => h3edge.destination_index_unchecked(),
-            Self::Long(longedge) => longedge.destination_cell(),
-        }
+    fn destination_cell(&self) -> Result<H3Cell, Error> {
+        let cell = match self {
+            Self::Single(h3edge) => h3edge.destination_cell()?,
+            Self::Long(longedge) => longedge.destination_cell()?,
+        };
+        Ok(cell)
     }
 
     #[allow(dead_code)]
-    const fn last_edge(&self) -> H3Edge {
+    const fn last_edge(&self) -> H3DirectedEdge {
         match self {
             Self::Single(h3edge) => *h3edge,
             Self::Long(longedge) => longedge.out_edge,
@@ -47,7 +49,7 @@ impl<'a> DijkstraEdge<'a> {
     }
 
     #[allow(dead_code)]
-    const fn first_edge(&self) -> H3Edge {
+    const fn first_edge(&self) -> H3DirectedEdge {
         match self {
             Self::Single(h3edge) => *h3edge,
             Self::Long(longedge) => longedge.in_edge,
@@ -73,12 +75,12 @@ pub fn edge_dijkstra_weight_threshold<G, W>(
     origin_cell: &H3Cell,
     threshold_weight: W,
     // TODO: optional bitmap/set of cells we are interested in
-) -> H3CellMap<W>
+) -> Result<H3CellMap<W>, Error>
 where
     G: GetEdge<EdgeWeightType = W>,
     W: Zero + Ord + Copy + Add,
 {
-    let mut edge_builder = H3EdgesBuilder::new();
+    let mut edge_builder = H3DirectedEdgesBuilder::new();
     let mut to_see = BinaryHeap::new();
     let mut parents: IndexMap<H3Cell, W, RandomState> = IndexMap::default();
 
@@ -98,8 +100,8 @@ where
             continue;
         }
 
-        for succeeding_edge in edge_builder.from_origin_cell(cell) {
-            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge) {
+        for succeeding_edge in edge_builder.from_origin_cell(cell)? {
+            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge)? {
                 // TODO: make use of longedges in case a subset-of-interest is set
 
                 let new_weight = weight + succeeding_edge_value.weight;
@@ -110,7 +112,7 @@ where
                 }
 
                 let n;
-                match parents.entry(succeeding_edge.destination_index_unchecked()) {
+                match parents.entry(succeeding_edge.destination_cell()?) {
                     Vacant(e) => {
                         n = e.index();
                         e.insert(new_weight);
@@ -131,8 +133,7 @@ where
             }
         }
     }
-
-    parents.drain(..).collect()
+    Ok(parents.drain(..).collect())
 }
 
 /// Dijkstra shortest path using h3 edges
@@ -154,7 +155,7 @@ where
         .unwrap_or_else(|| destinations.len())
         .min(destinations.len());
 
-    let mut edge_builder = H3EdgesBuilder::new();
+    let mut edge_builder = H3DirectedEdgesBuilder::new();
     let mut to_see = BinaryHeap::new();
     let mut parents: IndexMap<H3Cell, DijkstraEntry<W>, RandomState> = IndexMap::default();
     let mut destinations_reached = H3CellSet::default();
@@ -187,8 +188,8 @@ where
             continue;
         }
 
-        for succeeding_edge in edge_builder.from_origin_cell(cell) {
-            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge) {
+        for succeeding_edge in edge_builder.from_origin_cell(cell)? {
+            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge)? {
                 // use the longedge if it does not contain any destination. If it would
                 // contain a destination we would "jump over" it when we would use the longedge.
                 let (dijkstra_edge, new_weight) =
@@ -209,7 +210,7 @@ where
                     };
 
                 let n;
-                match parents.entry(dijkstra_edge.destination_cell()) {
+                match parents.entry(dijkstra_edge.destination_cell()?) {
                     Vacant(e) => {
                         n = e.index();
                         e.insert(DijkstraEntry {

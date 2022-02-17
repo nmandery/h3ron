@@ -50,8 +50,8 @@ pub fn nearest_h3_resolution(
         // calculate the area of the center index to avoid using the approximate values
         // of the h3ron hexArea functions
         let area_h3_index = area_squaremeters_linearring(
-            H3Cell::from_coordinate_unchecked(&center_of_array, h3_res)
-                .to_polygon()
+            H3Cell::from_coordinate(center_of_array, h3_res)?
+                .to_polygon()?
                 .exterior(),
         );
 
