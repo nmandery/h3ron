@@ -22,8 +22,10 @@ use crate::graph::{GetCellNode, GetEdge};
 pub trait ShortestPathOptions {
     /// Number of cells to be allowed to be missing between
     /// a cell and the graph while the cell is still counted as being connected
-    /// to the graph
-    fn num_gap_cells_to_graph(&self) -> u32 {
+    /// to the graph.
+    ///
+    /// Implemented using see [`NearestGraphNodes`].
+    fn max_distance_to_graph(&self) -> u32 {
         0
     }
 
@@ -132,7 +134,7 @@ where
         O: Send + Ord + Clone,
     {
         let filtered_origin_cells =
-            filtered_origin_cells(self, options.num_gap_cells_to_graph(), origin_cells)?;
+            filtered_origin_cells(self, options.max_distance_to_graph(), origin_cells)?;
         if filtered_origin_cells.is_empty() {
             return Ok(Default::default());
         }
@@ -143,7 +145,7 @@ where
 
             filtered_destination_cells(
                 self,
-                options.num_gap_cells_to_graph(),
+                options.max_distance_to_graph(),
                 destination_cells,
                 &origins_treemap,
             )?
@@ -154,7 +156,7 @@ where
             filtered_origin_cells.len(),
             filtered_destination_cells.len(),
             self.h3_resolution(),
-            options.num_gap_cells_to_graph()
+            options.max_distance_to_graph()
         );
 
         let mut cellmap = H3CellMap::default();
@@ -230,7 +232,7 @@ where
         let graph_connected_origin_cell = {
             let filtered_origin_cells = filtered_origin_cells(
                 self,
-                options.num_gap_cells_to_graph(),
+                options.max_distance_to_graph(),
                 std::iter::once(origin_cell),
             )?;
             if let Some(first_fo) = filtered_origin_cells.first() {
@@ -245,7 +247,7 @@ where
             origins_treemap.insert(graph_connected_origin_cell);
             filtered_destination_cells(
                 self,
-                options.num_gap_cells_to_graph(),
+                options.max_distance_to_graph(),
                 destination_cells,
                 &origins_treemap,
             )?
