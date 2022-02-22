@@ -3,7 +3,7 @@
 use std::fs::File;
 use std::path::Path;
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use ordered_float::OrderedFloat;
 
 use h3ron::io::serialize_into;
@@ -61,7 +61,7 @@ impl WayAnalyzer<OrderedFloat<f64>> for MyWayAnalyzer {
 }
 
 fn main() {
-    let app = App::new("graph_from_osm")
+    let app = Command::new("graph_from_osm")
         .about("Build a routing graph from an OSM PBF file")
         .arg(
             Arg::new("h3_resolution")
