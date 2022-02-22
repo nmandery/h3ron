@@ -340,7 +340,7 @@ impl SubstituteMap {
 /// the complete graph would be traversed.
 fn substitute_destination_cells<G, I>(
     graph: &G,
-    num_gap_cells_to_graph: u32,
+    max_distance_to_graph: u32,
     destination_cells: I,
     origins_treemap: &H3Treemap<H3Cell>,
 ) -> Result<SubstituteMap, Error>
@@ -356,7 +356,7 @@ where
     for destination in change_resolution(destination_cells, graph.h3_resolution()) {
         let destination_cell = destination?;
         for (graph_cell, node_type, _) in
-            graph.nearest_graph_nodes(&destination_cell, num_gap_cells_to_graph)?
+            graph.nearest_graph_nodes(&destination_cell, max_distance_to_graph)?
         {
             // destinations which are origins at the same time are always allowed as they can
             // always be reached even when they are not a destination in the graph.
@@ -383,7 +383,7 @@ where
 /// The cell resolution is changed to the resolution of the graph.
 fn substitute_origin_cells<G, I>(
     graph: &G,
-    num_gap_cells_to_graph: u32,
+    max_distance_to_graph: u32,
     origin_cells: I,
     return_sorted: bool,
 ) -> Result<Vec<(H3Cell, Vec<H3Cell>)>, Error>
@@ -398,9 +398,7 @@ where
 
     for cell in change_resolution(origin_cells, graph.h3_resolution()) {
         let cell = cell?;
-        for (graph_cell, node_type, _) in
-            graph.nearest_graph_nodes(&cell, num_gap_cells_to_graph)?
-        {
+        for (graph_cell, node_type, _) in graph.nearest_graph_nodes(&cell, max_distance_to_graph)? {
             if node_type.is_origin() {
                 origin_substmap.add_substitute(cell, graph_cell);
                 break;
