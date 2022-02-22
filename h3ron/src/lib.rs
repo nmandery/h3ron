@@ -95,7 +95,7 @@ where
 
 #[inline]
 fn linestring_to_latlng_vec(ls: &LineString<f64>) -> Vec<LatLng> {
-    ls.points_iter().map(LatLng::from).collect()
+    ls.points().map(LatLng::from).collect()
 }
 
 fn max_polygon_to_cells_size_internal(gp: &GeoPolygon, h3_resolution: u8) -> Result<usize, Error> {

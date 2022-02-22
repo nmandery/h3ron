@@ -17,7 +17,7 @@ compression = ["lz4_flex"]
 use-serde = ["serde", "bincode", "hashbrown/serde"]
 
 [dependencies]
-geo = "^0.18"
+geo = "^0.19"
 thiserror = "1.0"
 svgbobdoc = "^0.2"
 ahash = "0.7"
