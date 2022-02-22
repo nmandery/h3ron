@@ -44,9 +44,16 @@ where
 
 const MIN_LONGEDGE_LENGTH: usize = 2;
 
-/// a prepared graph which can be used for routing
+/// A prepared graph which can be used with a few algorithms.
 ///
-/// Consequent H3DirectedEdges without
+/// Consequent H3DirectedEdges without forks get extended by a `LongEdge` to allow
+/// skipping the individual `H3DirectedEdge` values for a more efficient graph
+/// traversal.
+///
+/// <p>
+#[doc=include_str!("../../doc/images/edges-and-longedges.svg")]
+/// </p>
+///
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PreparedH3EdgeGraph<W: Send + Sync> {
     edges: ThreadPartitionedMap<H3DirectedEdge, OwnedEdgeValue<W>, 4>,

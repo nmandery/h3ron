@@ -9,7 +9,10 @@ keywords = ["geo", "spatial", "h3", "graph"]
 readme = "../README.md"
 homepage = "https://github.com/nmandery/h3ron"
 repository = "https://github.com/nmandery/h3ron"
-exclude = ["doc/**/*"]
+exclude = [
+    "doc/images/*.dot",
+    "doc/images/justfile",
+]
 
 [features]
 use-gdal = ["gdal", "ordered-float"]
