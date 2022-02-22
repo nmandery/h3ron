@@ -11,7 +11,7 @@ use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::H3DirectedEdgesBuilder;
 use h3ron::{H3Cell, H3DirectedEdge, Index};
 
-use crate::algorithm::path::Path;
+use crate::algorithm::path::{Path, PathDirectedEdges};
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::GetEdge;
@@ -302,12 +302,13 @@ where
                 }
             }
         }
-        let path = if h3edges.is_empty() {
-            Path::OriginIsDestination(*origin_cell, total_weight.unwrap_or_else(W::zero))
+        let path_directed_edges = if h3edges.is_empty() {
+            PathDirectedEdges::OriginIsDestination(*origin_cell)
         } else {
-            Path::EdgeSequence(h3edges, total_weight.unwrap_or_else(W::zero))
+            PathDirectedEdges::DirectedEdgeSequence(h3edges)
         };
-        paths.push(path);
+
+        paths.push((path_directed_edges, total_weight.unwrap_or_else(W::zero)).try_into()?);
     }
 
     // return sorted from lowest to highest cost, use destination cell as second criteria

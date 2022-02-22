@@ -8,40 +8,40 @@ use h3ron::{H3Cell, H3DirectedEdge, Index};
 
 use crate::error::Error;
 
-/// [Path] describes a path between a cell and another.
+/// [PathDirectedEdges] describes a path between a cell and another.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub enum Path<W> {
+pub enum PathDirectedEdges {
     /// path is empty as origin and destination are the same.
-    OriginIsDestination(H3Cell, W),
+    OriginIsDestination(H3Cell),
 
     /// a sequence of edges describing the path.
     ///
     /// The edges in the vec are expected to be consecutive.
     ///
     /// The cost is the total cost summed for all of the edges.
-    EdgeSequence(Vec<H3DirectedEdge>, W),
+    DirectedEdgeSequence(Vec<H3DirectedEdge>),
 }
 
-impl<W> Path<W> {
+impl PathDirectedEdges {
     pub fn is_empty(&self) -> bool {
         match self {
-            Self::OriginIsDestination(_, _) => true,
-            Self::EdgeSequence(edges, _) => edges.is_empty(),
+            Self::OriginIsDestination(_) => true,
+            Self::DirectedEdgeSequence(edges) => edges.is_empty(),
         }
     }
 
     /// Length of the path in number of edges
     pub fn len(&self) -> usize {
         match self {
-            Self::OriginIsDestination(_, _) => 0,
-            Self::EdgeSequence(edges, _) => edges.len(),
+            Self::OriginIsDestination(_) => 0,
+            Self::DirectedEdgeSequence(edges) => edges.len(),
         }
     }
 
     pub fn origin_cell(&self) -> Result<H3Cell, Error> {
         match self {
-            Self::OriginIsDestination(cell, _) => Ok(*cell),
-            Self::EdgeSequence(edges, _) => {
+            Self::OriginIsDestination(cell) => Ok(*cell),
+            Self::DirectedEdgeSequence(edges) => {
                 if let Some(edge) = edges.first() {
                     Ok(edge.origin_cell()?)
                 } else {
@@ -53,8 +53,8 @@ impl<W> Path<W> {
 
     pub fn destination_cell(&self) -> Result<H3Cell, Error> {
         match self {
-            Self::OriginIsDestination(cell, _) => Ok(*cell),
-            Self::EdgeSequence(edges, _) => {
+            Self::OriginIsDestination(cell) => Ok(*cell),
+            Self::DirectedEdgeSequence(edges) => {
                 if let Some(edge) = edges.last() {
                     Ok(edge.destination_cell()?)
                 } else {
@@ -66,8 +66,8 @@ impl<W> Path<W> {
 
     pub fn to_linestring(&self) -> Result<LineString<f64>, Error> {
         match self {
-            Self::OriginIsDestination(_, _) => Err(Error::InsufficientNumberOfEdges),
-            Self::EdgeSequence(edges, _) => match edges.len() {
+            Self::OriginIsDestination(_) => Err(Error::InsufficientNumberOfEdges),
+            Self::DirectedEdgeSequence(edges) => match edges.len() {
                 0 => Err(Error::InsufficientNumberOfEdges),
                 1 => Ok(edges[0].to_linestring()?),
                 _ => {
@@ -82,25 +82,18 @@ impl<W> Path<W> {
         }
     }
 
-    pub const fn cost(&self) -> &W {
-        match self {
-            Self::OriginIsDestination(_, c) => c,
-            Self::EdgeSequence(_, c) => c,
-        }
-    }
-
     pub fn edges(&self) -> &[H3DirectedEdge] {
         match self {
-            Self::EdgeSequence(edges, _) => edges.as_slice(),
-            Self::OriginIsDestination(_, _) => &[],
+            Self::DirectedEdgeSequence(edges) => edges.as_slice(),
+            Self::OriginIsDestination(_) => &[],
         }
     }
 
     /// return a vec of all [`H3Cell`] the path passes through.
     pub fn cells(&self) -> Result<Vec<H3Cell>, Error> {
         match self {
-            Path::OriginIsDestination(cell, _) => Ok(vec![*cell]),
-            Path::EdgeSequence(edges, _) => {
+            Self::OriginIsDestination(cell) => Ok(vec![*cell]),
+            Self::DirectedEdgeSequence(edges) => {
                 let mut cells = Vec::with_capacity(edges.len() + 1);
                 for edge in edges.iter() {
                     cells.push(edge.origin_cell()?);
@@ -117,14 +110,79 @@ impl<W> Path<W> {
     /// contained edges
     pub fn length_m(&self) -> Result<f64, Error> {
         match self {
-            Path::OriginIsDestination(_, _) => Ok(0.0),
-            Path::EdgeSequence(edges, _) => {
+            Self::OriginIsDestination(_) => Ok(0.0),
+            Self::DirectedEdgeSequence(edges) => {
                 let mut length_m = 0.0;
                 for edge in edges {
                     length_m += edge.exact_length_m()?;
                 }
                 Ok(length_m)
             }
+        }
+    }
+}
+
+/// [Path] describes a path between a cell and another with an associated cost
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct Path<W> {
+    /// The cell the path starts at.
+    ///
+    /// This is the cell the path was calculated from. The actual start cell of the
+    /// path may differ in case `origin_cell` is not directly connected to the graph
+    pub origin_cell: H3Cell,
+
+    /// The cell the path ends at.
+    ///
+    /// This is the cell the path was calculated to. The actual end cell of the
+    /// path may differ in case `destination_cell` is not directly connected to the graph
+    pub destination_cell: H3Cell,
+
+    pub cost: W,
+
+    /// describes the path
+    pub path_directed_edges: PathDirectedEdges,
+}
+
+impl<W> Path<W> {
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.path_directed_edges.is_empty()
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.path_directed_edges.len()
+    }
+}
+
+impl<W> TryFrom<(PathDirectedEdges, W)> for Path<W> {
+    type Error = Error;
+
+    fn try_from((path_directed_edges, cost): (PathDirectedEdges, W)) -> Result<Self, Self::Error> {
+        let origin_cell = path_directed_edges.origin_cell()?;
+        let destination_cell = path_directed_edges.destination_cell()?;
+        Ok(Self {
+            origin_cell,
+            destination_cell,
+            cost,
+            path_directed_edges,
+        })
+    }
+}
+
+impl PartialOrd<Self> for PathDirectedEdges {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PathDirectedEdges {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let cmp_origin = index_or_zero(self.origin_cell()).cmp(&index_or_zero(other.origin_cell()));
+        if cmp_origin == Ordering::Equal {
+            index_or_zero(self.destination_cell()).cmp(&index_or_zero(other.destination_cell()))
+        } else {
+            cmp_origin
         }
     }
 }
@@ -138,15 +196,9 @@ where
     W: Ord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        let cmp_cost = self.cost().cmp(other.cost());
+        let cmp_cost = self.cost.cmp(&other.cost);
         if cmp_cost == Ordering::Equal {
-            let cmp_origin =
-                index_or_zero(self.origin_cell()).cmp(&index_or_zero(other.origin_cell()));
-            if cmp_origin == Ordering::Equal {
-                index_or_zero(self.destination_cell()).cmp(&index_or_zero(other.destination_cell()))
-            } else {
-                cmp_origin
-            }
+            self.path_directed_edges.cmp(&other.path_directed_edges)
         } else {
             cmp_cost
         }
@@ -171,13 +223,40 @@ fn index_or_zero(cell: Result<H3Cell, Error>) -> u64 {
 mod tests {
     use h3ron::{H3DirectedEdge, Index};
 
-    use super::Path;
+    use super::{Path, PathDirectedEdges};
+
+    #[test]
+    fn pathdirectededges_deterministic_ordering() {
+        let r1 =
+            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)]);
+        let r2 =
+            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)]);
+        let mut paths = vec![r2.clone(), r1.clone()];
+        paths.sort_unstable();
+        assert_eq!(paths[0], r1);
+        assert_eq!(paths[1], r2);
+    }
 
     #[test]
     fn paths_deterministic_ordering() {
-        let r1 = Path::EdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)], 1);
-        let r2 = Path::EdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)], 3);
-        let r3 = Path::EdgeSequence(vec![H3DirectedEdge::new(0x1476b4b2c2ffffff)], 3);
+        let r1: Path<_> = (
+            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)]),
+            1,
+        )
+            .try_into()
+            .unwrap();
+        let r2: Path<_> = (
+            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)]),
+            3,
+        )
+            .try_into()
+            .unwrap();
+        let r3: Path<_> = (
+            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b4b2c2ffffff)]),
+            3,
+        )
+            .try_into()
+            .unwrap();
         let mut paths = vec![r3.clone(), r1.clone(), r2.clone()];
         paths.sort_unstable();
         assert_eq!(paths[0], r1);

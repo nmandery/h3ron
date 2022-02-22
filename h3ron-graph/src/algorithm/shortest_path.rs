@@ -7,7 +7,8 @@ use num_traits::Zero;
 use rayon::prelude::*;
 
 use crate::algorithm::dijkstra::edge_dijkstra;
-use h3ron::collections::{H3CellMap, H3Treemap};
+use h3ron::collections::hashbrown::hash_map::Entry;
+use h3ron::collections::{H3CellMap, H3Treemap, HashMap};
 use h3ron::iter::change_resolution;
 use h3ron::{H3Cell, HasH3Resolution};
 
@@ -133,13 +134,17 @@ where
         PM: Fn(Path<W>) -> Result<O, Error> + Send + Sync,
         O: Send + Ord + Clone,
     {
-        let filtered_origin_cells =
-            filtered_origin_cells(self, options.max_distance_to_graph(), origin_cells)?;
+        let filtered_origin_cells = filtered_origin_cells(
+            self,
+            options.max_distance_to_graph(),
+            origin_cells,
+            true, // speeds up the creation of the treemap from the origins further below
+        )?;
         if filtered_origin_cells.is_empty() {
             return Ok(Default::default());
         }
 
-        let filtered_destination_cells = {
+        let destination_cell_map = {
             let origins_treemap: H3Treemap<H3Cell> =
                 filtered_origin_cells.iter().map(|(k, _)| *k).collect();
 
@@ -151,66 +156,51 @@ where
             )?
         };
 
+        if destination_cell_map.is_empty() {
+            return Ok(Default::default());
+        }
+
+        let destination_treemap =
+            H3Treemap::from_iter_with_sort(destination_cell_map.keys().copied());
+
         log::debug!(
-            "shortest_path many-to-many: from {} cells to {} cells at resolution {} with num_gap_cells_to_graph = {}",
+            "shortest_path many-to-many: from {} cells to {} cells at resolution {} with max_distance_to_graph = {}",
             filtered_origin_cells.len(),
-            filtered_destination_cells.len(),
+            destination_cell_map.len(),
             self.h3_resolution(),
             options.max_distance_to_graph()
         );
 
-        let mut cellmap = H3CellMap::default();
+        let mut cellmap: HashMap<H3Cell, Vec<O>> = Default::default();
         for par_result in filtered_origin_cells
             .par_iter()
             .map(|(graph_connected_origin_cell, output_origin_cells)| {
                 shortest_path_many_worker(
                     self,
                     graph_connected_origin_cell,
-                    &filtered_destination_cells,
                     output_origin_cells.as_slice(),
+                    &destination_treemap,
+                    &destination_cell_map,
                     options,
-                    &path_transform_fn,
+                    |path| {
+                        let origin_cell = path.origin_cell;
+                        path_transform_fn(path).map(|transformed| (origin_cell, transformed))
+                    },
                 )
             })
             .collect::<Result<Vec<_>, _>>()?
         {
-            for (out_cell, mapped_paths) in par_result {
-                cellmap.insert(out_cell, mapped_paths);
+            for (origin_cell, transformed) in par_result {
+                match cellmap.entry(origin_cell) {
+                    Entry::Occupied(mut entry) => entry.get_mut().push(transformed),
+                    Entry::Vacant(entry) => {
+                        entry.insert(vec![transformed]);
+                    }
+                }
             }
         }
         Ok(cellmap)
     }
-}
-
-fn shortest_path_many_worker<G, W, OPT, PM, O>(
-    graph: &G,
-    origin_cell: &H3Cell,
-    destination_cells: &H3Treemap<H3Cell>,
-    output_origin_cells: &[H3Cell],
-    options: &OPT,
-    path_transform_fn: PM,
-) -> Result<Vec<(H3Cell, Vec<O>)>, Error>
-where
-    G: GetEdge<EdgeWeightType = W>,
-    W: Add + Copy + Ord + Zero,
-    PM: Fn(Path<W>) -> Result<O, Error>,
-    O: Clone,
-    OPT: ShortestPathOptions,
-{
-    let paths = edge_dijkstra(
-        graph,
-        origin_cell,
-        destination_cells,
-        options.num_destinations_to_reach(),
-    )?
-    .drain(..)
-    .map(path_transform_fn)
-    .collect::<Result<Vec<O>, _>>()?;
-
-    Ok(output_origin_cells
-        .iter()
-        .map(|out_cell| (*out_cell, paths.clone()))
-        .collect::<Vec<_>>())
 }
 
 impl<W, G> ShortestPath<W> for G
@@ -229,20 +219,21 @@ where
         I::Item: Borrow<H3Cell>,
         OPT: ShortestPathOptions,
     {
-        let graph_connected_origin_cell = {
-            let filtered_origin_cells = filtered_origin_cells(
+        let (graph_connected_origin_cell, requested_origin_cells) = {
+            let mut filtered_origin_cells = filtered_origin_cells(
                 self,
                 options.max_distance_to_graph(),
                 std::iter::once(origin_cell),
+                false, // not necessary
             )?;
-            if let Some(first_fo) = filtered_origin_cells.first() {
-                first_fo.0
-            } else {
+            if filtered_origin_cells.is_empty() {
                 return Ok(Default::default());
+            } else {
+                filtered_origin_cells.remove(0)
             }
         };
 
-        let destination_treemap = {
+        let destination_cell_map = {
             let mut origins_treemap: H3Treemap<H3Cell> = Default::default();
             origins_treemap.insert(graph_connected_origin_cell);
             filtered_destination_cells(
@@ -253,16 +244,64 @@ where
             )?
         };
 
-        if destination_treemap.is_empty() {
+        if destination_cell_map.is_empty() {
             return Ok(Default::default());
         }
-        edge_dijkstra(
+
+        let destination_treemap =
+            H3Treemap::from_iter_with_sort(destination_cell_map.keys().copied());
+
+        shortest_path_many_worker(
             self,
             &graph_connected_origin_cell,
+            requested_origin_cells.as_slice(),
             &destination_treemap,
-            options.num_destinations_to_reach(),
+            &destination_cell_map,
+            options,
+            Ok,
         )
     }
+}
+
+fn shortest_path_many_worker<G, W, OPT, PM, O>(
+    graph: &G,
+    origin_cell: &H3Cell,
+    requested_origin_cells: &[H3Cell],
+    destination_cells: &H3Treemap<H3Cell>,
+    destination_cell_map: &H3CellMap<Vec<H3Cell>>,
+    options: &OPT,
+    path_transform_fn: PM,
+) -> Result<Vec<O>, Error>
+where
+    G: GetEdge<EdgeWeightType = W>,
+    W: Add + Copy + Ord + Zero,
+    PM: Fn(Path<W>) -> Result<O, Error>,
+    O: Clone,
+    OPT: ShortestPathOptions,
+{
+    let mut found_paths = edge_dijkstra(
+        graph,
+        origin_cell,
+        destination_cells,
+        options.num_destinations_to_reach(),
+    )?;
+
+    let mut transformed_paths = Vec::with_capacity(found_paths.len());
+
+    for path in found_paths.drain(..) {
+        if let Some(destination_cells) = destination_cell_map.get(&path.destination_cell) {
+            for destination_cell in destination_cells {
+                for origin_cell in requested_origin_cells {
+                    let mut this_path = path.clone();
+                    this_path.origin_cell = *origin_cell;
+                    this_path.destination_cell = *destination_cell;
+
+                    transformed_paths.push(path_transform_fn(this_path)?);
+                }
+            }
+        }
+    }
+    Ok(transformed_paths)
 }
 
 /// finds the corresponding cells in the graph for the given
@@ -278,31 +317,37 @@ fn filtered_destination_cells<G, I>(
     num_gap_cells_to_graph: u32,
     destination_cells: I,
     origins_treemap: &H3Treemap<H3Cell>,
-) -> Result<H3Treemap<H3Cell>, Error>
+) -> Result<H3CellMap<Vec<H3Cell>>, Error>
 where
     G: GetCellNode + NearestGraphNodes + HasH3Resolution,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {
-    let mut destinations: H3Treemap<H3Cell> = Default::default();
+    // maps cells which are members of the graph to their closest found neighbors which are contained in the
+    // destinations_cells
+    let mut destination_cell_map = H3CellMap::default();
+
     for destination in change_resolution(destination_cells, graph.h3_resolution()) {
-        let destination = destination?;
+        let destination_cell = destination?;
         for (graph_cell, node_type, _) in
-            graph.nearest_graph_nodes(&destination, num_gap_cells_to_graph)?
+            graph.nearest_graph_nodes(&destination_cell, num_gap_cells_to_graph)?
         {
             // destinations which are origins at the same time are always allowed as they can
             // always be reached even when they are not a destination in the graph.
             if node_type.is_destination() || origins_treemap.contains(&graph_cell) {
-                destinations.insert(graph_cell);
+                destination_cell_map
+                    .entry(graph_cell)
+                    .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(destination_cell))
+                    .or_insert_with(|| vec![destination_cell]);
                 break;
             }
         }
     }
 
-    if destinations.is_empty() {
+    if destination_cell_map.is_empty() {
         return Err(Error::DestinationsNotInGraph);
     }
-    Ok(destinations)
+    Ok(destination_cell_map)
 }
 
 /// Locates the corresponding cells for the given ones in the graph.
@@ -317,13 +362,15 @@ fn filtered_origin_cells<G, I>(
     graph: &G,
     num_gap_cells_to_graph: u32,
     origin_cells: I,
+    return_sorted: bool,
 ) -> Result<Vec<(H3Cell, Vec<H3Cell>)>, Error>
 where
     G: GetCellNode + NearestGraphNodes + HasH3Resolution,
     I: IntoIterator,
     I::Item: Borrow<H3Cell>,
 {
-    // maps cells to their closest found neighbors in the graph
+    // maps cells which are members of the graph to their closest found neighbors which are contained in the
+    // origin_cells.
     let mut origin_cell_map = H3CellMap::default();
 
     for cell in change_resolution(origin_cells, graph.h3_resolution()) {
@@ -340,7 +387,14 @@ where
             }
         }
     }
-    Ok(origin_cell_map.drain().collect())
+
+    let mut out_vec: Vec<_> = origin_cell_map.drain().collect();
+
+    if return_sorted {
+        out_vec.sort_unstable_by_key(|v| v.0);
+    }
+
+    Ok(out_vec)
 }
 
 #[cfg(test)]
@@ -378,13 +432,12 @@ mod tests {
         let path_vec = paths.get(&origin).unwrap();
         assert_eq!(path_vec.len(), 2);
         for path in path_vec.iter() {
-            let path_destination = path.destination_cell().unwrap();
-            if path_destination == origin {
+            if path.destination_cell == origin {
                 assert!(path.is_empty());
-                assert_eq!(path.cost(), &0);
-            } else if path_destination == destination {
+                assert_eq!(path.cost, 0);
+            } else if path.destination_cell == destination {
                 assert!(!path.is_empty());
-                assert_eq!(path.cost(), &5);
+                assert_eq!(path.cost, 5);
             } else {
                 unreachable!()
             }

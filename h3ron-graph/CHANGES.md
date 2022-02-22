@@ -20,7 +20,8 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 * Refactored `GetGapBridgedCellNodes` trait to `NearestGraphNodes`
 * Make OSM parsing failable.
 * Make path transformation functions failable.
-* Rename `ShortestPathOptions::num_gap_cells_to_graph` to `max_distance_to_graph`
+* Rename `ShortestPathOptions::num_gap_cells_to_graph` to `max_distance_to_graph`.
+* Modify `Path` to contain the intended origin and destination cells.
 
 ## h3ron-graph 0.3.0 - 2022-01-23
 
