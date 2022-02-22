@@ -6,12 +6,12 @@ use std::ops::Add;
 use num_traits::Zero;
 use rayon::prelude::*;
 
-use crate::algorithm::dijkstra::edge_dijkstra;
 use h3ron::collections::hashbrown::hash_map::Entry;
 use h3ron::collections::{H3CellMap, H3Treemap, HashMap};
 use h3ron::iter::change_resolution;
 use h3ron::{H3Cell, HasH3Resolution};
 
+use crate::algorithm::dijkstra::edge_dijkstra;
 use crate::algorithm::path::Path;
 use crate::algorithm::NearestGraphNodes;
 use crate::error::Error;
@@ -134,7 +134,7 @@ where
         PM: Fn(Path<W>) -> Result<O, Error> + Send + Sync,
         O: Send + Ord + Clone,
     {
-        let filtered_origin_cells = filtered_origin_cells(
+        let filtered_origin_cells = substitute_origin_cells(
             self,
             options.max_distance_to_graph(),
             origin_cells,
@@ -144,11 +144,11 @@ where
             return Ok(Default::default());
         }
 
-        let destination_cell_map = {
+        let destination_substmap = {
             let origins_treemap: H3Treemap<H3Cell> =
                 filtered_origin_cells.iter().map(|(k, _)| *k).collect();
 
-            filtered_destination_cells(
+            substitute_destination_cells(
                 self,
                 options.max_distance_to_graph(),
                 destination_cells,
@@ -156,17 +156,17 @@ where
             )?
         };
 
-        if destination_cell_map.is_empty() {
+        if destination_substmap.0.is_empty() {
             return Ok(Default::default());
         }
 
         let destination_treemap =
-            H3Treemap::from_iter_with_sort(destination_cell_map.keys().copied());
+            H3Treemap::from_iter_with_sort(destination_substmap.0.keys().copied());
 
         log::debug!(
             "shortest_path many-to-many: from {} cells to {} cells at resolution {} with max_distance_to_graph = {}",
             filtered_origin_cells.len(),
-            destination_cell_map.len(),
+            destination_substmap.0.len(),
             self.h3_resolution(),
             options.max_distance_to_graph()
         );
@@ -180,7 +180,7 @@ where
                     graph_connected_origin_cell,
                     output_origin_cells.as_slice(),
                     &destination_treemap,
-                    &destination_cell_map,
+                    &destination_substmap,
                     options,
                     |path| {
                         let origin_cell = path.origin_cell;
@@ -220,7 +220,7 @@ where
         OPT: ShortestPathOptions,
     {
         let (graph_connected_origin_cell, requested_origin_cells) = {
-            let mut filtered_origin_cells = filtered_origin_cells(
+            let mut filtered_origin_cells = substitute_origin_cells(
                 self,
                 options.max_distance_to_graph(),
                 std::iter::once(origin_cell),
@@ -233,10 +233,10 @@ where
             }
         };
 
-        let destination_cell_map = {
+        let destination_substmap = {
             let mut origins_treemap: H3Treemap<H3Cell> = Default::default();
             origins_treemap.insert(graph_connected_origin_cell);
-            filtered_destination_cells(
+            substitute_destination_cells(
                 self,
                 options.max_distance_to_graph(),
                 destination_cells,
@@ -244,19 +244,19 @@ where
             )?
         };
 
-        if destination_cell_map.is_empty() {
+        if destination_substmap.0.is_empty() {
             return Ok(Default::default());
         }
 
         let destination_treemap =
-            H3Treemap::from_iter_with_sort(destination_cell_map.keys().copied());
+            H3Treemap::from_iter_with_sort(destination_substmap.0.keys().copied());
 
         shortest_path_many_worker(
             self,
             &graph_connected_origin_cell,
             requested_origin_cells.as_slice(),
             &destination_treemap,
-            &destination_cell_map,
+            &destination_substmap,
             options,
             Ok,
         )
@@ -268,7 +268,7 @@ fn shortest_path_many_worker<G, W, OPT, PM, O>(
     origin_cell: &H3Cell,
     requested_origin_cells: &[H3Cell],
     destination_cells: &H3Treemap<H3Cell>,
-    destination_cell_map: &H3CellMap<Vec<H3Cell>>,
+    destination_substmap: &SubstituteMap,
     options: &OPT,
     path_transform_fn: PM,
 ) -> Result<Vec<O>, Error>
@@ -289,19 +289,45 @@ where
     let mut transformed_paths = Vec::with_capacity(found_paths.len());
 
     for path in found_paths.drain(..) {
-        if let Some(destination_cells) = destination_cell_map.get(&path.destination_cell) {
-            for destination_cell in destination_cells {
-                for origin_cell in requested_origin_cells {
-                    let mut this_path = path.clone();
-                    this_path.origin_cell = *origin_cell;
-                    this_path.destination_cell = *destination_cell;
+        for destination_cell in destination_substmap.cells_substituted_by(&path.destination_cell) {
+            for origin_cell in requested_origin_cells {
+                let mut this_path = path.clone();
+                this_path.origin_cell = *origin_cell;
+                this_path.destination_cell = *destination_cell;
 
-                    transformed_paths.push(path_transform_fn(this_path)?);
-                }
+                transformed_paths.push(path_transform_fn(this_path)?);
             }
         }
     }
     Ok(transformed_paths)
+}
+
+/// Maps Cells which are part of the graph - the keys - to requested
+/// cells values.
+#[derive(Default)]
+struct SubstituteMap(H3CellMap<Vec<H3Cell>>);
+
+impl SubstituteMap {
+    /// get a slices of cells the given `cell` substitutes
+    fn cells_substituted_by(&self, cell: &H3Cell) -> &[H3Cell] {
+        self.0
+            .get(cell)
+            .map_or_else(|| &[] as &[H3Cell], |sub| sub.as_slice())
+    }
+
+    /// `substituted_by` is the cell connected to the graph
+    fn add_substitute(&mut self, cell: H3Cell, substituted_by: H3Cell) {
+        match self.0.entry(substituted_by) {
+            Entry::Occupied(mut occupied) => occupied.get_mut().push(cell),
+            Entry::Vacant(vacant) => {
+                vacant.insert(vec![cell]);
+            }
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
 }
 
 /// finds the corresponding cells in the graph for the given
@@ -312,12 +338,12 @@ where
 ///
 /// There must be at least one destination to get Result::Ok, otherwise
 /// the complete graph would be traversed.
-fn filtered_destination_cells<G, I>(
+fn substitute_destination_cells<G, I>(
     graph: &G,
     num_gap_cells_to_graph: u32,
     destination_cells: I,
     origins_treemap: &H3Treemap<H3Cell>,
-) -> Result<H3CellMap<Vec<H3Cell>>, Error>
+) -> Result<SubstituteMap, Error>
 where
     G: GetCellNode + NearestGraphNodes + HasH3Resolution,
     I: IntoIterator,
@@ -325,7 +351,7 @@ where
 {
     // maps cells which are members of the graph to their closest found neighbors which are contained in the
     // destinations_cells
-    let mut destination_cell_map = H3CellMap::default();
+    let mut destination_substmap = SubstituteMap::default();
 
     for destination in change_resolution(destination_cells, graph.h3_resolution()) {
         let destination_cell = destination?;
@@ -335,19 +361,16 @@ where
             // destinations which are origins at the same time are always allowed as they can
             // always be reached even when they are not a destination in the graph.
             if node_type.is_destination() || origins_treemap.contains(&graph_cell) {
-                destination_cell_map
-                    .entry(graph_cell)
-                    .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(destination_cell))
-                    .or_insert_with(|| vec![destination_cell]);
+                destination_substmap.add_substitute(destination_cell, graph_cell);
                 break;
             }
         }
     }
 
-    if destination_cell_map.is_empty() {
+    if destination_substmap.is_empty() {
         return Err(Error::DestinationsNotInGraph);
     }
-    Ok(destination_cell_map)
+    Ok(destination_substmap)
 }
 
 /// Locates the corresponding cells for the given ones in the graph.
@@ -358,7 +381,7 @@ where
 /// to themselves.
 ///
 /// The cell resolution is changed to the resolution of the graph.
-fn filtered_origin_cells<G, I>(
+fn substitute_origin_cells<G, I>(
     graph: &G,
     num_gap_cells_to_graph: u32,
     origin_cells: I,
@@ -371,7 +394,7 @@ where
 {
     // maps cells which are members of the graph to their closest found neighbors which are contained in the
     // origin_cells.
-    let mut origin_cell_map = H3CellMap::default();
+    let mut origin_substmap = SubstituteMap::default();
 
     for cell in change_resolution(origin_cells, graph.h3_resolution()) {
         let cell = cell?;
@@ -379,31 +402,29 @@ where
             graph.nearest_graph_nodes(&cell, num_gap_cells_to_graph)?
         {
             if node_type.is_origin() {
-                origin_cell_map
-                    .entry(graph_cell)
-                    .and_modify(|ccs: &mut Vec<H3Cell>| ccs.push(cell))
-                    .or_insert_with(|| vec![cell]);
+                origin_substmap.add_substitute(cell, graph_cell);
                 break;
             }
         }
     }
 
-    let mut out_vec: Vec<_> = origin_cell_map.drain().collect();
-
+    let mut out_vec: Vec<_> = origin_substmap.0.drain().collect();
     if return_sorted {
         out_vec.sort_unstable_by_key(|v| v.0);
     }
-
     Ok(out_vec)
 }
 
 #[cfg(test)]
 mod tests {
+    use std::convert::TryInto;
+
+    use geo_types::Coordinate;
+
+    use h3ron::H3Cell;
+
     use crate::algorithm::shortest_path::{DefaultShortestPathOptions, ShortestPathManyToMany};
     use crate::graph::{H3EdgeGraph, PreparedH3EdgeGraph};
-    use geo_types::Coordinate;
-    use h3ron::H3Cell;
-    use std::convert::TryInto;
 
     #[test]
     fn test_shortest_path_same_origin_and_destination() {

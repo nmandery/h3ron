@@ -11,7 +11,7 @@ use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
 use h3ron::iter::H3DirectedEdgesBuilder;
 use h3ron::{H3Cell, H3DirectedEdge, Index};
 
-use crate::algorithm::path::{Path, PathDirectedEdges};
+use crate::algorithm::path::{DirectedEdgePath, Path};
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::GetEdge;
@@ -303,9 +303,9 @@ where
             }
         }
         let path_directed_edges = if h3edges.is_empty() {
-            PathDirectedEdges::OriginIsDestination(*origin_cell)
+            DirectedEdgePath::OriginIsDestination(*origin_cell)
         } else {
-            PathDirectedEdges::DirectedEdgeSequence(h3edges)
+            DirectedEdgePath::DirectedEdgeSequence(h3edges)
         };
 
         paths.push((path_directed_edges, total_weight.unwrap_or_else(W::zero)).try_into()?);

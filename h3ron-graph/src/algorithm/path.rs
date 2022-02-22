@@ -8,9 +8,9 @@ use h3ron::{H3Cell, H3DirectedEdge, Index};
 
 use crate::error::Error;
 
-/// [PathDirectedEdges] describes a path between a cell and another.
+/// [DirectedEdgePath] describes a path between a cell and another.
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
-pub enum PathDirectedEdges {
+pub enum DirectedEdgePath {
     /// path is empty as origin and destination are the same.
     OriginIsDestination(H3Cell),
 
@@ -22,7 +22,7 @@ pub enum PathDirectedEdges {
     DirectedEdgeSequence(Vec<H3DirectedEdge>),
 }
 
-impl PathDirectedEdges {
+impl DirectedEdgePath {
     pub fn is_empty(&self) -> bool {
         match self {
             Self::OriginIsDestination(_) => true,
@@ -94,7 +94,7 @@ impl PathDirectedEdges {
         match self {
             Self::OriginIsDestination(cell) => Ok(vec![*cell]),
             Self::DirectedEdgeSequence(edges) => {
-                let mut cells = Vec::with_capacity(edges.len() + 1);
+                let mut cells = Vec::with_capacity(edges.len() * 2);
                 for edge in edges.iter() {
                     cells.push(edge.origin_cell()?);
                     cells.push(edge.destination_cell()?);
@@ -140,43 +140,43 @@ pub struct Path<W> {
     pub cost: W,
 
     /// describes the path
-    pub path_directed_edges: PathDirectedEdges,
+    pub directed_edge_path: DirectedEdgePath,
 }
 
 impl<W> Path<W> {
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.path_directed_edges.is_empty()
+        self.directed_edge_path.is_empty()
     }
 
     #[inline]
     pub fn len(&self) -> usize {
-        self.path_directed_edges.len()
+        self.directed_edge_path.len()
     }
 }
 
-impl<W> TryFrom<(PathDirectedEdges, W)> for Path<W> {
+impl<W> TryFrom<(DirectedEdgePath, W)> for Path<W> {
     type Error = Error;
 
-    fn try_from((path_directed_edges, cost): (PathDirectedEdges, W)) -> Result<Self, Self::Error> {
+    fn try_from((path_directed_edges, cost): (DirectedEdgePath, W)) -> Result<Self, Self::Error> {
         let origin_cell = path_directed_edges.origin_cell()?;
         let destination_cell = path_directed_edges.destination_cell()?;
         Ok(Self {
             origin_cell,
             destination_cell,
             cost,
-            path_directed_edges,
+            directed_edge_path: path_directed_edges,
         })
     }
 }
 
-impl PartialOrd<Self> for PathDirectedEdges {
+impl PartialOrd<Self> for DirectedEdgePath {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for PathDirectedEdges {
+impl Ord for DirectedEdgePath {
     fn cmp(&self, other: &Self) -> Ordering {
         let cmp_origin = index_or_zero(self.origin_cell()).cmp(&index_or_zero(other.origin_cell()));
         if cmp_origin == Ordering::Equal {
@@ -198,7 +198,7 @@ where
     fn cmp(&self, other: &Self) -> Ordering {
         let cmp_cost = self.cost.cmp(&other.cost);
         if cmp_cost == Ordering::Equal {
-            self.path_directed_edges.cmp(&other.path_directed_edges)
+            self.directed_edge_path.cmp(&other.directed_edge_path)
         } else {
             cmp_cost
         }
@@ -223,14 +223,14 @@ fn index_or_zero(cell: Result<H3Cell, Error>) -> u64 {
 mod tests {
     use h3ron::{H3DirectedEdge, Index};
 
-    use super::{Path, PathDirectedEdges};
+    use super::{DirectedEdgePath, Path};
 
     #[test]
     fn pathdirectededges_deterministic_ordering() {
         let r1 =
-            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)]);
+            DirectedEdgePath::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)]);
         let r2 =
-            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)]);
+            DirectedEdgePath::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)]);
         let mut paths = vec![r2.clone(), r1.clone()];
         paths.sort_unstable();
         assert_eq!(paths[0], r1);
@@ -240,19 +240,19 @@ mod tests {
     #[test]
     fn paths_deterministic_ordering() {
         let r1: Path<_> = (
-            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)]),
+            DirectedEdgePath::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1176b49474ffffff)]),
             1,
         )
             .try_into()
             .unwrap();
         let r2: Path<_> = (
-            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)]),
+            DirectedEdgePath::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b49474ffffff)]),
             3,
         )
             .try_into()
             .unwrap();
         let r3: Path<_> = (
-            PathDirectedEdges::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b4b2c2ffffff)]),
+            DirectedEdgePath::DirectedEdgeSequence(vec![H3DirectedEdge::new(0x1476b4b2c2ffffff)]),
             3,
         )
             .try_into()
