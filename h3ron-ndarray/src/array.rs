@@ -222,7 +222,7 @@ where
         let x_size = self.arr.shape()[self.axis_order.x_axis()];
         let y_size = self.arr.shape()[self.axis_order.y_axis()];
         (0..((x_size as f64 / rect_size as f64).ceil() as usize))
-            .map(|r_x| {
+            .flat_map(|r_x| {
                 (0..((y_size as f64 / rect_size as f64).ceil() as usize))
                     .map(|r_y| {
                         Rect::new(
@@ -238,7 +238,6 @@ where
                     })
                     .collect::<Vec<_>>()
             })
-            .flatten()
             .collect()
     }
 
