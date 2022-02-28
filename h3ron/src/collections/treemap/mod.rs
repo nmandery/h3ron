@@ -141,6 +141,7 @@ where
             .map(|c| c.map(|c| c.h3index() as u64))
             .collect::<Result<Vec<_>, E>>()?;
         h3indexes.sort_unstable();
+        h3indexes.dedup();
 
         Ok(Self {
             treemap: RoaringTreemap::from_sorted_iter(h3indexes.drain(..)).unwrap(),
