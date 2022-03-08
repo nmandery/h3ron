@@ -15,6 +15,7 @@ use-rayon = ["rayon", "hashbrown/rayon"]
 io = ["bincode", "lz4_flex", "serde"]
 compression = ["lz4_flex"]
 use-serde = ["serde", "bincode", "hashbrown/serde"]
+roaring-simd = ["roaring", "roaring/simd"]
 
 [dependencies]
 geo = "^0.19"
@@ -48,7 +49,7 @@ version = "1"
 optional = true
 
 [dependencies.roaring]
-version = "0.8"
+version = "0.9"
 optional = true
 
 [dependencies.lz4_flex]
