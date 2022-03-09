@@ -66,7 +66,9 @@ impl H3Direction {
     ///
     /// # Errors
     ///
-    /// May fail if the direction is invalid
+    /// May fail if the direction is invalid. This can be caused by trying to retrieve a direction for:
+    /// - an index of 0 resolution
+    /// - an invalid index
     pub fn direction_to_parent<I: Index>(index: &I) -> Result<Self, Error> {
         Self::direction_to_parent_resolution(index, index.resolution().saturating_sub(1))
     }
@@ -75,7 +77,9 @@ impl H3Direction {
     ///
     /// # Errors
     ///
-    /// May fail if the direction is invalid
+    /// May fail if the direction is invalid. This can be caused by trying to retrieve a direction for:
+    /// - an index of 0 resolution
+    /// - an invalid index
     pub fn direction<I: Index>(index: &I) -> Result<Self, Error> {
         Self::direction_to_parent_resolution(index, index.resolution())
     }
@@ -164,9 +168,9 @@ mod tests {
         assert_eq!(cell.resolution(), 5);
         let direction = H3Direction::direction_to_parent_resolution(&cell, 4).unwrap();
         assert_eq!(direction, H3Direction::JkAxesDigit);
-        let direction = H3Direction::direction_to_parent(&cell);
+        let direction = H3Direction::direction_to_parent(&cell).unwrap();
         assert_eq!(direction, H3Direction::JkAxesDigit);
-        let direction = H3Direction::direction(&cell);
+        let direction = H3Direction::direction(&cell).unwrap();
         assert_eq!(direction, H3Direction::IjAxesDigit);
     }
 
@@ -185,14 +189,14 @@ mod tests {
         assert_eq!(cell.resolution(), 5);
         H3Direction::direction_to_parent_resolution(&cell, 6).unwrap();
     }
-
     #[test]
-    fn works_with_res_0() {
-        let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
-        let cell = cell.get_parent(0).unwrap();
+    fn can_fail_with_res_0() {
+        let cell = H3Cell::try_from(0x801ffffffffffff).unwrap();
+        let cell_2 = H3Cell::try_from(0x805ffffffffffff).unwrap();
         assert_eq!(cell.resolution(), 0);
-        let direction = H3Direction::direction_to_parent(&cell);
-        assert_eq!(direction, H3Direction::IAxesDigit);
+        assert_eq!(cell_2.resolution(), 0);
+        assert!(H3Direction::direction(&cell).is_err());
+        assert!(H3Direction::direction(&cell_2).is_err());
     }
 
     #[test]
@@ -200,7 +204,7 @@ mod tests {
         let cell = H3Cell::try_from(0x8518607bfffffff).unwrap();
         let children = cell.get_children(cell.resolution() + 1).unwrap();
         for (i, child) in children.iter().enumerate() {
-            let direction = H3Direction::direction(&child);
+            let direction = H3Direction::direction(&child).unwrap();
             assert_eq!(direction as usize, i);
         }
     }
@@ -215,7 +219,7 @@ mod tests {
                 continue;
             }
             let edge = child.directed_edge_to(center_child).unwrap();
-            let direction = H3Direction::direction(&edge);
+            let direction = H3Direction::direction(&edge).unwrap();
             assert_eq!(direction as usize, i);
         }
     }
