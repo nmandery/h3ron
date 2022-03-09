@@ -27,6 +27,11 @@ pub trait Index: Sized + PartialEq + FromH3Index {
 
     /// Retrieves the direction of the current index
     fn direction(&self) -> H3Direction {
+        H3Direction::direction(self).unwrap()
+    }
+
+    /// Retrieves the direction of the current index
+    fn direction_checked(&self) -> Result<H3Direction, Error> {
         H3Direction::direction(self)
     }
 

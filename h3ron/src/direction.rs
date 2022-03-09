@@ -63,13 +63,21 @@ impl TryFrom<u8> for H3Direction {
 
 impl H3Direction {
     /// Retrieves the H3 Direction of the `index` relative to its direct parent
-    pub fn direction_to_parent<I: Index>(index: &I) -> Self {
-        Self::direction_to_parent_resolution(index, index.resolution().saturating_sub(1)).unwrap()
+    ///
+    /// # Errors
+    ///
+    /// May fail if the direction is invalid
+    pub fn direction_to_parent<I: Index>(index: &I) -> Result<Self, Error> {
+        Self::direction_to_parent_resolution(index, index.resolution().saturating_sub(1))
     }
 
     /// Retrieves the H3 Direction of the `index`
-    pub fn direction<I: Index>(index: &I) -> Self {
-        Self::direction_to_parent_resolution(index, index.resolution()).unwrap()
+    ///
+    /// # Errors
+    ///
+    /// May fail if the direction is invalid
+    pub fn direction<I: Index>(index: &I) -> Result<Self, Error> {
+        Self::direction_to_parent_resolution(index, index.resolution())
     }
 
     /// Retrieves the H3 Direction of the `index` relative to its parent at `target_resolution`.

@@ -80,8 +80,8 @@ impl H3Cell {
         let mut cell_h3index: H3Index = 0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::latLngToCell(&lat_lng, c_int::from(h3_resolution), &mut cell_h3index)
-        })?;
-        Ok(Self::new(cell_h3index))
+        })
+        .map(|_| Self::new(cell_h3index))
     }
 
     /// Checks if `self` is a parent of `other`
@@ -108,8 +108,8 @@ impl H3Cell {
                 c_int::from(parent_resolution),
                 &mut cell_index,
             )
-        })?;
-        Ok(Self::new(cell_index))
+        })
+        .map(|_| Self::new(cell_index))
     }
 
     /// Retrieves all children of `self` at resolution `child_resolution`
@@ -134,8 +134,8 @@ impl H3Cell {
         let mut res: i32 = 0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::areNeighborCells(self.0, other.0, &mut res)
-        })?;
-        Ok(res == 1)
+        })
+        .map(|_| res == 1)
     }
 
     /// `grid_disk` produces all cells within k distance of the origin cell.
@@ -150,8 +150,8 @@ impl H3Cell {
         let mut index_vec = IndexVec::with_length(max_grid_disk_size(k)?);
         Error::check_returncode(unsafe {
             h3ron_h3_sys::gridDisk(self.0, k as c_int, index_vec.as_mut_ptr())
-        })?;
-        Ok(index_vec)
+        })
+        .map(|_| index_vec)
     }
 
     /// hollow hexagon ring at `self`
@@ -163,8 +163,8 @@ impl H3Cell {
 
         Error::check_returncode(unsafe {
             h3ron_h3_sys::gridRingUnsafe(self.0, k as c_int, index_vec.as_mut_ptr())
-        })?;
-        Ok(index_vec)
+        })
+        .map(|_| index_vec)
     }
 
     /// Retrieves indexes around `self` through K Rings.
@@ -194,12 +194,8 @@ impl H3Cell {
                 h3_indexes_out.as_mut_ptr(),
                 distances_out.as_mut_ptr(),
             )
-        })?;
-        Ok(Self::associate_index_distances(
-            h3_indexes_out,
-            &distances_out,
-            k_min,
-        ))
+        })
+        .map(|_| Self::associate_index_distances(h3_indexes_out, &distances_out, k_min))
     }
 
     pub fn grid_disk_distances_unsafe(
@@ -217,12 +213,8 @@ impl H3Cell {
                 h3_indexes_out.as_mut_ptr(),
                 distances_out.as_mut_ptr(),
             )
-        })?;
-        Ok(Self::associate_index_distances(
-            h3_indexes_out,
-            &distances_out,
-            k_min,
-        ))
+        })
+        .map(|_| Self::associate_index_distances(h3_indexes_out, &distances_out, k_min))
     }
 
     /// Retrieves the number of K Rings between `self` and `other`.
@@ -232,17 +224,17 @@ impl H3Cell {
         let mut grid_distance: i64 = 0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::gridDistance(self.0, other.0, &mut grid_distance)
-        })?;
-        Ok(grid_distance as usize)
+        })
+        .map(|_| grid_distance as usize)
     }
 
     fn associate_index_distances(
-        mut h3_indexes_out: Vec<H3Index>,
+        h3_indexes_out: Vec<H3Index>,
         distances_out: &[c_int],
         k_min: u32,
     ) -> Vec<(u32, Self)> {
         h3_indexes_out
-            .drain(..)
+            .into_iter()
             .enumerate()
             .filter(|(idx, h3index)| *h3index != 0 && distances_out[*idx] >= k_min as i32)
             .map(|(idx, h3index)| (distances_out[idx] as u32, Self::new(h3index)))
@@ -272,8 +264,8 @@ impl H3Cell {
                 destination.h3index(),
                 &mut edge_h3index,
             )
-        })?;
-        Ok(H3DirectedEdge::new(edge_h3index))
+        })
+        .map(|_| H3DirectedEdge::new(edge_h3index))
     }
 
     /// Retrieves all directed H3 edges around `self` where `self` is the origin
@@ -284,8 +276,8 @@ impl H3Cell {
         let mut index_vec = IndexVec::with_length(6);
         Error::check_returncode(unsafe {
             h3ron_h3_sys::originToDirectedEdges(self.h3index(), index_vec.as_mut_ptr())
-        })?;
-        Ok(index_vec)
+        })
+        .map(|_| index_vec)
     }
 
     /// get the average cell area at `resolution` in square meters.
@@ -299,8 +291,8 @@ impl H3Cell {
         let mut area: f64 = 0.0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::getHexagonAreaAvgM2(i32::from(resolution), &mut area)
-        })?;
-        Ok(area)
+        })
+        .map(|_| area)
     }
 
     /// get the average cell area at `resolution` in square kilometers.
@@ -308,29 +300,29 @@ impl H3Cell {
         let mut area: f64 = 0.0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::getHexagonAreaAvgKm2(i32::from(resolution), &mut area)
-        })?;
-        Ok(area)
+        })
+        .map(|_| area)
     }
 
     /// Retrieves the exact area of `self` in square meters
     pub fn area_m2(&self) -> Result<f64, Error> {
         let mut area: f64 = 0.0;
-        Error::check_returncode(unsafe { h3ron_h3_sys::cellAreaM2(self.0, &mut area) })?;
-        Ok(area)
+        Error::check_returncode(unsafe { h3ron_h3_sys::cellAreaM2(self.0, &mut area) })
+            .map(|_| area)
     }
 
     /// Retrieves the exact area of `self` in square kilometers
     pub fn area_km2(&self) -> Result<f64, Error> {
         let mut area: f64 = 0.0;
-        Error::check_returncode(unsafe { h3ron_h3_sys::cellAreaKm2(self.0, &mut area) })?;
-        Ok(area)
+        Error::check_returncode(unsafe { h3ron_h3_sys::cellAreaKm2(self.0, &mut area) })
+            .map(|_| area)
     }
 
     /// Retrieves the exact area of `self` in square radians
     pub fn area_rads2(&self) -> Result<f64, Error> {
         let mut area: f64 = 0.0;
-        Error::check_returncode(unsafe { h3ron_h3_sys::cellAreaRads2(self.0, &mut area) })?;
-        Ok(area)
+        Error::check_returncode(unsafe { h3ron_h3_sys::cellAreaRads2(self.0, &mut area) })
+            .map(|_| area)
     }
 }
 
@@ -353,9 +345,9 @@ impl ToPolygon for H3Cell {
 
     /// the polygon spanning the area of the index
     fn to_polygon(&self) -> Result<Polygon<f64>, Self::Error> {
-        Ok(CellBoundaryBuilder::new()
-            .iter_cell_boundary_vertices(self, true)?
-            .into())
+        CellBoundaryBuilder::new()
+            .iter_cell_boundary_vertices(self, true)
+            .map(Into::into)
     }
 }
 
@@ -365,8 +357,8 @@ impl ToCoordinate for H3Cell {
     /// the centroid coordinate of the h3 index
     fn to_coordinate(&self) -> Result<Coordinate<f64>, Self::Error> {
         let mut ll = h3ron_h3_sys::LatLng { lat: 0.0, lng: 0.0 };
-        Error::check_returncode(unsafe { h3ron_h3_sys::cellToLatLng(self.0, &mut ll) })?;
-        Ok(ll.into())
+        Error::check_returncode(unsafe { h3ron_h3_sys::cellToLatLng(self.0, &mut ll) })
+            .map(|_| ll.into())
     }
 }
 
