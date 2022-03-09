@@ -259,7 +259,10 @@ impl<W> PreparedH3EdgeGraph<W>
 where
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
-    fn from_h3edge_graph(graph: H3EdgeGraph<W>, min_longedge_length: usize) -> Result<Self, Error> {
+    pub fn from_h3edge_graph(
+        graph: H3EdgeGraph<W>,
+        min_longedge_length: usize,
+    ) -> Result<Self, Error> {
         let h3_resolution = graph.h3_resolution();
         let graph_nodes = graph.nodes()?;
         let edges = to_longedge_edges(graph, min_longedge_length)?;
