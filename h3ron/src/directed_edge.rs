@@ -54,8 +54,8 @@ impl H3DirectedEdge {
         let mut edge_length: f64 = 0.0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::getHexagonEdgeLengthAvgKm(c_int::from(resolution), &mut edge_length)
-        })?;
-        Ok(edge_length)
+        })
+        .map(|_| edge_length)
     }
 
     /// Gets the average length of an edge in meters at `resolution`.
@@ -64,8 +64,8 @@ impl H3DirectedEdge {
         let mut edge_length: f64 = 0.0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::getHexagonEdgeLengthAvgM(c_int::from(resolution), &mut edge_length)
-        })?;
-        Ok(edge_length)
+        })
+        .map(|_| edge_length)
     }
 
     /// The approximate distance between the centroids of two neighboring cells
@@ -74,9 +74,7 @@ impl H3DirectedEdge {
     /// Based on the approximate edge length. See [`H3DirectedEdge::cell_centroid_distance_m`] for a
     /// more exact variant of this function.
     pub fn cell_centroid_distance_avg_m_at_resolution(resolution: u8) -> Result<f64, Error> {
-        Ok(cell_centroid_distance_m_by_edge_length(
-            Self::edge_length_avg_m(resolution)?,
-        ))
+        Self::edge_length_avg_m(resolution).map(cell_centroid_distance_m_by_edge_length)
     }
 
     /// The approximate distance between the centroids of two neighboring cells
@@ -85,9 +83,8 @@ impl H3DirectedEdge {
     /// Based on the exact edge length. See [`H3DirectedEdge::cell_centroid_distance_avg_m_at_resolution`]
     /// for a resolution based variant.
     pub fn cell_centroid_distance_m(&self) -> Result<f64, Error> {
-        Ok(cell_centroid_distance_m_by_edge_length(
-            self.exact_length_m()?,
-        ))
+        self.exact_length_m()
+            .map(cell_centroid_distance_m_by_edge_length)
     }
 
     /// Retrieves the destination H3 Cell of `self`
@@ -98,8 +95,8 @@ impl H3DirectedEdge {
         let mut cell_h3index: H3Index = 0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::getDirectedEdgeDestination(self.h3index(), &mut cell_h3index)
-        })?;
-        Ok(H3Cell::new(cell_h3index))
+        })
+        .map(|_| H3Cell::new(cell_h3index))
     }
 
     /// Retrieves the origin H3 Cell of `self`
@@ -110,8 +107,8 @@ impl H3DirectedEdge {
         let mut cell_h3index: H3Index = 0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::getDirectedEdgeOrigin(self.h3index(), &mut cell_h3index)
-        })?;
-        Ok(H3Cell::new(cell_h3index))
+        })
+        .map(|_| H3Cell::new(cell_h3index))
     }
 
     /// Retrieves a `H3EdgeCells` of the origin and destination cell of the
@@ -124,10 +121,13 @@ impl H3DirectedEdge {
         unsafe {
             h3ron_h3_sys::directedEdgeToCells(self.h3index(), out.as_mut_ptr());
         }
-        Ok(H3EdgeCells {
+        let res = H3EdgeCells {
             origin: H3Cell::new(out[0]),
             destination: H3Cell::new(out[1]),
-        })
+        };
+        res.origin.validate()?;
+        res.destination.validate()?;
+        Ok(res)
     }
 
     /// Retrieves the corresponding edge in the reversed direction.
@@ -159,8 +159,8 @@ impl H3DirectedEdge {
         let mut length: f64 = 0.0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::exactEdgeLengthM(self.h3index(), &mut length)
-        })?;
-        Ok(length)
+        })
+        .map(|_| length)
     }
 
     /// Retrieves the exact length of `self` in kilometers
@@ -169,8 +169,8 @@ impl H3DirectedEdge {
         let mut length: f64 = 0.0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::exactEdgeLengthKm(self.h3index(), &mut length)
-        })?;
-        Ok(length)
+        })
+        .map(|_| length)
     }
 
     /// Retrieves the exact length of `self` in radians
@@ -179,8 +179,8 @@ impl H3DirectedEdge {
         let mut length: f64 = 0.0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::exactEdgeLengthRads(self.h3index(), &mut length)
-        })?;
-        Ok(length)
+        })
+        .map(|_| length)
     }
 }
 

@@ -33,9 +33,10 @@ where
     /// Please note the - for unsorted values faster - `from_iter_with_sort` method.
     fn from_iter<I: IntoIterator<Item = Q>>(iter: I) -> Self {
         Self {
-            treemap: RoaringTreemap::from_iter(
-                iter.into_iter().map(|c| c.borrow().h3index() as u64),
-            ),
+            treemap: iter
+                .into_iter()
+                .map(|c| c.borrow().h3index() as u64)
+                .collect(),
             phantom_data: Default::default(),
         }
     }

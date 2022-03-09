@@ -9,16 +9,7 @@
 //! * **roaring**: Enables `collections::H3Treemap` based on the `roaring` crate.
 //! * **io**: Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
 //! during development.
-#![warn(
-    clippy::all,
-    clippy::correctness,
-    clippy::suspicious,
-    clippy::style,
-    clippy::complexity,
-    clippy::perf,
-    clippy::nursery,
-    nonstandard_style
-)]
+#![warn(clippy::nursery, nonstandard_style)]
 #![allow(clippy::redundant_pub_crate)]
 use std::iter::Iterator;
 use std::os::raw::c_int;
