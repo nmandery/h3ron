@@ -32,7 +32,7 @@ path = "../h3ron"
 version = "0.14.0" # for publishing on crates.io
 features = ["rayon", "compression", "roaring", "use-serde"]
 
-[dependencies.tinyvec]
+[dependencies.smallvec]
 version = "1"
 features = ["serde"]
 

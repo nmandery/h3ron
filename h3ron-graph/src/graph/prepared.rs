@@ -6,6 +6,7 @@ use geo_types::{Coordinate, MultiPoint, MultiPolygon, Point, Polygon, Rect};
 use num_traits::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
+use smallvec::{smallvec, SmallVec};
 
 use h3ron::collections::compressed::Decompressor;
 use h3ron::collections::hashbrown::hash_map::Entry;
@@ -43,7 +44,11 @@ where
     }
 }
 
-const MIN_LONGEDGE_LENGTH: usize = 2;
+type OwnedEdgeTuple<W> = (H3DirectedEdge, OwnedEdgeValue<W>);
+
+/// A smallvec with an array length of 2 allows storing the - probably - most common
+/// number of edges on the heap
+type OwnedEdgeTupleList<W> = SmallVec<[OwnedEdgeTuple<W>; 2]>;
 
 /// A prepared graph which can be used with a few algorithms.
 ///
@@ -57,8 +62,7 @@ const MIN_LONGEDGE_LENGTH: usize = 2;
 ///
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PreparedH3EdgeGraph<W: Send + Sync> {
-    //edges: ThreadPartitionedMap<H3DirectedEdge, OwnedEdgeValue<W>, 4>,
-    outgoing_edges: HashMap<H3Cell, Vec<(H3DirectedEdge, OwnedEdgeValue<W>)>>,
+    outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>>,
     h3_resolution: u8,
     graph_nodes: ThreadPartitionedMap<H3Cell, NodeType, 4>,
 }
@@ -171,10 +175,12 @@ impl<W: Send + Sync + Copy> GetCellEdges for PreparedH3EdgeGraph<W> {
     }
 }
 
+const MIN_LONGEDGE_LENGTH: usize = 2;
+
 fn to_longedge_edges<W>(
     input_graph: H3EdgeGraph<W>,
     min_longedge_length: usize,
-) -> Result<HashMap<H3Cell, Vec<(H3DirectedEdge, OwnedEdgeValue<W>)>>, Error>
+) -> Result<HashMap<H3Cell, OwnedEdgeTupleList<W>>, Error>
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
 {
@@ -185,8 +191,7 @@ where
         )));
     }
 
-    let mut outgoing_edges: HashMap<H3Cell, Vec<(H3DirectedEdge, OwnedEdgeValue<W>)>> =
-        Default::default();
+    let mut outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>> = Default::default();
 
     let mut parts: Vec<_> = input_graph
         .edges
@@ -202,7 +207,7 @@ where
             match outgoing_edges.entry(cell) {
                 Entry::Occupied(mut occ) => occ.get_mut().push(edge_with_weight),
                 Entry::Vacant(vac) => {
-                    vac.insert(vec![edge_with_weight]);
+                    vac.insert(smallvec![edge_with_weight]);
                 }
             }
         }
@@ -220,7 +225,7 @@ fn assemble_edges<W>(
     input_graph: &H3EdgeGraph<W>,
     partition: &HashMap<H3DirectedEdge, W>,
     min_longedge_length: usize,
-) -> Result<Vec<(H3Cell, (H3DirectedEdge, OwnedEdgeValue<W>))>, Error>
+) -> Result<Vec<(H3Cell, OwnedEdgeTuple<W>)>, Error>
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
 {
