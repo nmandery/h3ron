@@ -4,7 +4,7 @@ use std::time::Duration;
 use criterion::{criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
 
-use h3ron::collections::{H3CellMap, H3Treemap, RandomState, ThreadPartitionedMap};
+use h3ron::collections::{H3CellMap, H3Treemap, RandomState};
 use h3ron::H3Cell;
 
 fn criterion_benchmark(c: &mut Criterion) {
@@ -24,14 +24,6 @@ fn criterion_benchmark(c: &mut Criterion) {
         |bencher| {
             bencher.iter(|| {
                 H3CellMap::from_iter(cells.iter().map(|cell| (*cell, value)));
-            });
-        },
-    );
-    group.bench_function(
-        format!("ThreadPartitionedMap::from_iter (n={})", cells.len()),
-        |bencher| {
-            bencher.iter(|| {
-                ThreadPartitionedMap::<_, _, 4>::from_iter(cells.iter().map(|cell| (*cell, value)));
             });
         },
     );
@@ -65,14 +57,6 @@ fn criterion_benchmark(c: &mut Criterion) {
             for cell in cells.iter() {
                 map.insert(*cell, value);
             }
-            bencher.iter(|| map.get(&cells[0]).unwrap());
-        },
-    );
-    group.bench_function(
-        format!("ThreadPartitionedMap.get (len={})", cells.len()),
-        |bencher| {
-            let map =
-                ThreadPartitionedMap::<_, _, 4>::from_iter(cells.iter().map(|cell| (*cell, value)));
             bencher.iter(|| map.get(&cells[0]).unwrap());
         },
     );

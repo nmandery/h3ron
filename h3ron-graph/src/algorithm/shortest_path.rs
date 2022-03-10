@@ -206,7 +206,7 @@ where
 impl<W, G> ShortestPath<W> for G
 where
     G: GetCellEdges<EdgeWeightType = W> + GetCellNode + HasH3Resolution + NearestGraphNodes,
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero,
 {
     fn shortest_path<I, OPT>(
         &self,

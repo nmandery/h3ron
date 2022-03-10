@@ -1,14 +1,11 @@
 use std::marker::PhantomData;
-use std::ops::Add;
-
-use num_traits::Zero;
 
 use crate::error::Error;
 use h3ron::collections::H3Treemap;
 use h3ron::{H3Cell, H3DirectedEdge, HasH3Resolution};
 
 use crate::graph::node::NodeType;
-use crate::graph::{EdgeWeight, GetCellEdges, GetCellNode, GetEdge};
+use crate::graph::{EdgeWeight, GetCellEdges, GetCellNode};
 
 /// wrapper to exclude cells from traversal during routing
 pub struct ExcludeCells<'a, G, W> {
@@ -19,8 +16,7 @@ pub struct ExcludeCells<'a, G, W> {
 
 impl<'a, G, W> ExcludeCells<'a, G, W>
 where
-    G: GetCellNode + GetEdge<EdgeWeightType = W> + HasH3Resolution,
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    G: GetCellNode + GetCellEdges<EdgeWeightType = W> + HasH3Resolution,
 {
     pub fn new(inner_graph: &'a G, cells_to_exclude: &'a H3Treemap<H3Cell>) -> Self {
         Self {
@@ -33,8 +29,7 @@ where
 
 impl<'a, G, W> GetCellNode for ExcludeCells<'a, G, W>
 where
-    G: GetCellNode + GetEdge<EdgeWeightType = W> + HasH3Resolution,
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    G: GetCellNode,
 {
     fn get_cell_node(&self, cell: &H3Cell) -> Option<NodeType> {
         if self.cells_to_exclude.contains(cell) {
@@ -47,8 +42,7 @@ where
 
 impl<'a, G, W> GetCellEdges for ExcludeCells<'a, G, W>
 where
-    G: GetCellNode + GetCellEdges<EdgeWeightType = W> + HasH3Resolution,
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    G: GetCellEdges<EdgeWeightType = W>,
 {
     type EdgeWeightType = G::EdgeWeightType;
 
@@ -93,8 +87,7 @@ where
 
 impl<'a, G, W> HasH3Resolution for ExcludeCells<'a, G, W>
 where
-    G: GetCellNode + GetEdge<EdgeWeightType = W> + HasH3Resolution,
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    G: HasH3Resolution,
 {
     fn h3_resolution(&self) -> u8 {
         self.inner_graph.h3_resolution()

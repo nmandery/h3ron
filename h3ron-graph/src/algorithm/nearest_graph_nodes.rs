@@ -46,7 +46,7 @@ where
 
 impl<G> NearestGraphNodes for G
 where
-    G: GetCellNode + Sync,
+    G: GetCellNode,
 {
     fn nearest_graph_nodes(
         &self,

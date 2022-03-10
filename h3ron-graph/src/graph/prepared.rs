@@ -4,14 +4,12 @@ use geo::bounding_rect::BoundingRect;
 use geo::concave_hull::ConcaveHull;
 use geo_types::{Coordinate, MultiPoint, MultiPolygon, Point, Polygon, Rect};
 use num_traits::Zero;
-use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 
 use h3ron::collections::compressed::Decompressor;
 use h3ron::collections::hashbrown::hash_map::Entry;
-use h3ron::collections::partitioned::TPMIter;
-use h3ron::collections::{H3Treemap, HashMap, ThreadPartitionedMap};
+use h3ron::collections::{H3Treemap, HashMap};
 use h3ron::iter::H3DirectedEdgesBuilder;
 use h3ron::{H3Cell, H3DirectedEdge, HasH3Resolution, ToCoordinate};
 
@@ -24,12 +22,12 @@ use crate::graph::{
 };
 
 #[derive(Serialize, Deserialize, Clone)]
-struct OwnedEdgeValue<W: Send + Sync> {
+struct OwnedEdgeValue<W> {
     pub weight: W,
     pub longedge: Option<(LongEdge, W)>,
 }
 
-impl<'a, W: Send + Sync> From<&'a OwnedEdgeValue<W>> for EdgeWeight<'a, W>
+impl<'a, W> From<&'a OwnedEdgeValue<W>> for EdgeWeight<'a, W>
 where
     W: Copy,
 {
@@ -61,15 +59,15 @@ type OwnedEdgeTupleList<W> = SmallVec<[OwnedEdgeTuple<W>; 2]>;
 /// </p>
 ///
 #[derive(Serialize, Deserialize, Clone)]
-pub struct PreparedH3EdgeGraph<W: Send + Sync> {
+pub struct PreparedH3EdgeGraph<W> {
     outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>>,
     h3_resolution: u8,
-    graph_nodes: ThreadPartitionedMap<H3Cell, NodeType, 4>,
+    graph_nodes: HashMap<H3Cell, NodeType>,
 }
 
-unsafe impl<W: Sync + Send> Sync for PreparedH3EdgeGraph<W> {}
+unsafe impl<W> Sync for PreparedH3EdgeGraph<W> where W: Sync {}
 
-impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
+impl<W> PreparedH3EdgeGraph<W> {
     /// count the number of edges in the graph
     ///
     /// The returned tuple is (`num_edges`, `num_long_edges`)
@@ -88,7 +86,7 @@ impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
     }
 }
 
-impl<W: Sync + Send> PreparedH3EdgeGraph<W>
+impl<W> PreparedH3EdgeGraph<W>
 where
     W: Copy,
 {
@@ -128,19 +126,13 @@ where
     }
 }
 
-impl<W> HasH3Resolution for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
+impl<W> HasH3Resolution for PreparedH3EdgeGraph<W> {
     fn h3_resolution(&self) -> u8 {
         self.h3_resolution
     }
 }
 
-impl<W> GetStats for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
+impl<W> GetStats for PreparedH3EdgeGraph<W> {
     fn get_stats(&self) -> Result<GraphStats, Error> {
         Ok(GraphStats {
             h3_resolution: self.h3_resolution,
@@ -150,13 +142,13 @@ where
     }
 }
 
-impl<W: Send + Sync> GetCellNode for PreparedH3EdgeGraph<W> {
+impl<W> GetCellNode for PreparedH3EdgeGraph<W> {
     fn get_cell_node(&self, cell: &H3Cell) -> Option<NodeType> {
         self.graph_nodes.get(cell).copied()
     }
 }
 
-impl<W: Send + Sync + Copy> GetCellEdges for PreparedH3EdgeGraph<W> {
+impl<W: Copy> GetCellEdges for PreparedH3EdgeGraph<W> {
     type EdgeWeightType = W;
 
     fn get_edges_originating_at(
@@ -182,7 +174,7 @@ fn to_longedge_edges<W>(
     min_longedge_length: usize,
 ) -> Result<HashMap<H3Cell, OwnedEdgeTupleList<W>>, Error>
 where
-    W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
+    W: PartialOrd + PartialEq + Add<Output = W> + Copy,
 {
     if min_longedge_length < MIN_LONGEDGE_LENGTH {
         return Err(Error::Other(format!(
@@ -193,22 +185,13 @@ where
 
     let mut outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>> = Default::default();
 
-    let mut parts: Vec<_> = input_graph
-        .edges
-        .partitions()
-        .par_iter()
-        .map::<_, Result<_, Error>>(|partition| {
-            assemble_edges(&input_graph, partition, min_longedge_length)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    for part in parts.drain(..) {
-        for (cell, edge_with_weight) in part {
-            match outgoing_edges.entry(cell) {
-                Entry::Occupied(mut occ) => occ.get_mut().push(edge_with_weight),
-                Entry::Vacant(vac) => {
-                    vac.insert(smallvec![edge_with_weight]);
-                }
+    for (cell, edge_with_weight) in
+        assemble_edges(&input_graph, &input_graph.edges, min_longedge_length)?
+    {
+        match outgoing_edges.entry(cell) {
+            Entry::Occupied(mut occ) => occ.get_mut().push(edge_with_weight),
+            Entry::Vacant(vac) => {
+                vac.insert(smallvec![edge_with_weight]);
             }
         }
     }
@@ -227,7 +210,7 @@ fn assemble_edges<W>(
     min_longedge_length: usize,
 ) -> Result<Vec<(H3Cell, OwnedEdgeTuple<W>)>, Error>
 where
-    W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
+    W: PartialOrd + PartialEq + Add<Output = W> + Copy,
 {
     let mut new_edges = Vec::with_capacity(partition.len());
     let mut edge_builder = H3DirectedEdgesBuilder::new();
@@ -246,7 +229,7 @@ where
                 new_edge
                     .reversed()
                     .ok()
-                    .map(|rev_edge| input_graph.edges.contains(&rev_edge))
+                    .map(|rev_edge| input_graph.edges.get(&rev_edge).is_some())
                     .unwrap_or(false)
             })
             .count();
@@ -300,7 +283,7 @@ where
 
 impl<W> PreparedH3EdgeGraph<W>
 where
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero,
 {
     pub fn from_h3edge_graph(
         graph: H3EdgeGraph<W>,
@@ -319,7 +302,7 @@ where
 
 impl<W> TryFrom<H3EdgeGraph<W>> for PreparedH3EdgeGraph<W>
 where
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero,
 {
     type Error = Error;
 
@@ -330,7 +313,7 @@ where
 
 impl<W> From<PreparedH3EdgeGraph<W>> for H3EdgeGraph<W>
 where
-    W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
+    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero,
 {
     fn from(prepared_graph: PreparedH3EdgeGraph<W>) -> Self {
         Self {
@@ -343,10 +326,7 @@ where
     }
 }
 
-impl<W> CoveredArea for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
+impl<W> CoveredArea for PreparedH3EdgeGraph<W> {
     type Error = Error;
 
     fn covered_area(&self, reduce_resolution_by: u8) -> Result<MultiPolygon<f64>, Self::Error> {
@@ -358,21 +338,15 @@ where
     }
 }
 
-impl<'a, W> IterateCellNodes<'a> for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
-    type CellNodeIterator = TPMIter<'a, H3Cell, NodeType, 4>;
+impl<'a, W> IterateCellNodes<'a> for PreparedH3EdgeGraph<W> {
+    type CellNodeIterator = h3ron::collections::hashbrown::hash_map::Iter<'a, H3Cell, NodeType>;
 
     fn iter_cell_nodes(&'a self) -> Self::CellNodeIterator {
         self.graph_nodes.iter()
     }
 }
 
-impl<W> ConcaveHull for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
+impl<W> ConcaveHull for PreparedH3EdgeGraph<W> {
     type Scalar = f64;
 
     /// concave hull - this implementation leaves out invalid cells
@@ -386,10 +360,7 @@ where
     }
 }
 
-impl<W> BoundingRect<f64> for PreparedH3EdgeGraph<W>
-where
-    W: Send + Sync,
-{
+impl<W> BoundingRect<f64> for PreparedH3EdgeGraph<W> {
     type Output = Option<Rect<f64>>;
 
     fn bounding_rect(&self) -> Self::Output {

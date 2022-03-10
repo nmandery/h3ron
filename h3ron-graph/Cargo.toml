@@ -30,7 +30,7 @@ num-traits = "0.2"
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.14.0" # for publishing on crates.io
-features = ["rayon", "compression", "roaring", "use-serde"]
+features = ["use-rayon", "compression", "roaring", "use-serde"]
 
 [dependencies.smallvec]
 version = "1"
