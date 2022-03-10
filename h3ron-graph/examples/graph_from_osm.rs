@@ -101,11 +101,10 @@ fn main() {
     let prepared_graph = PreparedH3EdgeGraph::try_from(graph).expect("preparing the graph failed");
 
     let stats = prepared_graph.get_stats().unwrap();
+    let (num_edges, num_long_edges) = prepared_graph.count_edges();
     println!(
         "Created a prepared graph ({} nodes, {} edges, {} long-edges)",
-        stats.num_nodes,
-        stats.num_edges,
-        prepared_graph.num_long_edges()
+        stats.num_nodes, num_edges, num_long_edges
     );
     let mut out_file = File::create(graph_output).expect("creating output file failed");
     serialize_into(&mut out_file, &prepared_graph, true).expect("writing graph failed");

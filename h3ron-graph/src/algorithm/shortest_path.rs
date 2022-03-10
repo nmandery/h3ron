@@ -15,7 +15,7 @@ use crate::algorithm::dijkstra::edge_dijkstra;
 use crate::algorithm::path::Path;
 use crate::algorithm::NearestGraphNodes;
 use crate::error::Error;
-use crate::graph::{GetCellNode, GetEdge};
+use crate::graph::{GetCellEdges, GetCellNode};
 
 ///
 /// Generic type parameters:
@@ -117,7 +117,7 @@ where
 
 impl<W, G> ShortestPathManyToMany<W> for G
 where
-    G: GetEdge<EdgeWeightType = W> + GetCellNode + HasH3Resolution + NearestGraphNodes + Sync,
+    G: GetCellEdges<EdgeWeightType = W> + GetCellNode + HasH3Resolution + NearestGraphNodes + Sync,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn shortest_path_many_to_many_map<I, OPT, PM, O>(
@@ -205,7 +205,7 @@ where
 
 impl<W, G> ShortestPath<W> for G
 where
-    G: GetEdge<EdgeWeightType = W> + GetCellNode + HasH3Resolution + NearestGraphNodes,
+    G: GetCellEdges<EdgeWeightType = W> + GetCellNode + HasH3Resolution + NearestGraphNodes,
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
     fn shortest_path<I, OPT>(
@@ -273,7 +273,7 @@ fn shortest_path_many_worker<G, W, OPT, PM, O>(
     path_transform_fn: PM,
 ) -> Result<Vec<O>, Error>
 where
-    G: GetEdge<EdgeWeightType = W>,
+    G: GetCellEdges<EdgeWeightType = W>,
     W: Add + Copy + Ord + Zero,
     PM: Fn(Path<W>) -> Result<O, Error>,
     O: Clone,

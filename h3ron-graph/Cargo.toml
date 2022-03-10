@@ -32,6 +32,10 @@ path = "../h3ron"
 version = "0.14.0" # for publishing on crates.io
 features = ["rayon", "compression", "roaring", "use-serde"]
 
+[dependencies.tinyvec]
+version = "1"
+features = ["serde"]
+
 [dependencies.osmpbfreader]
 version = "0.15"
 optional = true

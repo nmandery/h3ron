@@ -10,7 +10,7 @@ use h3ron::H3Cell;
 
 use crate::algorithm::dijkstra::edge_dijkstra_weight_threshold;
 use crate::error::Error;
-use crate::graph::GetEdge;
+use crate::graph::GetCellEdges;
 
 /// Find all cells connected to the graph around a origin cell within a given threshold
 pub trait WithinWeightThreshold<W> {
@@ -25,7 +25,7 @@ pub trait WithinWeightThreshold<W> {
 
 impl<W, G> WithinWeightThreshold<W> for G
 where
-    G: GetEdge<EdgeWeightType = W>,
+    G: GetCellEdges<EdgeWeightType = W>,
     W: Zero + Ord + Copy + Add,
 {
     fn cells_within_weight_threshold(
@@ -58,7 +58,7 @@ pub trait WithinWeightThresholdMany<W> {
 
 impl<W, G> WithinWeightThresholdMany<W> for G
 where
-    G: GetEdge<EdgeWeightType = W> + WithinWeightThreshold<W> + Sync,
+    G: GetCellEdges<EdgeWeightType = W> + WithinWeightThreshold<W> + Sync,
     W: Zero + Ord + Copy + Add + Send + Sync,
 {
     fn cells_within_weight_threshold_many<I, AGG>(

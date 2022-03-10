@@ -8,6 +8,7 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use h3ron::collections::compressed::Decompressor;
+use h3ron::collections::hashbrown::hash_map::Entry;
 use h3ron::collections::partitioned::TPMIter;
 use h3ron::collections::{H3Treemap, HashMap, ThreadPartitionedMap};
 use h3ron::iter::H3DirectedEdgesBuilder;
@@ -18,7 +19,7 @@ use crate::error::Error;
 use crate::graph::longedge::LongEdge;
 use crate::graph::node::NodeType;
 use crate::graph::{
-    EdgeWeight, GetCellNode, GetEdge, GetStats, GraphStats, H3EdgeGraph, IterateCellNodes,
+    EdgeWeight, GetCellEdges, GetCellNode, GetStats, GraphStats, H3EdgeGraph, IterateCellNodes,
 };
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -56,29 +57,42 @@ const MIN_LONGEDGE_LENGTH: usize = 2;
 ///
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PreparedH3EdgeGraph<W: Send + Sync> {
-    edges: ThreadPartitionedMap<H3DirectedEdge, OwnedEdgeValue<W>, 4>,
+    //edges: ThreadPartitionedMap<H3DirectedEdge, OwnedEdgeValue<W>, 4>,
+    outgoing_edges: HashMap<H3Cell, Vec<(H3DirectedEdge, OwnedEdgeValue<W>)>>,
     h3_resolution: u8,
     graph_nodes: ThreadPartitionedMap<H3Cell, NodeType, 4>,
 }
 
 unsafe impl<W: Sync + Send> Sync for PreparedH3EdgeGraph<W> {}
 
+impl<W: Sync + Send> PreparedH3EdgeGraph<W> {
+    /// count the number of edges in the graph
+    ///
+    /// The returned tuple is (`num_edges`, `num_long_edges`)
+    pub fn count_edges(&self) -> (usize, usize) {
+        let mut num_edges = 0usize;
+        let mut num_long_edges = 0usize;
+
+        for (_cell, oevs) in self.outgoing_edges.iter() {
+            num_edges += oevs.len();
+            num_long_edges += oevs
+                .iter()
+                .filter(|(_, oev)| oev.longedge.is_some())
+                .count();
+        }
+        (num_edges, num_long_edges)
+    }
+}
+
 impl<W: Sync + Send> PreparedH3EdgeGraph<W>
 where
     W: Copy,
 {
-    pub fn num_long_edges(&self) -> usize {
-        self.edges
-            .iter()
-            .filter(|(_, oev)| oev.longedge.is_some())
-            .count()
-    }
-
     /// iterate over all edges of the graph
     pub fn iter_edges(&self) -> impl Iterator<Item = (H3DirectedEdge, EdgeWeight<W>)> {
-        self.edges
+        self.outgoing_edges
             .iter()
-            .map(|(edge, weight)| (*edge, weight.into()))
+            .flat_map(|(_, oevs)| oevs.iter().map(|(edge, oev)| (*edge, oev.into())))
     }
 
     /// iterate over all edges of the graph, while skipping simple `H3DirectedEdge`
@@ -91,18 +105,20 @@ where
     ) -> Result<impl Iterator<Item = (H3DirectedEdge, EdgeWeight<W>)>, Error> {
         let mut covered_edges = H3Treemap::<H3DirectedEdge>::default();
         let mut decompressor = Decompressor::default();
-        for (_, owned_edge_value) in self.edges.iter() {
-            if let Some((longedge, _)) = owned_edge_value.longedge.as_ref() {
-                for edge in decompressor.decompress_block(&longedge.edge_path)?.skip(1) {
-                    covered_edges.insert(edge);
+        for (_, owned_edge_values) in self.outgoing_edges.iter() {
+            for (_, owned_edge_value) in owned_edge_values.iter() {
+                if let Some((longedge, _)) = owned_edge_value.longedge.as_ref() {
+                    for edge in decompressor.decompress_block(&longedge.edge_path)?.skip(1) {
+                        covered_edges.insert(edge);
+                    }
                 }
             }
         }
-        Ok(self.edges.iter().filter_map(move |(edge, weight)| {
-            if covered_edges.contains(edge) {
+        Ok(self.iter_edges().filter_map(move |(edge, weight)| {
+            if covered_edges.contains(&edge) {
                 None
             } else {
-                Some((*edge, weight.into()))
+                Some((edge, weight))
             }
         }))
     }
@@ -125,7 +141,7 @@ where
         Ok(GraphStats {
             h3_resolution: self.h3_resolution,
             num_nodes: self.graph_nodes.len(),
-            num_edges: self.edges.len(),
+            num_edges: self.count_edges().0,
         })
     }
 }
@@ -136,21 +152,29 @@ impl<W: Send + Sync> GetCellNode for PreparedH3EdgeGraph<W> {
     }
 }
 
-impl<W: Send + Sync + Copy> GetEdge for PreparedH3EdgeGraph<W> {
+impl<W: Send + Sync + Copy> GetCellEdges for PreparedH3EdgeGraph<W> {
     type EdgeWeightType = W;
 
-    fn get_edge(
+    fn get_edges_originating_at(
         &self,
-        edge: &H3DirectedEdge,
-    ) -> Result<Option<EdgeWeight<Self::EdgeWeightType>>, Error> {
-        Ok(self.edges.get(edge).map(|owv| owv.into()))
+        cell: &H3Cell,
+    ) -> Result<Vec<(H3DirectedEdge, EdgeWeight<Self::EdgeWeightType>)>, Error> {
+        let mut out_vec = Vec::with_capacity(7);
+        if let Some(edges_with_weights) = self.outgoing_edges.get(cell) {
+            out_vec.extend(
+                edges_with_weights
+                    .iter()
+                    .map(|(edge, owv)| (*edge, owv.into())),
+            );
+        }
+        Ok(out_vec)
     }
 }
 
 fn to_longedge_edges<W>(
     input_graph: H3EdgeGraph<W>,
     min_longedge_length: usize,
-) -> Result<ThreadPartitionedMap<H3DirectedEdge, OwnedEdgeValue<W>, 4>, Error>
+) -> Result<HashMap<H3Cell, Vec<(H3DirectedEdge, OwnedEdgeValue<W>)>>, Error>
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
 {
@@ -161,7 +185,8 @@ where
         )));
     }
 
-    let mut edges: ThreadPartitionedMap<_, _, 4> = Default::default();
+    let mut outgoing_edges: HashMap<H3Cell, Vec<(H3DirectedEdge, OwnedEdgeValue<W>)>> =
+        Default::default();
 
     let mut parts: Vec<_> = input_graph
         .edges
@@ -172,17 +197,30 @@ where
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    for mut part in parts.drain(..) {
-        edges.insert_many(part.drain(..))
+    for part in parts.drain(..) {
+        for (cell, edge_with_weight) in part {
+            match outgoing_edges.entry(cell) {
+                Entry::Occupied(mut occ) => occ.get_mut().push(edge_with_weight),
+                Entry::Vacant(vac) => {
+                    vac.insert(vec![edge_with_weight]);
+                }
+            }
+        }
     }
-    Ok(edges)
+
+    // remove duplicates if there are any
+    for (_, edges_with_weights) in outgoing_edges.iter_mut() {
+        edges_with_weights.sort_unstable_by_key(|eww| eww.0);
+        edges_with_weights.dedup_by(|a, b| a.0 == b.0);
+    }
+    Ok(outgoing_edges)
 }
 
 fn assemble_edges<W>(
     input_graph: &H3EdgeGraph<W>,
     partition: &HashMap<H3DirectedEdge, W>,
     min_longedge_length: usize,
-) -> Result<Vec<(H3DirectedEdge, OwnedEdgeValue<W>)>, Error>
+) -> Result<Vec<(H3Cell, (H3DirectedEdge, OwnedEdgeValue<W>))>, Error>
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
 {
@@ -250,7 +288,7 @@ where
                 graph_entry.longedge = Some((LongEdge::try_from(edge_path)?, longedge_weight));
             }
         }
-        new_edges.push((*edge, graph_entry));
+        new_edges.push((edge.origin_cell()?, (*edge, graph_entry)));
     }
     Ok(new_edges)
 }
@@ -265,11 +303,11 @@ where
     ) -> Result<Self, Error> {
         let h3_resolution = graph.h3_resolution();
         let graph_nodes = graph.nodes()?;
-        let edges = to_longedge_edges(graph, min_longedge_length)?;
+        let outgoing_edges = to_longedge_edges(graph, min_longedge_length)?;
         Ok(Self {
-            edges,
             graph_nodes,
             h3_resolution,
+            outgoing_edges,
         })
     }
 }
@@ -289,11 +327,10 @@ impl<W> From<PreparedH3EdgeGraph<W>> for H3EdgeGraph<W>
 where
     W: PartialOrd + PartialEq + Add + Copy + Send + Ord + Zero + Sync,
 {
-    fn from(mut prepared_graph: PreparedH3EdgeGraph<W>) -> Self {
+    fn from(prepared_graph: PreparedH3EdgeGraph<W>) -> Self {
         Self {
             edges: prepared_graph
-                .edges
-                .drain()
+                .iter_edges()
                 .map(|(edge, edge_value)| (edge, edge_value.weight))
                 .collect(),
             h3_resolution: prepared_graph.h3_resolution,
@@ -422,7 +459,7 @@ mod tests {
         }
         assert!(graph.num_edges() > 50);
         let prep_graph: PreparedH3EdgeGraph<_> = graph.try_into().unwrap();
-        assert_eq!(prep_graph.num_long_edges(), 1);
+        assert_eq!(prep_graph.count_edges().0, 1);
         prep_graph
     }
 
