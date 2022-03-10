@@ -464,7 +464,7 @@ mod tests {
         }
         assert!(graph.num_edges() > 50);
         let prep_graph: PreparedH3EdgeGraph<_> = graph.try_into().unwrap();
-        assert_eq!(prep_graph.count_edges().0, 1);
+        assert_eq!(prep_graph.count_edges().1, 1);
         prep_graph
     }
 
