@@ -46,14 +46,14 @@ where
 {
     type EdgeWeightType = G::EdgeWeightType;
 
-    fn get_edges_originating_at(
+    fn get_edges_originating_from(
         &self,
         cell: &H3Cell,
     ) -> Result<Vec<(H3DirectedEdge, EdgeWeight<Self::EdgeWeightType>)>, Error> {
         if self.cells_to_exclude.contains(cell) {
             Ok(vec![])
         } else {
-            let found = self.inner_graph.get_edges_originating_at(cell)?;
+            let found = self.inner_graph.get_edges_originating_from(cell)?;
             let mut not_excluded = Vec::with_capacity(found.len());
             for (edge, edge_value) in found {
                 if self.cells_to_exclude.contains(&edge.destination_cell()?) {

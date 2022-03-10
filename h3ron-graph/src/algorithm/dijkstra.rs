@@ -98,7 +98,7 @@ where
             continue;
         }
 
-        for (succeeding_edge, succeeding_edge_value) in graph.get_edges_originating_at(cell)? {
+        for (succeeding_edge, succeeding_edge_value) in graph.get_edges_originating_from(cell)? {
             // TODO: make use of longedges in case a subset-of-interest is set
 
             let new_weight = weight + succeeding_edge_value.weight;
@@ -183,7 +183,7 @@ where
             continue;
         }
 
-        for (succeeding_edge, succeeding_edge_value) in graph.get_edges_originating_at(cell)? {
+        for (succeeding_edge, succeeding_edge_value) in graph.get_edges_originating_from(cell)? {
             // use the longedge if it does not contain any destination. If it would
             // contain a destination we would "jump over" it when we would use the longedge.
             let (dijkstra_edge, new_weight) =

@@ -151,7 +151,7 @@ impl<W> GetCellNode for PreparedH3EdgeGraph<W> {
 impl<W: Copy> GetCellEdges for PreparedH3EdgeGraph<W> {
     type EdgeWeightType = W;
 
-    fn get_edges_originating_at(
+    fn get_edges_originating_from(
         &self,
         cell: &H3Cell,
     ) -> Result<Vec<(H3DirectedEdge, EdgeWeight<Self::EdgeWeightType>)>, Error> {

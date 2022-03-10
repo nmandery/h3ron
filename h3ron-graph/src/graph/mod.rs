@@ -37,9 +37,9 @@ pub trait IterateCellNodes<'a> {
 pub trait GetCellEdges {
     type EdgeWeightType;
 
-    /// get all edges and their values originating at `cell`
+    /// get all edges and their values originating from cell `cell`
     #[allow(clippy::complexity)]
-    fn get_edges_originating_at(
+    fn get_edges_originating_from(
         &self,
         cell: &H3Cell,
     ) -> Result<Vec<(H3DirectedEdge, EdgeWeight<Self::EdgeWeightType>)>, Error>;
@@ -65,7 +65,7 @@ where
         edge: &H3DirectedEdge,
     ) -> Result<Option<EdgeWeight<Self::EdgeWeightType>>, Error> {
         let cell = edge.origin_cell()?;
-        for (found_edge, value) in self.get_edges_originating_at(&cell)? {
+        for (found_edge, value) in self.get_edges_originating_from(&cell)? {
             if edge == &found_edge {
                 return Ok(Some(value));
             }
