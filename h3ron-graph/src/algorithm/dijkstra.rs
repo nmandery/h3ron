@@ -8,13 +8,12 @@ use num_traits::Zero;
 
 use h3ron::collections::compressed::Decompressor;
 use h3ron::collections::{H3CellMap, H3CellSet, H3Treemap, HashMap, RandomState};
-use h3ron::iter::H3DirectedEdgesBuilder;
 use h3ron::{H3Cell, H3DirectedEdge, Index};
 
 use crate::algorithm::path::{DirectedEdgePath, Path};
 use crate::error::Error;
 use crate::graph::longedge::LongEdge;
-use crate::graph::GetEdge;
+use crate::graph::GetCellEdges;
 
 #[derive(Clone)]
 enum DijkstraEdge<'a> {
@@ -77,10 +76,9 @@ pub fn edge_dijkstra_weight_threshold<G, W>(
     // TODO: optional bitmap/set of cells we are interested in
 ) -> Result<H3CellMap<W>, Error>
 where
-    G: GetEdge<EdgeWeightType = W>,
+    G: GetCellEdges<EdgeWeightType = W>,
     W: Zero + Ord + Copy + Add,
 {
-    let mut edge_builder = H3DirectedEdgesBuilder::new();
     let mut to_see = BinaryHeap::new();
     let mut parents: IndexMap<H3Cell, W, RandomState> = IndexMap::default();
 
@@ -100,37 +98,35 @@ where
             continue;
         }
 
-        for succeeding_edge in edge_builder.from_origin_cell(cell)? {
-            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge)? {
-                // TODO: make use of longedges in case a subset-of-interest is set
+        for (succeeding_edge, succeeding_edge_value) in graph.get_edges_originating_from(cell)? {
+            // TODO: make use of longedges in case a subset-of-interest is set
 
-                let new_weight = weight + succeeding_edge_value.weight;
+            let new_weight = weight + succeeding_edge_value.weight;
 
-                // skip following this edge when the threshold is reached.
-                if new_weight > threshold_weight {
-                    continue;
+            // skip following this edge when the threshold is reached.
+            if new_weight > threshold_weight {
+                continue;
+            }
+
+            let n;
+            match parents.entry(succeeding_edge.destination_cell()?) {
+                Vacant(e) => {
+                    n = e.index();
+                    e.insert(new_weight);
                 }
-
-                let n;
-                match parents.entry(succeeding_edge.destination_cell()?) {
-                    Vacant(e) => {
+                Occupied(mut e) => {
+                    if e.get() > &new_weight {
                         n = e.index();
                         e.insert(new_weight);
-                    }
-                    Occupied(mut e) => {
-                        if e.get() > &new_weight {
-                            n = e.index();
-                            e.insert(new_weight);
-                        } else {
-                            continue;
-                        }
+                    } else {
+                        continue;
                     }
                 }
-                to_see.push(SmallestHolder {
-                    weight: new_weight,
-                    index: n,
-                });
             }
+            to_see.push(SmallestHolder {
+                weight: new_weight,
+                index: n,
+            });
         }
     }
     Ok(parents.drain(..).collect())
@@ -146,7 +142,7 @@ pub fn edge_dijkstra<'a, G, W>(
     num_destinations_to_reach: Option<usize>,
 ) -> Result<Vec<Path<W>>, Error>
 where
-    G: GetEdge<EdgeWeightType = W>,
+    G: GetCellEdges<EdgeWeightType = W>,
     W: Zero + Ord + Copy + Add,
 {
     // this is the main exit condition. Stop after this many destinations have been reached or
@@ -155,7 +151,6 @@ where
         .unwrap_or_else(|| destinations.len())
         .min(destinations.len());
 
-    let mut edge_builder = H3DirectedEdgesBuilder::new();
     let mut to_see = BinaryHeap::new();
     let mut parents: IndexMap<H3Cell, DijkstraEntry<W>, RandomState> = IndexMap::default();
     let mut destinations_reached = H3CellSet::default();
@@ -188,55 +183,53 @@ where
             continue;
         }
 
-        for succeeding_edge in edge_builder.from_origin_cell(cell)? {
-            if let Some(succeeding_edge_value) = graph.get_edge(&succeeding_edge)? {
-                // use the longedge if it does not contain any destination. If it would
-                // contain a destination we would "jump over" it when we would use the longedge.
-                let (dijkstra_edge, new_weight) =
-                    if let Some((longedge, longedge_weight)) = succeeding_edge_value.longedge {
-                        if longedge.is_disjoint(destinations) {
-                            (DijkstraEdge::Long(longedge), longedge_weight + weight)
-                        } else {
-                            (
-                                DijkstraEdge::Single(succeeding_edge),
-                                succeeding_edge_value.weight + weight,
-                            )
-                        }
+        for (succeeding_edge, succeeding_edge_value) in graph.get_edges_originating_from(cell)? {
+            // use the longedge if it does not contain any destination. If it would
+            // contain a destination we would "jump over" it when we would use the longedge.
+            let (dijkstra_edge, new_weight) =
+                if let Some((longedge, longedge_weight)) = succeeding_edge_value.longedge {
+                    if longedge.is_disjoint(destinations) {
+                        (DijkstraEdge::Long(longedge), longedge_weight + weight)
                     } else {
                         (
                             DijkstraEdge::Single(succeeding_edge),
                             succeeding_edge_value.weight + weight,
                         )
-                    };
+                    }
+                } else {
+                    (
+                        DijkstraEdge::Single(succeeding_edge),
+                        succeeding_edge_value.weight + weight,
+                    )
+                };
 
-                let n;
-                match parents.entry(dijkstra_edge.destination_cell()?) {
-                    Vacant(e) => {
+            let n;
+            match parents.entry(dijkstra_edge.destination_cell()?) {
+                Vacant(e) => {
+                    n = e.index();
+                    e.insert(DijkstraEntry {
+                        weight: new_weight,
+                        index,
+                        edge: Some(dijkstra_edge),
+                    });
+                }
+                Occupied(mut e) => {
+                    if e.get().weight > new_weight {
                         n = e.index();
                         e.insert(DijkstraEntry {
                             weight: new_weight,
                             index,
                             edge: Some(dijkstra_edge),
                         });
-                    }
-                    Occupied(mut e) => {
-                        if e.get().weight > new_weight {
-                            n = e.index();
-                            e.insert(DijkstraEntry {
-                                weight: new_weight,
-                                index,
-                                edge: Some(dijkstra_edge),
-                            });
-                        } else {
-                            continue;
-                        }
+                    } else {
+                        continue;
                     }
                 }
-                to_see.push(SmallestHolder {
-                    weight: new_weight,
-                    index: n,
-                });
             }
+            to_see.push(SmallestHolder {
+                weight: new_weight,
+                index: n,
+            });
         }
     }
 

@@ -18,8 +18,6 @@ pub use hashbrown;
 pub use compactedcellvec::CompactedCellVec;
 #[cfg(feature = "lz4_flex")]
 pub use compressed::{Decompressor, IndexBlock};
-#[cfg(feature = "rayon")]
-pub use partitioned::ThreadPartitionedMap;
 #[cfg(feature = "roaring")]
 pub use treemap::H3Treemap;
 
@@ -30,8 +28,6 @@ pub mod indexvec;
 
 #[cfg(feature = "lz4_flex")]
 pub mod compressed;
-#[cfg(feature = "rayon")]
-pub mod partitioned;
 #[cfg(feature = "roaring")]
 pub mod treemap;
 

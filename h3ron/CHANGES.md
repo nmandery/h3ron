@@ -102,6 +102,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 - Removal of `CompressedIndexVec` in favour of `IndexBlock`. See the above "Added" section.
 - Removed `ToLinestring::to_linestring_unchecked` and `ToMultiLinestring::to_multilinestring` in favour of
   the checked variants.
+- `ThreadPartitionedMap` has been removed.
 
 ## h3ron 0.13.0 - 2021-11-01
 

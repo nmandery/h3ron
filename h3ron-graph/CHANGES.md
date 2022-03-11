@@ -23,6 +23,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 * Rename `ShortestPathOptions::num_gap_cells_to_graph` to `max_distance_to_graph`.
 * Modify `Path` to contain the intended origin and destination cells.
 * Upgrade `geo` dependency to 0.19.
+* Optimize `ShortestPath` to reduce overheads. This change also lead to the introduction of the `GetCellEdges` trait.
 
 ## h3ron-graph 0.3.0 - 2022-01-23
 

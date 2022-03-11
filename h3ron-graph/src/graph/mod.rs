@@ -34,6 +34,17 @@ pub trait IterateCellNodes<'a> {
     fn iter_cell_nodes(&'a self) -> Self::CellNodeIterator;
 }
 
+pub trait GetCellEdges {
+    type EdgeWeightType;
+
+    /// get all edges and their values originating from cell `cell`
+    #[allow(clippy::complexity)]
+    fn get_edges_originating_from(
+        &self,
+        cell: &H3Cell,
+    ) -> Result<Vec<(H3DirectedEdge, EdgeWeight<Self::EdgeWeightType>)>, Error>;
+}
+
 pub trait GetEdge {
     type EdgeWeightType;
 
@@ -41,6 +52,26 @@ pub trait GetEdge {
         &self,
         edge: &H3DirectedEdge,
     ) -> Result<Option<EdgeWeight<Self::EdgeWeightType>>, Error>;
+}
+
+impl<G> GetEdge for G
+where
+    G: GetCellEdges,
+{
+    type EdgeWeightType = G::EdgeWeightType;
+
+    fn get_edge(
+        &self,
+        edge: &H3DirectedEdge,
+    ) -> Result<Option<EdgeWeight<Self::EdgeWeightType>>, Error> {
+        let cell = edge.origin_cell()?;
+        for (found_edge, value) in self.get_edges_originating_from(&cell)? {
+            if edge == &found_edge {
+                return Ok(Some(value));
+            }
+        }
+        Ok(None)
+    }
 }
 
 #[derive(Clone)]

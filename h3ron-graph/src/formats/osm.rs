@@ -1,5 +1,6 @@
 //! Support for OpenStreetMap data formats
 
+use std::io::BufReader;
 use std::ops::Add;
 use std::path::Path;
 
@@ -64,10 +65,10 @@ where
     }
 
     pub fn read_pbf(&mut self, pbf_path: &Path) -> Result<(), Error> {
-        let pbf_file = std::fs::File::open(pbf_path)?;
+        let pbf_file = BufReader::new(std::fs::File::open(pbf_path)?);
         let mut pbf = OsmPbfReader::new(pbf_file);
         let mut nodeid_coordinates: HashMap<_, _> = Default::default();
-        for obj_result in pbf.par_iter() {
+        for obj_result in pbf.iter() {
             let obj = obj_result?;
             match obj {
                 osmpbfreader::OsmObj::Node(node) => {
