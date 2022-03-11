@@ -4,6 +4,7 @@ use geo::bounding_rect::BoundingRect;
 use geo::concave_hull::ConcaveHull;
 use geo_types::{Coordinate, MultiPoint, MultiPolygon, Point, Polygon, Rect};
 use num_traits::Zero;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 
@@ -167,14 +168,14 @@ impl<W: Copy> GetCellEdges for PreparedH3EdgeGraph<W> {
     }
 }
 
-const MIN_LONGEDGE_LENGTH: usize = 2;
+const MIN_LONGEDGE_LENGTH: usize = 3;
 
 fn to_longedge_edges<W>(
     input_graph: H3EdgeGraph<W>,
     min_longedge_length: usize,
 ) -> Result<HashMap<H3Cell, OwnedEdgeTupleList<W>>, Error>
 where
-    W: PartialOrd + PartialEq + Add<Output = W> + Copy,
+    W: PartialOrd + PartialEq + Add<Output = W> + Copy + Send + Sync,
 {
     if min_longedge_length < MIN_LONGEDGE_LENGTH {
         return Err(Error::Other(format!(
@@ -183,107 +184,128 @@ where
         )));
     }
 
-    let mut outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>> = Default::default();
+    let mut outgoing_edge_vecs = input_graph
+        .edges
+        .par_iter()
+        .try_fold(
+            || (Vec::new(), H3DirectedEdgesBuilder::new()),
+            |(mut output_vec, mut edge_builder), (edge, weight)| {
+                assemble_edge_with_longedge(
+                    &input_graph.edges,
+                    min_longedge_length,
+                    edge,
+                    weight,
+                    &mut edge_builder,
+                )
+                .map(|cell_edge| {
+                    output_vec.push(cell_edge);
+                    (output_vec, edge_builder)
+                })
+            },
+        )
+        .collect::<Result<Vec<_>, _>>()?;
 
-    for (cell, edge_with_weight) in
-        assemble_edges(&input_graph, &input_graph.edges, min_longedge_length)?
-    {
-        match outgoing_edges.entry(cell) {
-            Entry::Occupied(mut occ) => occ.get_mut().push(edge_with_weight),
-            Entry::Vacant(vac) => {
-                vac.insert(smallvec![edge_with_weight]);
+    let mut outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>> = Default::default();
+    for (mut outgoing_edge_vec, _) in outgoing_edge_vecs.drain(..) {
+        for (cell, edge_with_weight) in outgoing_edge_vec.drain(..) {
+            match outgoing_edges.entry(cell) {
+                Entry::Occupied(mut occ) => occ.get_mut().push(edge_with_weight),
+                Entry::Vacant(vac) => {
+                    vac.insert(smallvec![edge_with_weight]);
+                }
             }
         }
     }
 
-    // remove duplicates if there are any
-    for (_, edges_with_weights) in outgoing_edges.iter_mut() {
-        edges_with_weights.sort_unstable_by_key(|eww| eww.0);
-        edges_with_weights.dedup_by(|a, b| a.0 == b.0);
-    }
+    // remove duplicates if there are any. Ignores any differences in weights
+    outgoing_edges
+        .par_iter_mut()
+        .for_each(|(_cell, edges_with_weights)| {
+            edges_with_weights.sort_unstable_by_key(|eww| eww.0);
+            edges_with_weights.dedup_by(|a, b| a.0 == b.0);
+        });
+
     Ok(outgoing_edges)
 }
 
-fn assemble_edges<W>(
-    input_graph: &H3EdgeGraph<W>,
-    partition: &HashMap<H3DirectedEdge, W>,
+fn assemble_edge_with_longedge<W>(
+    input_edges: &HashMap<H3DirectedEdge, W>,
     min_longedge_length: usize,
-) -> Result<Vec<(H3Cell, OwnedEdgeTuple<W>)>, Error>
+    edge: &H3DirectedEdge,
+    weight: &W,
+    edge_builder: &mut H3DirectedEdgesBuilder,
+) -> Result<(H3Cell, OwnedEdgeTuple<W>), Error>
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy,
 {
-    let mut new_edges = Vec::with_capacity(partition.len());
-    let mut edge_builder = H3DirectedEdgesBuilder::new();
+    let mut graph_entry = OwnedEdgeValue {
+        weight: *weight,
+        longedge: None,
+    };
 
-    for (edge, weight) in partition.iter() {
-        let mut graph_entry = OwnedEdgeValue {
-            weight: *weight,
-            longedge: None,
-        };
+    let origin_cell = edge.origin_cell()?;
 
-        // number of upstream edges leading to this one
-        let num_edges_leading_to_this_one = edge_builder
-            .from_origin_cell(&edge.origin_cell()?)?
-            .filter(|new_edge| new_edge != edge) // ignore the backwards edge
-            .filter(|new_edge| {
-                new_edge
-                    .reversed()
-                    .ok()
-                    .map(|rev_edge| input_graph.edges.get(&rev_edge).is_some())
-                    .unwrap_or(false)
-            })
-            .count();
+    // number of upstream edges leading to this one
+    let num_edges_leading_to_this_one = edge_builder
+        .from_origin_cell(&origin_cell)?
+        .filter(|new_edge| new_edge != edge) // ignore the backwards edge
+        .filter(|new_edge| {
+            new_edge
+                .reversed()
+                .ok()
+                .map(|rev_edge| input_edges.get(&rev_edge).is_some())
+                .unwrap_or(false)
+        })
+        .count();
 
-        // attempt to build a longedge when this edge is either the end of a path, or a path
-        // starting after a conjunction of multiple edges
-        if num_edges_leading_to_this_one != 1 {
-            let mut edge_path = vec![*edge];
-            let mut longedge_weight = *weight;
+    // attempt to build a longedge when this edge is either the end of a path, or a path
+    // starting after a conjunction of multiple edges
+    if num_edges_leading_to_this_one != 1 {
+        let mut edge_path = vec![*edge];
+        let mut longedge_weight = *weight;
 
-            let mut last_edge = *edge;
-            loop {
-                let last_edge_reverse = last_edge.reversed()?;
-                // follow the edges until the end or a conjunction is reached
-                let following_edges: Vec<_> = edge_builder
-                    .from_origin_cell(&last_edge.destination_cell()?)?
-                    .filter_map(|this_edge| {
-                        if this_edge != last_edge_reverse {
-                            input_graph.edges.get_key_value(&this_edge)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+        let mut last_edge = *edge;
+        loop {
+            let last_edge_reverse = last_edge.reversed()?;
+            // follow the edges until the end or a conjunction is reached
+            let following_edges: Vec<_> = edge_builder
+                .from_origin_cell(&last_edge.destination_cell()?)?
+                .filter_map(|this_edge| {
+                    if this_edge != last_edge_reverse {
+                        input_edges.get_key_value(&this_edge)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
 
-                // found no further continuing edge or conjunction
-                if following_edges.len() != 1 {
-                    break;
-                }
-                let following_edge = *(following_edges[0].0);
+            // found no further continuing edge or conjunction
+            if following_edges.len() != 1 {
+                break;
+            }
+            let following_edge = *(following_edges[0].0);
 
-                // stop when encountering circles
-                if edge_path.contains(&following_edge) {
-                    break;
-                }
-
-                edge_path.push(following_edge);
-                longedge_weight = *(following_edges[0].1) + longedge_weight;
-                // find the next following edge in the next iteration of the loop
-                last_edge = following_edge;
+            // stop when encountering circles
+            if edge_path.contains(&following_edge) {
+                break;
             }
 
-            if edge_path.len() >= min_longedge_length {
-                graph_entry.longedge = Some((LongEdge::try_from(edge_path)?, longedge_weight));
-            }
+            edge_path.push(following_edge);
+            longedge_weight = *(following_edges[0].1) + longedge_weight;
+            // find the next following edge in the next iteration of the loop
+            last_edge = following_edge;
         }
-        new_edges.push((edge.origin_cell()?, (*edge, graph_entry)));
+
+        if edge_path.len() >= min_longedge_length {
+            graph_entry.longedge = Some((LongEdge::try_from(edge_path)?, longedge_weight));
+        }
     }
-    Ok(new_edges)
+    Ok((origin_cell, (*edge, graph_entry)))
 }
 
 impl<W> PreparedH3EdgeGraph<W>
 where
-    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero,
+    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero + Send + Sync,
 {
     pub fn from_h3edge_graph(
         graph: H3EdgeGraph<W>,
@@ -302,12 +324,12 @@ where
 
 impl<W> TryFrom<H3EdgeGraph<W>> for PreparedH3EdgeGraph<W>
 where
-    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero,
+    W: PartialOrd + PartialEq + Add + Copy + Ord + Zero + Send + Sync,
 {
     type Error = Error;
 
     fn try_from(graph: H3EdgeGraph<W>) -> Result<Self, Self::Error> {
-        Self::from_h3edge_graph(graph, 3)
+        Self::from_h3edge_graph(graph, 4)
     }
 }
 
