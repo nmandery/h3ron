@@ -59,6 +59,10 @@ type OwnedEdgeTupleList<W> = SmallVec<[OwnedEdgeTuple<W>; 2]>;
 #[doc=include_str!("../../doc/images/edges-and-longedges.svg")]
 /// </p>
 ///
+/// <p>
+#[doc=include_str!("../../doc/images/prepared_h3_edge_graph.svg")]
+/// </p>
+///
 #[derive(Serialize, Deserialize, Clone)]
 pub struct PreparedH3EdgeGraph<W> {
     outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>>,
