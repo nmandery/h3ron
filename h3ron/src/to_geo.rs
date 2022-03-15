@@ -186,11 +186,11 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Result<Vec<Polygo
         // the following requires `repr(transparent)` on H3Cell
         let h3index_slice =
             std::slice::from_raw_parts(cells.as_ptr().cast::<H3Index>(), cells.len());
-        h3ron_h3_sys::cellsToLinkedMultiPolygon(
+        Error::check_returncode(h3ron_h3_sys::cellsToLinkedMultiPolygon(
             h3index_slice.as_ptr(),
             h3index_slice.len() as c_int,
             &mut lgp,
-        );
+        ))?;
 
         let mut polygons = vec![];
         let mut cur_linked_geo_polygon = Some(&lgp);

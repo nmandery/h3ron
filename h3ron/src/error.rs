@@ -83,40 +83,40 @@ pub enum Error {
 }
 
 impl Error {
-    /// Checks if the H3 return value is an error and returns the associated error code
-    pub const fn get_error(value: u32) -> Option<Self> {
+    /// returns the corresponding error for the given error code
+    const fn get_error(value: u32) -> Self {
         match value {
-            0 => None,
-            1 => Some(Self::Failed),
-            2 => Some(Self::Domain),
-            3 => Some(Self::LatLonDomain),
-            4 => Some(Self::ResDomain),
-            5 => Some(Self::CellInvalid),
-            6 => Some(Self::DirectedEdgeInvalid),
-            7 => Some(Self::UndirectedEdgeInvalid),
-            8 => Some(Self::VertexInvalid),
-            9 => Some(Self::Pentagon),
-            10 => Some(Self::DuplicateInput),
-            11 => Some(Self::NotNeighbors),
-            12 => Some(Self::ResMismatch),
-            13 => Some(Self::Memory),
-            14 => Some(Self::MemoryBounds),
-            v => Some(Self::UnknownError(v)),
+            1 => Self::Failed,
+            2 => Self::Domain,
+            3 => Self::LatLonDomain,
+            4 => Self::ResDomain,
+            5 => Self::CellInvalid,
+            6 => Self::DirectedEdgeInvalid,
+            7 => Self::UndirectedEdgeInvalid,
+            8 => Self::VertexInvalid,
+            9 => Self::Pentagon,
+            10 => Self::DuplicateInput,
+            11 => Self::NotNeighbors,
+            12 => Self::ResMismatch,
+            13 => Self::Memory,
+            14 => Self::MemoryBounds,
+            v => Self::UnknownError(v),
         }
     }
 
     /// Checks if the H3 return value is an error
-    #[allow(clippy::missing_const_for_fn)]
-    pub fn is_error(value: u32) -> bool {
-        Self::get_error(value).is_some()
+    #[inline(always)]
+    pub const fn is_error(value: u32) -> bool {
+        value != 0
     }
 
     /// checks the return code of h3ron-h3-sys functions
-    #[allow(clippy::missing_const_for_fn)]
-    pub fn check_returncode(value: u32) -> Result<(), Self> {
-        match Self::get_error(value) {
-            Some(err) => Err(err),
-            None => Ok(()),
+    #[inline(always)]
+    pub const fn check_returncode(value: u32) -> Result<(), Self> {
+        if Self::is_error(value) {
+            Err(Self::get_error(value))
+        } else {
+            Ok(())
         }
     }
 }

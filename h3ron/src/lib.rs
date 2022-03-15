@@ -109,17 +109,15 @@ pub fn polygon_to_cells(poly: &Polygon<f64>, h3_resolution: u8) -> Result<IndexV
                 // pre-allocate for the expected number of hexagons
                 let mut index_vec = IndexVec::with_length(cells_size as usize);
 
-                match Error::check_returncode(unsafe {
+                Error::check_returncode(unsafe {
                     h3ron_h3_sys::polygonToCells(
                         gp,
                         c_int::from(h3_resolution),
                         0,
                         index_vec.as_mut_ptr(),
                     )
-                }) {
-                    Ok(()) => Ok(index_vec),
-                    Err(e) => Err(e),
-                }
+                })
+                .map(|_| index_vec)
             }
             Err(e) => Err(e),
         }

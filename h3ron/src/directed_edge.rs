@@ -118,15 +118,13 @@ impl H3DirectedEdge {
     /// If the built indexes are invalid, returns an Error.
     pub fn cells(&self) -> Result<H3EdgeCells, Error> {
         let mut out: [H3Index; 2] = [0, 0];
-        unsafe {
-            h3ron_h3_sys::directedEdgeToCells(self.h3index(), out.as_mut_ptr());
-        }
+        Error::check_returncode(unsafe {
+            h3ron_h3_sys::directedEdgeToCells(self.h3index(), out.as_mut_ptr())
+        })?;
         let res = H3EdgeCells {
             origin: H3Cell::new(out[0]),
             destination: H3Cell::new(out[1]),
         };
-        res.origin.validate()?;
-        res.destination.validate()?;
         Ok(res)
     }
 
