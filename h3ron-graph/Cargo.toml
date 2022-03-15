@@ -33,7 +33,7 @@ version = "0.14.0" # for publishing on crates.io
 features = ["use-rayon", "compression", "roaring", "use-serde"]
 
 [dependencies.smallvec]
-version = "1"
+version = "^1.6"
 features = ["serde"]
 
 [dependencies.osmpbfreader]
