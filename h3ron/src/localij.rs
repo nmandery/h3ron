@@ -42,6 +42,24 @@ impl Add for CoordIj {
     }
 }
 
+impl From<h3ron_h3_sys::CoordIJ> for CoordIj {
+    fn from(sys_cij: h3ron_h3_sys::CoordIJ) -> Self {
+        Self {
+            i: sys_cij.i,
+            j: sys_cij.j,
+        }
+    }
+}
+
+impl Into<h3ron_h3_sys::CoordIJ> for CoordIj {
+    fn into(self) -> h3ron_h3_sys::CoordIJ {
+        h3ron_h3_sys::CoordIJ {
+            i: self.i,
+            j: self.j,
+        }
+    }
+}
+
 impl H3Cell {
     /// Produces an [`H3Cell`] for the given `coordij` coordinates anchored by `origin_cell`.
     ///
@@ -54,10 +72,7 @@ impl H3Cell {
     /// This function's output is not guaranteed
     /// to be compatible across different versions of H3.
     pub fn from_localij(origin_cell: Self, coordij: CoordIj) -> Result<Self, Error> {
-        let cij = h3ron_h3_sys::CoordIJ {
-            i: coordij.i,
-            j: coordij.j,
-        };
+        let cij: h3ron_h3_sys::CoordIJ = coordij.into();
         let mut h3_index_out: H3Index = 0;
         Error::check_returncode(unsafe {
             h3ron_h3_sys::localIjToCell(origin_cell.h3index(), &cij, 0, &mut h3_index_out)
@@ -80,7 +95,7 @@ impl H3Cell {
         Error::check_returncode(unsafe {
             h3ron_h3_sys::cellToLocalIj(origin_cell.h3index(), self.h3index(), 0, &mut cij)
         })?;
-        Ok(CoordIj { i: cij.i, j: cij.j })
+        Ok(cij.into())
     }
 }
 
