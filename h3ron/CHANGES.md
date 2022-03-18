@@ -18,6 +18,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 ### Added
 
 * Added `H3Treemap::from_result_iter_with_sort` for easier construction from iterators yielding `Result`
+* Added `H3Cell::center_child`.
 
 ### Changed
 

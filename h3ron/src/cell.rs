@@ -324,6 +324,19 @@ impl H3Cell {
         Error::check_returncode(unsafe { h3ron_h3_sys::cellAreaRads2(self.0, &mut area) })
             .map(|_| area)
     }
+
+    /// returns the center child of `self` at the specified resolution.
+    pub fn center_child(&self, resolution: u8) -> Result<Self, Error> {
+        let mut cell_index: H3Index = 0;
+        Error::check_returncode(unsafe {
+            h3ron_h3_sys::cellToCenterChild(
+                self.h3index(),
+                c_int::from(resolution),
+                &mut cell_index,
+            )
+        })
+        .map(|_| Self::new(cell_index))
+    }
 }
 
 impl ToString for H3Cell {
