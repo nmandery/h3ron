@@ -47,6 +47,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
       * `exact_area_rads2` -> `area_rads2`
       * `hex_range_distances` -> `grid_disk_distances_unsafe`
       * `k_ring_distances` -> `grid_disk_distances`
+      * The `h3ron::experimantal` module has been renamed to `h3ron::localij`. The contained functions have now been added to `H3Cell`: `H3Cell::to_localij` and `H3Cell::from_localij`.
     * `H3Edge` -> `H3DirectedEdge`
       * `edge_length_km` -> `edge_length_avg_km`
       * `edge_length_m` -> `edge_length_avg_m`

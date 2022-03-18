@@ -21,7 +21,7 @@ pub use to_geo::{
 };
 pub use {
     cell::H3Cell, directed_edge::H3DirectedEdge, direction::H3Direction, error::Error,
-    index::HasH3Resolution, index::Index, to_h3::ToH3Cells,
+    index::HasH3Resolution, index::Index, localij::CoordIj, to_h3::ToH3Cells,
 };
 
 use crate::collections::indexvec::IndexVec;
@@ -33,11 +33,11 @@ pub mod collections;
 mod directed_edge;
 mod direction;
 pub mod error;
-pub mod experimental;
 mod index;
 #[cfg(feature = "io")]
 pub mod io;
 pub mod iter;
+pub mod localij;
 pub mod to_geo;
 pub mod to_h3;
 

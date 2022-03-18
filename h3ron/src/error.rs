@@ -63,6 +63,10 @@ pub enum Error {
     #[error("Bounds of provided memory were not large enough")]
     MemoryBounds, // 14
 
+    /// Mode or flags argument was not valid.
+    #[error("Mode or flags argument was not valid")]
+    OptionInvalid, // 15
+
     /// Unknown error code
     #[error("Unknown h3 error code")]
     UnknownError(u32),
@@ -100,6 +104,7 @@ impl Error {
             12 => Self::ResMismatch,
             13 => Self::Memory,
             14 => Self::MemoryBounds,
+            15 => Self::OptionInvalid,
             v => Self::UnknownError(v),
         }
     }
