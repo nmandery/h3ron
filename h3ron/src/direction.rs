@@ -3,11 +3,10 @@ use crate::{Error, Index, H3_MAX_RESOLUTION};
 const H3_PER_DIGIT_OFFSET: u8 = 3;
 const H3_DIGIT_MASK: u8 = 7;
 
-#[svgbobdoc::transform]
 /// H3 digit representing ijk+ axes direction.
 /// See [documentation](https://h3geo.org/docs/core-library/h3Indexing/#introduction)
 ///
-/// ```svgbob
+/// ```
 ///            j Axis
 ///            ___
 ///           /   \
