@@ -6,7 +6,7 @@ const H3_DIGIT_MASK: u8 = 7;
 /// H3 digit representing ijk+ axes direction.
 /// See [documentation](https://h3geo.org/docs/core-library/h3Indexing/#introduction)
 ///
-/// ```
+/// ```text
 ///            j Axis
 ///            ___
 ///           /   \
