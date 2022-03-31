@@ -51,11 +51,11 @@ impl From<h3ron_h3_sys::CoordIJ> for CoordIj {
     }
 }
 
-impl Into<h3ron_h3_sys::CoordIJ> for CoordIj {
-    fn into(self) -> h3ron_h3_sys::CoordIJ {
-        h3ron_h3_sys::CoordIJ {
-            i: self.i,
-            j: self.j,
+impl From<CoordIj> for h3ron_h3_sys::CoordIJ {
+    fn from(coordij: CoordIj) -> Self {
+        Self {
+            i: coordij.i,
+            j: coordij.j,
         }
     }
 }

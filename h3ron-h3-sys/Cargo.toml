@@ -30,4 +30,4 @@ optional = true
 [build-dependencies]
 bindgen = "^0.59"
 cmake = "^0.1"
-regex = "^1"
+regex = "^1.5.5"
