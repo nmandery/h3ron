@@ -6,7 +6,7 @@ description = "Integration with the ndarray crate to generate H3 cells from rast
 edition = "2021"
 license = "MIT"
 keywords = ["geo", "spatial", "h3", "ndarray"]
-readme = "../README.md"
+readme = "README.md"
 homepage = "https://github.com/nmandery/h3ron"
 repository = "https://github.com/nmandery/h3ron"
 

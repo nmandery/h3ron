@@ -6,7 +6,7 @@ authors = ["Nico Mandery <nico@nmandery.net>"]
 edition = "2021"
 license = "MIT"
 keywords = ["geo", "spatial", "h3"]
-readme = "../README.md"
+readme = "README.md"
 homepage = "https://github.com/nmandery/h3ron"
 repository = "https://github.com/nmandery/h3ron"
 
