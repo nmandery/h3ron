@@ -375,7 +375,7 @@ fn finalize_chunk_map<T>(
 #[cfg(test)]
 mod tests {
     use crate::array::find_boxes_containing_data;
-    use crate::AxisOrder;
+    use crate::{AxisOrder, H3Converter, ResolutionSearchMode, Transform};
 
     #[test]
     fn test_find_boxes_containing_data() {
@@ -411,5 +411,25 @@ mod tests {
 
         // all elements should have been removed
         assert_eq!(arr_copy.sum(), 0);
+    }
+
+    #[test]
+    fn preserve_nan_values() {
+        use ordered_float::OrderedFloat;
+        #[rustfmt::skip]
+        let arr = array![
+            [OrderedFloat(f32::NAN), OrderedFloat(1.0_f32)],
+            [OrderedFloat(f32::NAN), OrderedFloat(1.0_f32)],
+        ];
+        let transform = Transform::from_gdal(&[11.0, 1.0, 0.0, 10.0, 1.2, 0.2]);
+
+        let view = arr.view();
+        let converter = H3Converter::new(&view, &None, &transform, AxisOrder::XY);
+        let h3_resolution = converter
+            .nearest_h3_resolution(ResolutionSearchMode::SmallerThanPixel)
+            .unwrap();
+        let cell_map = converter.to_h3(h3_resolution, false).unwrap();
+        assert!(cell_map.contains_key(&OrderedFloat(f32::NAN)));
+        assert!(cell_map.contains_key(&OrderedFloat(1.0_f32)));
     }
 }
