@@ -28,7 +28,7 @@ version = "0.14.0" # for publishing on crates.io
 [dev-dependencies]
 approx = "^0.5"
 env_logger = "^0.9"
-ordered-float = "2.10"
+ordered-float = "3"
 
 [dev-dependencies.criterion]
 version = "^0.3"
