@@ -12,7 +12,7 @@ python extension.
 ## h3ron-graph Unreleased
 
 This version includes the migration from H3 version 3.x to 4.x. This includes some renaming of functions and
-structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc1)
+structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc3)
 as well as making most functions return `Result<T, Error>` as H3 now returns error codes in most functions of its API.
 
 ### Changed
@@ -22,7 +22,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 * Make path transformation functions failable.
 * Rename `ShortestPathOptions::num_gap_cells_to_graph` to `max_distance_to_graph`.
 * Modify `Path` to contain the intended origin and destination cells.
-* Upgrade `geo` dependency to 0.19.
+* Upgrade `geo` dependency to 0.21.
 * Optimize `ShortestPath` to reduce overheads. This change also lead to the introduction of the `GetCellEdges` trait.
 
 ## h3ron-graph 0.3.0 - 2022-01-23

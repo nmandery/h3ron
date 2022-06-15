@@ -19,7 +19,7 @@ use-gdal = ["gdal", "ordered-float"]
 osm = ["osmpbfreader"]
 
 [dependencies]
-geo = "0.20"
+geo = "0.21"
 geo-types = "0.7"
 rayon = "^1.5"
 log = "^0.4"

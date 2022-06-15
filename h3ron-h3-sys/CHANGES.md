@@ -12,7 +12,7 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 
-* Upgrade to h3 v4.0.0-rc2
+* Upgrade to h3 v4.0.0-rc3
 
 ### Migration to H3 v4.0.0
 
