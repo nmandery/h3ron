@@ -12,7 +12,7 @@ python extension.
 ## h3ron Unreleased
 
 This version includes the migration from H3 version 3.x to 4.x. This includes some renaming of functions and
-structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc1)
+structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc3)
 as well as making most functions return `Result<T, Error>` as H3 now returns error codes in most functions of its API.
 
 ### Added
@@ -62,7 +62,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 
 * The `ExactArea` trait was removed as it was only implemented for `H3Cell`. The methods
   have been added the `H3Cell`. The same for `ExactLength` and `H3Edge`.
-* Upgrade `geo` dependency to 0.19.
+* Upgrade `geo` dependency to 0.21.
 * Upgrade `roaring` optional dependency to 0.9.
 
 ## h3ron 0.14.0 - 2022-01-23

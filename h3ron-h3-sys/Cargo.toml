@@ -28,6 +28,6 @@ version = "0.7"
 optional = true
 
 [build-dependencies]
-bindgen = "^0.59"
+bindgen = "^0.60"
 cmake = "^0.1"
 regex = "^1.5.5"

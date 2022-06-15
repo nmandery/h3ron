@@ -12,7 +12,7 @@ python extension.
 ## h3ron-ndarray Unreleased
 
 This version includes the migration from H3 version 3.x to 4.x. This includes some renaming of functions and
-structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc1)
+structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc3)
 as well as making most functions return `Result<T, Error>` as H3 now returns error codes in most functions of its API.
 
 ### Changed
