@@ -45,8 +45,8 @@ where
         self.num_indexes == 0
     }
 
-    pub const fn is_compressed(&self) -> bool {
-        do_compress(self.num_indexes)
+    pub fn contains(&self, index: &T) -> Result<bool, Error> {
+        todo!();
     }
 
     /// The size of the inner data when it would be stored in a simple `Vec`
@@ -95,15 +95,10 @@ where
             buf[pos + (7 * byte_offset)] = h3index_bytes[7];
         }
 
-        let block_data = if do_compress(index_slice.len()) {
-            let mut block_data = vec![];
+        let mut block_data = vec![];
 
-            rle_encode(&buf, &mut block_data);
-            block_data.shrink_to_fit();
-            block_data
-        } else {
-            buf
-        };
+        rle_encode(&buf, &mut block_data);
+        block_data.shrink_to_fit();
 
         Self {
             num_indexes: index_slice.len(),
@@ -157,21 +152,26 @@ impl Decompressor {
         Self { buf: vec![] }
     }
 
-    fn decompress_block_into_inner_buf<T>(&mut self, block: &IndexBlock<T>) -> Result<bool, Error>
+    fn decompress_block_into_inner_buf<T>(&mut self, block: &IndexBlock<T>) -> Result<(), Error>
     where
         T: Index,
     {
-        if block.is_compressed() {
-            let uncompressed_size = block.num_indexes * size_of::<u64>();
-            if self.buf.capacity() < uncompressed_size {
-                self.buf
-                    .reserve(uncompressed_size.saturating_sub(self.buf.capacity()));
-            }
-            self.buf.clear();
-            rle_decode(block.block_data.as_slice(), &mut self.buf)?;
-            Ok(true)
+        let uncompressed_size = block.num_indexes * size_of::<u64>();
+        if self.buf.capacity() < uncompressed_size {
+            self.buf
+                .reserve(uncompressed_size.saturating_sub(self.buf.capacity()));
+        }
+        self.buf.clear();
+        rle_decode(block.block_data.as_slice(), &mut self.buf)?;
+
+        if self.buf.len() != uncompressed_size {
+            Err(Error::DecompressionError(format!(
+                "Expected to decompress to {} bytes, but got {} bytes",
+                uncompressed_size,
+                self.buf.len()
+            )))
         } else {
-            Ok(false)
+            Ok(())
         }
     }
     pub fn decompress_block<'a, 'b, T>(
@@ -181,12 +181,12 @@ impl Decompressor {
     where
         T: Index,
     {
-        let buf = if self.decompress_block_into_inner_buf(block)? {
-            Some(self.buf.as_slice())
-        } else {
-            None
-        };
-        Ok(DecompressedIter { buf, block, pos: 0 })
+        self.decompress_block_into_inner_buf(block)?;
+        Ok(DecompressedIter {
+            buf: self.buf.as_slice(),
+            block,
+            pos: 0,
+        })
     }
 
     pub fn decompress_block_owning<T>(
@@ -196,12 +196,12 @@ impl Decompressor {
     where
         T: Index,
     {
-        let buf = if self.decompress_block_into_inner_buf(block)? {
-            Some(self.buf)
-        } else {
-            None
-        };
-        Ok(OwningDecompressedIter { buf, block, pos: 0 })
+        self.decompress_block_into_inner_buf(block)?;
+        Ok(OwningDecompressedIter {
+            buf: self.buf,
+            block,
+            pos: 0,
+        })
     }
 }
 
@@ -209,10 +209,6 @@ impl Default for Decompressor {
     fn default() -> Self {
         Self::new()
     }
-}
-
-const fn do_compress(num_indexes: usize) -> bool {
-    num_indexes >= 3
 }
 
 #[inline]
@@ -232,7 +228,7 @@ fn h3index_from_block_buf(buf: &[u8], pos: usize, num_indexes: usize) -> u64 {
 }
 
 pub struct DecompressedIter<'a, 'b, T> {
-    buf: Option<&'a [u8]>,
+    buf: &'a [u8],
     block: &'b IndexBlock<T>,
     pos: usize,
 }
@@ -247,11 +243,7 @@ where
         if self.pos >= self.block.num_indexes {
             return None;
         }
-        let buf = match self.buf {
-            Some(b) => b,
-            None => self.block.block_data.as_slice(),
-        };
-        let h3index: u64 = h3index_from_block_buf(buf, self.pos, self.block.num_indexes);
+        let h3index: u64 = h3index_from_block_buf(self.buf, self.pos, self.block.num_indexes);
         self.pos += 1;
         Some(T::from_h3index(h3index))
     }
@@ -267,7 +259,7 @@ where
 /// many blocks are decompressed using the `Decompressor` is more efficient as the
 /// decompression buffer needs to be allocated only once.
 pub struct OwningDecompressedIter<'a, T> {
-    buf: Option<Vec<u8>>,
+    buf: Vec<u8>,
     block: &'a IndexBlock<T>,
     pos: usize,
 }
@@ -282,11 +274,8 @@ where
         if self.pos >= self.block.num_indexes {
             return None;
         }
-        let buf = match self.buf.as_ref() {
-            Some(b) => b.as_slice(),
-            None => self.block.block_data.as_slice(),
-        };
-        let h3index: u64 = h3index_from_block_buf(buf, self.pos, self.block.num_indexes);
+        let h3index: u64 =
+            h3index_from_block_buf(self.buf.as_slice(), self.pos, self.block.num_indexes);
         self.pos += 1;
         Some(T::from_h3index(h3index))
     }
@@ -296,8 +285,15 @@ where
     }
 }
 
-/// decode run-length-encoded bytes
-fn rle_decode(bytes: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
+/// traverse through run-length-encoded bytes and pass each found byte to `step_fn`.
+///
+/// `step_fn` takes two arguments: the byte and the number of reptitions.
+/// This function continues to step through the given bytes as long as `step_fn` returns true
+/// or the end of the given byte slice has been reached.
+fn rle_decode_step_bytes<SF>(bytes: &[u8], mut step_fn: SF) -> Result<(), Error>
+where
+    SF: FnMut(u8, u8) -> bool,
+{
     if bytes.len() % 2 != 0 {
         return Err(Error::DecompressionError(
             "invalid (odd) input length".to_string(),
@@ -307,11 +303,22 @@ fn rle_decode(bytes: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
         if i % 2 != 0 {
             continue;
         }
-        for _ in 0..bytes[i + 1] {
-            out.push(*byte)
+        let repetitions = bytes[i + 1];
+        if !step_fn(*byte, repetitions) {
+            break;
         }
     }
     Ok(())
+}
+
+/// decode run-length-encoded bytes
+fn rle_decode(bytes: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
+    rle_decode_step_bytes(bytes, |byte, repetitions| {
+        for _ in 0..repetitions {
+            out.push(byte)
+        }
+        true
+    })
 }
 
 /// run-length-encode bytes
@@ -397,7 +404,6 @@ mod tests {
     fn test_indexblock_from_iter() {
         let ib: IndexBlock<H3Cell> = IndexBlock::from_iter(make_grid_disk(3).iter());
         assert!(!ib.is_empty());
-        assert!(ib.is_compressed());
     }
 
     #[test]
