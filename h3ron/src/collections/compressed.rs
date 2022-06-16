@@ -45,6 +45,10 @@ where
         self.num_indexes == 0
     }
 
+    /// check if `index` is contained in this `IndexBlock`.
+    ///
+    /// This method avoids decompressing the whole block at once and instead
+    /// only decompresses single bytes while traversing the contained indexes.
     pub fn contains(&self, index: &T) -> Result<bool, Error> {
         if self.num_indexes == 0 {
             return Ok(false);
@@ -52,36 +56,35 @@ where
         let h3index_bytes = (index.h3index() as u64).to_le_bytes();
         let mut matching = vec![true; self.num_indexes];
         let mut byte_pos = 0_usize;
+        let mut found = true;
         rle_decode_step_bytes(self.block_data.as_slice(), |byte, repetitions| {
-            let mut step_further = true;
             for _ in 0..repetitions {
                 let h3index_byte_i = byte_pos / self.num_indexes;
                 let h3index_i = byte_pos % self.num_indexes;
 
-                matching[h3index_i] = matching[h3index_i] && (byte == h3index_bytes[h3index_byte_i]);
+                matching[h3index_i] =
+                    matching[h3index_i] && (byte == h3index_bytes[h3index_byte_i]);
                 byte_pos += 1;
 
-                // early-exit in case no match is left
-                if h3index_i == (self.num_indexes-1) {
-                    if !matching.iter().any(|v| *v) {
-                        step_further = false;
-                        break;
-                    }
+                // exit or early-exit in case no chance for a match is left
+                if h3index_i == (self.num_indexes - 1) && !matching.iter().any(|v| *v) {
+                    found = false;
+                    break;
                 }
             }
-            step_further
+            found
         })?;
-        Ok(matching.iter().any(|v| *v))
+        Ok(found)
     }
 
     /// The size of the inner data when it would be stored in a simple `Vec`
     #[allow(dead_code)]
-    pub fn size_of_uncompressed(&self) -> usize {
+    pub const fn size_of_uncompressed(&self) -> usize {
         size_of::<Vec<T>>() + size_of::<T>() * self.len()
     }
 
     #[allow(dead_code)]
-    pub fn size_of_compressed(&self) -> usize {
+    pub const fn size_of_compressed(&self) -> usize {
         size_of::<Self>() + size_of::<u8>() * self.len()
     }
 
