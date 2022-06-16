@@ -37,15 +37,15 @@ impl<T> IndexBlock<T>
 where
     T: Index,
 {
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.num_indexes
     }
 
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.num_indexes == 0
     }
 
-    pub fn is_compressed(&self) -> bool {
+    pub const fn is_compressed(&self) -> bool {
         do_compress(self.num_indexes)
     }
 
@@ -211,9 +211,8 @@ impl Default for Decompressor {
     }
 }
 
-#[inline(always)]
-fn do_compress(num_indexes: usize) -> bool {
-    num_indexes > 3
+const fn do_compress(num_indexes: usize) -> bool {
+    num_indexes >= 3
 }
 
 #[inline]
