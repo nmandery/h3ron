@@ -2,7 +2,6 @@ use std::borrow::Borrow;
 use std::marker::PhantomData;
 use std::mem::size_of;
 
-use lz4_flex::{compress, decompress_into};
 #[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +16,7 @@ use crate::{Error, Index, IndexVec};
 /// The order if the h3indexes in the block is not changed, so - for example - continuous paths of
 /// h3 edges can be stored without them becoming shuffled.
 ///
-/// The compression is done using the LZ4 algorithm. To improve the compression ratio
+/// The compression is done using run-length-encoding (RLE). To improve the compression ratio
 /// the bytes of all contained h3indexes are grouped by their position in the `u64` of the
 /// h3index. For spatially close h3index this results in a quite good compression ratio as many
 /// bytes are common over many h3indexes. As an example: a k-ring with `k=50` and 7651 cells
@@ -30,7 +29,6 @@ use crate::{Error, Index, IndexVec};
 )]
 pub struct IndexBlock<T> {
     num_indexes: usize,
-    compressed: bool,
     block_data: Vec<u8>,
     phantom_data: PhantomData<T>,
 }
@@ -48,7 +46,7 @@ where
     }
 
     pub fn is_compressed(&self) -> bool {
-        self.compressed
+        do_compress(self.num_indexes)
     }
 
     /// The size of the inner data when it would be stored in a simple `Vec`
@@ -97,12 +95,18 @@ where
             buf[pos + (7 * byte_offset)] = h3index_bytes[7];
         }
 
-        let compressed = index_slice.len() >= 4;
-        let block_data = if compressed { compress(&buf) } else { buf };
+        let block_data = if do_compress(index_slice.len()) {
+            let mut block_data = vec![];
+
+            rle_encode(&buf, &mut block_data);
+            block_data.shrink_to_fit();
+            block_data
+        } else {
+            buf
+        };
 
         Self {
             num_indexes: index_slice.len(),
-            compressed,
             block_data,
             phantom_data: PhantomData::default(),
         }
@@ -159,15 +163,12 @@ impl Decompressor {
     {
         if block.is_compressed() {
             let uncompressed_size = block.num_indexes * size_of::<u64>();
-            self.buf.resize(uncompressed_size, 0xff);
-            let bytes_uncompressed = decompress_into(block.block_data.as_slice(), &mut self.buf)
-                .map_err(|e| Error::DecompressionError(e.to_string()))?;
-            if bytes_uncompressed != uncompressed_size {
-                return Err(Error::DecompressionError(format!(
-                    "size missmatch. expected {} bytes, uncompressed to {} bytes",
-                    uncompressed_size, bytes_uncompressed
-                )));
+            if self.buf.capacity() < uncompressed_size {
+                self.buf
+                    .reserve(uncompressed_size.saturating_sub(self.buf.capacity()));
             }
+            self.buf.clear();
+            rle_decode(block.block_data.as_slice(), &mut self.buf)?;
             Ok(true)
         } else {
             Ok(false)
@@ -208,6 +209,11 @@ impl Default for Decompressor {
     fn default() -> Self {
         Self::new()
     }
+}
+
+#[inline(always)]
+fn do_compress(num_indexes: usize) -> bool {
+    num_indexes > 3
 }
 
 #[inline]
@@ -291,6 +297,44 @@ where
     }
 }
 
+/// decode run-length-encoded bytes
+fn rle_decode(bytes: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
+    if bytes.len() % 2 != 0 {
+        return Err(Error::DecompressionError(
+            "invalid (odd) input length".to_string(),
+        ));
+    }
+    for (i, byte) in bytes.iter().enumerate() {
+        if i % 2 != 0 {
+            continue;
+        }
+        for _ in 0..bytes[i + 1] {
+            out.push(*byte)
+        }
+    }
+    Ok(())
+}
+
+/// run-length-encode bytes
+fn rle_encode(bytes: &[u8], out: &mut Vec<u8>) {
+    if let Some(byte) = bytes.first() {
+        out.push(*byte);
+    } else {
+        return;
+    }
+
+    let mut occurrences = 1;
+    for byte in bytes.iter().skip(1) {
+        if byte == out.last().unwrap() && occurrences < 255 {
+            occurrences += 1;
+        } else {
+            out.extend(&[occurrences, *byte]);
+            occurrences = 1;
+        }
+    }
+    out.push(occurrences);
+}
+
 #[cfg(test)]
 mod tests {
     use crate::collections::compressed::Decompressor;
@@ -334,12 +378,14 @@ mod tests {
     fn test_indexblock_roundtrip_grid_disk8() {
         let civ = grid_disk_indexblock_roundtrip(make_grid_disk(8));
         assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
+        // dbg!((civ.size_of_compressed() , civ.size_of_uncompressed()));
     }
 
     #[test]
     fn test_indexblock_roundtrip_grid_disk50() {
         let civ = grid_disk_indexblock_roundtrip(make_grid_disk(50));
         assert!(civ.size_of_compressed() < civ.size_of_uncompressed());
+        // dbg!((civ.size_of_compressed() , civ.size_of_uncompressed()));
     }
 
     #[test]

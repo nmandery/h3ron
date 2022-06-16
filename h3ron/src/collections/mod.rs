@@ -16,7 +16,6 @@ pub use ahash::RandomState;
 pub use hashbrown;
 
 pub use compactedcellvec::CompactedCellVec;
-#[cfg(feature = "lz4_flex")]
 pub use compressed::{Decompressor, IndexBlock};
 #[cfg(feature = "roaring")]
 pub use treemap::H3Treemap;
@@ -24,10 +23,8 @@ pub use treemap::H3Treemap;
 use crate::{H3Cell, H3DirectedEdge, Index};
 
 pub mod compactedcellvec;
-pub mod indexvec;
-
-#[cfg(feature = "lz4_flex")]
 pub mod compressed;
+pub mod indexvec;
 #[cfg(feature = "roaring")]
 pub mod treemap;
 
