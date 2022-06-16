@@ -46,7 +46,32 @@ where
     }
 
     pub fn contains(&self, index: &T) -> Result<bool, Error> {
-        todo!();
+        if self.num_indexes == 0 {
+            return Ok(false);
+        }
+        let h3index_bytes = (index.h3index() as u64).to_le_bytes();
+        let mut matching = vec![true; self.num_indexes];
+        let mut byte_pos = 0_usize;
+        rle_decode_step_bytes(self.block_data.as_slice(), |byte, repetitions| {
+            let mut step_further = true;
+            for _ in 0..repetitions {
+                let h3index_byte_i = byte_pos / self.num_indexes;
+                let h3index_i = byte_pos % self.num_indexes;
+
+                matching[h3index_i] = matching[h3index_i] && (byte == h3index_bytes[h3index_byte_i]);
+                byte_pos += 1;
+
+                // early-exit in case no match is left
+                if h3index_i == (self.num_indexes-1) {
+                    if !matching.iter().any(|v| *v) {
+                        step_further = false;
+                        break;
+                    }
+                }
+            }
+            step_further
+        })?;
+        Ok(matching.iter().any(|v| *v))
     }
 
     /// The size of the inner data when it would be stored in a simple `Vec`
@@ -287,7 +312,7 @@ where
 
 /// traverse through run-length-encoded bytes and pass each found byte to `step_fn`.
 ///
-/// `step_fn` takes two arguments: the byte and the number of reptitions.
+/// `step_fn` takes two arguments: the byte and the number of repetitions.
 /// This function continues to step through the given bytes as long as `step_fn` returns true
 /// or the end of the given byte slice has been reached.
 fn rle_decode_step_bytes<SF>(bytes: &[u8], mut step_fn: SF) -> Result<(), Error>
@@ -423,5 +448,23 @@ mod tests {
 
         assert_eq!(ib_de.len(), ib.len());
         assert_eq!(ib, ib_de);
+    }
+
+    #[test]
+    fn test_indexblock_contains() {
+        let cell = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
+        let disk: Vec<_> = cell.grid_disk(2).unwrap().into();
+        let ring: Vec<_> = cell.grid_ring_unsafe(3).unwrap().into();
+
+        let ib = IndexBlock::from(disk.as_slice());
+        assert_eq!(ib.len(), disk.len());
+
+        for disk_cell in disk.iter() {
+            assert!(ib.contains(disk_cell).unwrap());
+        }
+        for ring_cell in ring.iter() {
+            assert!(!disk.iter().any(|dcell| dcell == ring_cell));
+            assert!(!ib.contains(ring_cell).unwrap());
+        }
     }
 }
