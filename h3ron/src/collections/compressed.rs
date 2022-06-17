@@ -74,7 +74,17 @@ where
             }
             found
         })?;
-        Ok(found)
+
+        if found && byte_pos != (self.num_indexes * size_of::<u64>()) {
+            // all bytes must have been visited
+            Err(Error::DecompressionError(format!(
+                "Expected IndexBlock of {} uncompressed bytes, found {}",
+                self.num_indexes * size_of::<u64>(),
+                byte_pos
+            )))
+        } else {
+            Ok(found)
+        }
     }
 
     /// The size of the inner data when it would be stored in a simple `Vec`
