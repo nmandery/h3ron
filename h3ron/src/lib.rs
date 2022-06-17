@@ -4,9 +4,8 @@
 //! # Features
 //!
 //! * **use-serde**: serde support.
-//! * **compression**
+//! * **use-rayon**
 //! * **roaring**: Enables `collections::H3Treemap` based on the `roaring` crate.
-//! * **io**: Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
 //! during development.
 #![warn(nonstandard_style)]
 #![allow(clippy::redundant_pub_crate)]
@@ -34,8 +33,6 @@ mod directed_edge;
 mod direction;
 pub mod error;
 mod index;
-#[cfg(feature = "io")]
-pub mod io;
 pub mod iter;
 pub mod localij;
 pub mod to_geo;

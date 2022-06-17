@@ -75,13 +75,6 @@ pub enum Error {
     #[error("Invalid H3 direction")]
     DirectionInvalid(u8),
 
-    /// io error. The io error is always part of the enum
-    /// regardless if the `io` feature is enabled to avoid having
-    /// different variations of this enum depending on the selected
-    /// feature flags.
-    #[error("io error: {0}")]
-    IOError(#[from] std::io::Error),
-
     #[error("decompression error")]
     DecompressionError(String),
 }

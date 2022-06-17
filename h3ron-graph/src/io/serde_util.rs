@@ -1,5 +1,4 @@
-//! Convenience serialization helpers of the `h3ron::io` module. These are not really related to h3, but helpful for utilities
-//! during development and for the compressed collections.
+//! Convenience serialization helpers
 //!
 //! The serialization aims to be fast and allows to apply a LZ4 compression.
 //!
@@ -81,7 +80,7 @@ where
 mod tests {
     use std::io::Cursor;
 
-    use crate::io::{deserialize_from, serialize_into};
+    use crate::io::serde_util::{deserialize_from, serialize_into};
 
     fn roundtrip(compress: bool) {
         let data = vec![1_i32, 2, 3, 4];

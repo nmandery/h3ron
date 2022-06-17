@@ -21,6 +21,10 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 * Added `H3Cell::center_child`.
 * Added `IndexBlock::contains`.
 
+### Removed
+
+* `h3ron::io` module has been relocated to `h3ron_graph:io::serde_util` as it is fairly custom and only used there. Requires the `io_serde_util` feature.
+
 ### Changed
 
 * **Migration to H3 v4.0**

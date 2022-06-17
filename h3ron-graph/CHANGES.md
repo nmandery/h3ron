@@ -15,6 +15,10 @@ This version includes the migration from H3 version 3.x to 4.x. This includes so
 structs to stay somewhat consistent [with the changes made in H3](https://github.com/uber/h3/releases/tag/v4.0.0-rc3)
 as well as making most functions return `Result<T, Error>` as H3 now returns error codes in most functions of its API.
 
+### Added
+
+* `h3ron::io` module has been relocated to `h3ron_graph:io::serde_util` as it is fairly custom and only used there. Requires the `io_serde_util` feature.
+
 ### Changed
 
 * Refactored `GetGapBridgedCellNodes` trait to `NearestGraphNodes`
@@ -24,6 +28,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 * Modify `Path` to contain the intended origin and destination cells.
 * Upgrade `geo` dependency to 0.21.
 * Optimize `ShortestPath` to reduce overheads. This change also lead to the introduction of the `GetCellEdges` trait.
+* According to the naming-convention used by crates like `arrow2` the feature gates have been renamed. `use-gdal` became `io_gdal` and `osm` became `io_osm`. The `osm` module has been moved into the `io` module.
 
 ## h3ron-graph 0.3.0 - 2022-01-23
 
