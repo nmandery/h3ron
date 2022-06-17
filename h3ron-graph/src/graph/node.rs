@@ -12,17 +12,17 @@ pub enum NodeType {
 impl NodeType {
     pub const fn is_origin(&self) -> bool {
         match self {
-            NodeType::Origin => true,
-            NodeType::Destination => false,
-            NodeType::OriginAndDestination => true,
+            Self::Origin => true,
+            Self::Destination => false,
+            Self::OriginAndDestination => true,
         }
     }
 
     pub const fn is_destination(&self) -> bool {
         match self {
-            NodeType::Origin => false,
-            NodeType::Destination => true,
-            NodeType::OriginAndDestination => true,
+            Self::Origin => false,
+            Self::Destination => true,
+            Self::OriginAndDestination => true,
         }
     }
 }

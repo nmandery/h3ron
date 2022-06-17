@@ -188,7 +188,7 @@ where
         )));
     }
 
-    let mut outgoing_edge_vecs = input_graph
+    let outgoing_edge_vecs = input_graph
         .edges
         .par_iter()
         .try_fold(
@@ -210,8 +210,8 @@ where
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>> = Default::default();
-    for (mut outgoing_edge_vec, _) in outgoing_edge_vecs.drain(..) {
-        for (cell, edge_with_weight) in outgoing_edge_vec.drain(..) {
+    for (outgoing_edge_vec, _) in outgoing_edge_vecs.into_iter() {
+        for (cell, edge_with_weight) in outgoing_edge_vec.into_iter() {
             match outgoing_edges.entry(cell) {
                 Entry::Occupied(mut occ) => occ.get_mut().push(edge_with_weight),
                 Entry::Vacant(vac) => {

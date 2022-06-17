@@ -32,11 +32,10 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("raster conversion");
     group.sample_size(10);
     //group.measurement_time(Duration::new(60 * 5, 0));
-    for h3_res in [11].iter() {
-        group.bench_function(format!("convert_r_dataset_h3_res_{}", h3_res), |b| {
-            b.iter(|| convert_r_dataset(&band_view, &transform, black_box(*h3_res)))
-        });
-    }
+    let h3_res = 11;
+    group.bench_function(format!("convert_r_dataset_h3_res_{}", h3_res), |b| {
+        b.iter(|| convert_r_dataset(&band_view, &transform, black_box(h3_res)))
+    });
     group.finish();
 }
 

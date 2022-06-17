@@ -279,7 +279,7 @@ where
     O: Clone,
     OPT: ShortestPathOptions,
 {
-    let mut found_paths = edge_dijkstra(
+    let found_paths = edge_dijkstra(
         graph,
         origin_cell,
         destination_cells,
@@ -288,7 +288,7 @@ where
 
     let mut transformed_paths = Vec::with_capacity(found_paths.len());
 
-    for path in found_paths.drain(..) {
+    for path in found_paths.into_iter() {
         for destination_cell in destination_substmap.cells_substituted_by(&path.destination_cell) {
             for origin_cell in requested_origin_cells {
                 let mut this_path = path.clone();

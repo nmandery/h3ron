@@ -266,7 +266,7 @@ where
             n_rects
         );
 
-        let mut chunk_h3_maps = rects
+        let chunk_h3_maps = rects
             .into_par_iter()
             .enumerate()
             .map(|(array_window_i, array_window)| {
@@ -295,7 +295,7 @@ where
 
         // combine the results from all chunks
         let mut h3_map = HashMap::new();
-        for mut chunk_h3_map in chunk_h3_maps.drain(..) {
+        for mut chunk_h3_map in chunk_h3_maps.into_iter() {
             for (value, mut compacted_vec) in chunk_h3_map.drain() {
                 h3_map
                     .entry(value)

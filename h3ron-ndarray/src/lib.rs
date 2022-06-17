@@ -13,7 +13,6 @@
     clippy::style,
     clippy::complexity,
     clippy::perf,
-    clippy::nursery,
     nonstandard_style
 )]
 

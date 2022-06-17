@@ -282,7 +282,7 @@ where
         rev_dijkstra_edges.reverse();
 
         let mut h3edges = vec![];
-        for dijkstra_edge in rev_dijkstra_edges.drain(..) {
+        for dijkstra_edge in rev_dijkstra_edges.into_iter() {
             // dijkstra_edge and the contained longedge is already in the correct order in
             // itself and does not need to be reversed
             match dijkstra_edge {

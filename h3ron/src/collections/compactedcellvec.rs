@@ -300,9 +300,9 @@ impl FromIterator<H3Cell> for CompactedCellVec {
 impl TryFrom<Vec<H3Cell>> for CompactedCellVec {
     type Error = Error;
 
-    fn try_from(mut in_vec: Vec<H3Cell>) -> Result<Self, Self::Error> {
+    fn try_from(in_vec: Vec<H3Cell>) -> Result<Self, Self::Error> {
         let mut cv = Self::new();
-        cv.add_cells(in_vec.drain(..), false)?;
+        cv.add_cells(in_vec.into_iter(), false)?;
         cv.compact()?;
         Ok(cv)
     }

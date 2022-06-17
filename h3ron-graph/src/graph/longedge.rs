@@ -61,7 +61,7 @@ impl LongEdge {
     }
 
     /// length of `self` as the number of contained h3edges
-    pub fn h3edges_len(&self) -> usize {
+    pub const fn h3edges_len(&self) -> usize {
         (self.edge_path.len() as usize).saturating_sub(1)
     }
 
