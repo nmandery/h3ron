@@ -9,9 +9,9 @@ use ordered_float::OrderedFloat;
 use h3ron::io::serialize_into;
 use h3ron::H3DirectedEdge;
 use h3ron_graph::error::Error;
-use h3ron_graph::formats::osm::osmpbfreader::Tags;
-use h3ron_graph::formats::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder, WayAnalyzer};
 use h3ron_graph::graph::{GetStats, H3EdgeGraphBuilder, PreparedH3EdgeGraph};
+use h3ron_graph::io::osm::osmpbfreader::Tags;
+use h3ron_graph::io::osm::{EdgeProperties, OsmPbfH3EdgeGraphBuilder, WayAnalyzer};
 
 struct MyWayAnalyzer {}
 

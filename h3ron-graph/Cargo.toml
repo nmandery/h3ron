@@ -15,8 +15,8 @@ exclude = [
 ]
 
 [features]
-use-gdal = ["gdal", "ordered-float"]
-osm = ["osmpbfreader"]
+io_gdal = ["gdal", "ordered-float"]
+io_osm = ["osmpbfreader"]
 
 [dependencies]
 geo = "0.21"
@@ -72,4 +72,4 @@ harness = false
 
 [[example]]
 name = "graph_from_osm"
-required-features = ["osm", "ordered-float", "h3ron/io"]
+required-features = ["io_osm", "ordered-float", "h3ron/io"]

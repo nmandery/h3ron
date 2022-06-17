@@ -1,7 +1,7 @@
 //! # Features
 //!
-//! * **use-gdal**: Writing of graphs to GDAL OGR datasets.
-//! * **osm**: Enables parsing of OpenStreetMap files.
+//! * **io_gdal**: Writing of graphs to GDAL OGR datasets.
+//! * **io_osm**: Enables parsing of OpenStreetMap files.
 
 #![warn(
     clippy::all,
@@ -15,7 +15,6 @@
 
 pub mod algorithm;
 pub mod error;
-pub mod formats;
 pub mod graph;
 pub mod io;
 
