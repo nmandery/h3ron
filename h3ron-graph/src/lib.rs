@@ -2,6 +2,7 @@
 //!
 //! * **io_gdal**: Writing of graphs to GDAL OGR datasets.
 //! * **io_osm**: Enables parsing of OpenStreetMap files.
+//! * **io_serde_util**: Convenience serialization helpers.
 
 #![warn(
     clippy::all,

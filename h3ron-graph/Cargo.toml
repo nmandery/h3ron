@@ -17,6 +17,7 @@ exclude = [
 [features]
 io_gdal = ["gdal", "ordered-float"]
 io_osm = ["osmpbfreader"]
+io_serde_util = ["bincode", "lz4_flex", "h3ron/use-serde"]
 
 [dependencies]
 geo = "0.21"
@@ -30,7 +31,7 @@ num-traits = "0.2"
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.14.0" # for publishing on crates.io
-features = ["use-rayon", "compression", "roaring", "use-serde"]
+features = ["use-rayon", "roaring", "use-serde"]
 
 [dependencies.smallvec]
 version = "^1.8"
@@ -54,6 +55,15 @@ version = "3"
 features = ["serde"]
 optional = true
 
+[dependencies.lz4_flex]
+version = "0.9"
+optional = true
+
+[dependencies.bincode]
+version = "1"
+optional = true
+
+
 #[dev-dependencies.geojson]
 #version = "0.22"
 #features = ["geo-types"]
@@ -67,9 +77,9 @@ version = "^3"
 
 [[bench]]
 name = "route_germany"
-required-features = ["ordered-float", "h3ron/io"]
+required-features = ["ordered-float"]
 harness = false
 
 [[example]]
 name = "graph_from_osm"
-required-features = ["io_osm", "ordered-float", "h3ron/io"]
+required-features = ["io_osm", "ordered-float", "io_serde_util"]

@@ -12,9 +12,7 @@ repository = "https://github.com/nmandery/h3ron"
 
 [features]
 use-rayon = ["hashbrown/rayon"]
-io = ["bincode", "lz4_flex", "serde"]
-compression = ["lz4_flex"]
-use-serde = ["serde", "bincode", "hashbrown/serde"]
+use-serde = ["serde", "hashbrown/serde"]
 
 [dependencies]
 geo = "^0.21"
@@ -38,15 +36,7 @@ optional = true
 version = "0.12"
 features = []
 
-[dependencies.bincode]
-version = "1"
-optional = true
-
 [dependencies.roaring]
-version = "0.9"
-optional = true
-
-[dependencies.lz4_flex]
 version = "0.9"
 optional = true
 
@@ -68,12 +58,10 @@ harness = false
 [[bench]]
 name = "collections_insert_get"
 harness = false
-required-features = ["compression"]
 
 [[bench]]
 name = "indexblock"
 harness = false
-required-features = ["compression"]
 
 [[bench]]
 name = "cell_boundary"

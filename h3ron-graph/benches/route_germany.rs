@@ -5,10 +5,10 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use geo_types::Coordinate;
 use ordered_float::OrderedFloat;
 
-use h3ron::io::deserialize_from;
 use h3ron::{H3Cell, HasH3Resolution};
 use h3ron_graph::algorithm::shortest_path::{DefaultShortestPathOptions, ShortestPath};
 use h3ron_graph::graph::prepared::PreparedH3EdgeGraph;
+use h3ron_graph::io::serde_util::deserialize_from;
 
 //use std::io::Write;
 
