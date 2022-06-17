@@ -29,7 +29,10 @@ use crate::{Error, Index, IndexVec};
 )]
 pub struct IndexBlock<T> {
     num_indexes: usize,
-    block_data: Vec<u8>,
+
+    /// The RLE-compressed, byte-grouped indexes.
+    /// A boxed slice uses less memory on the stack than Vec and growing is not needed anyways.
+    block_data: Box<[u8]>,
     phantom_data: PhantomData<T>,
 }
 
@@ -57,7 +60,7 @@ where
         let mut matching = vec![true; self.num_indexes];
         let mut byte_pos = 0_usize;
         let mut found = true;
-        rle_decode_step_bytes(self.block_data.as_slice(), |byte, repetitions| {
+        rle_decode_step_bytes(&self.block_data, |byte, repetitions| {
             for _ in 0..repetitions {
                 let h3index_byte_i = byte_pos / self.num_indexes;
                 let h3index_i = byte_pos % self.num_indexes;
@@ -133,10 +136,10 @@ where
             buf[pos + (7 * byte_offset)] = h3index_bytes[7];
         }
 
-        let mut block_data = vec![];
+        let mut block_data = Vec::with_capacity(buf.len());
 
         rle_encode(&buf, &mut block_data);
-        block_data.shrink_to_fit();
+        let block_data = block_data.into_boxed_slice();
 
         Self {
             num_indexes: index_slice.len(),
@@ -200,7 +203,7 @@ impl Decompressor {
                 .reserve(uncompressed_size.saturating_sub(self.buf.capacity()));
         }
         self.buf.clear();
-        rle_decode(block.block_data.as_slice(), &mut self.buf)?;
+        rle_decode(&block.block_data, &mut self.buf)?;
 
         if self.buf.len() != uncompressed_size {
             Err(Error::DecompressionError(format!(
@@ -333,9 +336,10 @@ where
     SF: FnMut(u8, u8) -> bool,
 {
     if bytes.len() % 2 != 0 {
-        return Err(Error::DecompressionError(
-            "invalid (odd) input length".to_string(),
-        ));
+        return Err(Error::DecompressionError(format!(
+            "invalid (odd) input length ({} bytes)",
+            bytes.len()
+        )));
     }
     for (i, byte) in bytes.iter().enumerate() {
         if i % 2 != 0 {
