@@ -60,17 +60,24 @@ where
         let mut matching = vec![true; self.num_indexes];
         let mut byte_pos = 0_usize;
         let mut found = true;
+        let mut h3index_i = 0;
+        let mut h3index_byte_i = 0;
+
         rle_decode_step_bytes(&self.block_data, |byte, repetitions| {
-            for _ in 0..repetitions {
-                let (h3index_byte_i, h3index_i) = div_rem(byte_pos, self.num_indexes);
-                matching[h3index_i] =
-                    matching[h3index_i] && (byte == h3index_bytes[h3index_byte_i]);
+            for _ in 0..(repetitions as usize) {
+                matching[h3index_i] &= byte == h3index_bytes[h3index_byte_i];
                 byte_pos += 1;
 
-                // exit or early-exit in case no chance for a match is left
-                if h3index_i == (self.num_indexes - 1) && !matching.iter().any(|v| *v) {
-                    found = false;
-                    break;
+                if h3index_i == (self.num_indexes - 1) {
+                    if !matching.iter().any(|v| *v) {
+                        // exit or early-exit in case no chance for a match is left
+                        found = false;
+                        break;
+                    }
+                    h3index_i = 0;
+                    h3index_byte_i += 1;
+                } else {
+                    h3index_i += 1;
                 }
             }
             found
@@ -79,7 +86,7 @@ where
         if found && byte_pos != (self.num_indexes * size_of::<u64>()) {
             // all bytes must have been visited
             Err(Error::DecompressionError(format!(
-                "Expected IndexBlock of {} uncompressed bytes, found {}",
+                "Expected IndexBlock of {} uncompressed bytes, found {} bytes",
                 self.num_indexes * size_of::<u64>(),
                 byte_pos
             )))
@@ -264,12 +271,6 @@ fn h3index_from_block_buf(buf: &[u8], pos: usize, num_indexes: usize) -> u64 {
         buf[pos + (6 * num_indexes)],
         buf[pos + (7 * num_indexes)],
     ])
-}
-
-#[inline(always)]
-fn div_rem(divident: usize, divisor: usize) -> (usize, usize) {
-    let quotient = divident / divisor;
-    (quotient, divident - (quotient * divisor))
 }
 
 pub struct DecompressedIter<'a, 'b, T> {
@@ -472,8 +473,8 @@ mod tests {
     #[test]
     fn test_indexblock_contains() {
         let cell = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
-        let disk: Vec<_> = cell.grid_disk(2).unwrap().into();
-        let ring: Vec<_> = cell.grid_ring_unsafe(3).unwrap().into();
+        let disk: Vec<_> = cell.grid_disk(8).unwrap().into();
+        let ring: Vec<_> = cell.grid_ring_unsafe(9).unwrap().into();
 
         let ib = IndexBlock::from(disk.as_slice());
         assert_eq!(ib.len(), disk.len());
