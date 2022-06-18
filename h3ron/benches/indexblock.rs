@@ -33,6 +33,14 @@ fn criterion_benchmark(c: &mut Criterion) {
             });
         },
     );
+
+    let cell = cells[cells.len() / 2];
+    //let cell = H3Cell::from_coordinate(Coordinate::from((-62.3, 45.4)), 10).unwrap();
+    group.bench_function("cell contains", |bencher| {
+        bencher.iter(|| {
+            let _ = ib.contains(&cell);
+        });
+    });
     group.finish();
 }
 

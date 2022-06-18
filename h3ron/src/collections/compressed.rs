@@ -60,19 +60,24 @@ where
         let mut matching = vec![true; self.num_indexes];
         let mut byte_pos = 0_usize;
         let mut found = true;
-        rle_decode_step_bytes(&self.block_data, |byte, repetitions| {
-            for _ in 0..repetitions {
-                let h3index_byte_i = byte_pos / self.num_indexes;
-                let h3index_i = byte_pos % self.num_indexes;
+        let mut h3index_i = 0;
+        let mut h3index_byte_i = 0;
 
-                matching[h3index_i] =
-                    matching[h3index_i] && (byte == h3index_bytes[h3index_byte_i]);
+        rle_decode_step_bytes(&self.block_data, |byte, repetitions| {
+            for _ in 0..(repetitions as usize) {
+                matching[h3index_i] &= byte == h3index_bytes[h3index_byte_i];
                 byte_pos += 1;
 
-                // exit or early-exit in case no chance for a match is left
-                if h3index_i == (self.num_indexes - 1) && !matching.iter().any(|v| *v) {
-                    found = false;
-                    break;
+                if h3index_i == (self.num_indexes - 1) {
+                    if !matching.iter().any(|v| *v) {
+                        // exit or early-exit in case no chance for a match is left
+                        found = false;
+                        break;
+                    }
+                    h3index_i = 0;
+                    h3index_byte_i += 1;
+                } else {
+                    h3index_i += 1;
                 }
             }
             found
@@ -81,7 +86,7 @@ where
         if found && byte_pos != (self.num_indexes * size_of::<u64>()) {
             // all bytes must have been visited
             Err(Error::DecompressionError(format!(
-                "Expected IndexBlock of {} uncompressed bytes, found {}",
+                "Expected IndexBlock of {} uncompressed bytes, found {} bytes",
                 self.num_indexes * size_of::<u64>(),
                 byte_pos
             )))
@@ -341,12 +346,8 @@ where
             bytes.len()
         )));
     }
-    for (i, byte) in bytes.iter().enumerate() {
-        if i % 2 != 0 {
-            continue;
-        }
-        let repetitions = bytes[i + 1];
-        if !step_fn(*byte, repetitions) {
+    for chunk in bytes.chunks(2) {
+        if !step_fn(chunk[0], chunk[1]) {
             break;
         }
     }
@@ -356,27 +357,29 @@ where
 /// decode run-length-encoded bytes
 fn rle_decode(bytes: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
     rle_decode_step_bytes(bytes, |byte, repetitions| {
-        for _ in 0..repetitions {
-            out.push(byte)
-        }
+        out.reserve(repetitions as usize);
+        out.extend(std::iter::repeat(byte).take(repetitions as usize));
         true
     })
 }
 
 /// run-length-encode bytes
 fn rle_encode(bytes: &[u8], out: &mut Vec<u8>) {
-    if let Some(byte) = bytes.first() {
-        out.push(*byte);
+    let mut pos = 0_usize;
+    if bytes.len() > 0 {
+        out.push(bytes[0]);
+        pos += 1;
     } else {
         return;
     }
 
     let mut occurrences = 1;
-    for byte in bytes.iter().skip(1) {
-        if byte == out.last().unwrap() && occurrences < 255 {
+    for i in 1..bytes.len() {
+        if bytes[i] == out[pos - 1] && occurrences < 255 {
             occurrences += 1;
         } else {
-            out.extend(&[occurrences, *byte]);
+            out.extend(&[occurrences, bytes[i]]);
+            pos += 2;
             occurrences = 1;
         }
     }
@@ -470,8 +473,8 @@ mod tests {
     #[test]
     fn test_indexblock_contains() {
         let cell = H3Cell::try_from(0x89283080ddbffff_u64).unwrap();
-        let disk: Vec<_> = cell.grid_disk(2).unwrap().into();
-        let ring: Vec<_> = cell.grid_ring_unsafe(3).unwrap().into();
+        let disk: Vec<_> = cell.grid_disk(8).unwrap().into();
+        let ring: Vec<_> = cell.grid_ring_unsafe(9).unwrap().into();
 
         let ib = IndexBlock::from(disk.as_slice());
         assert_eq!(ib.len(), disk.len());
