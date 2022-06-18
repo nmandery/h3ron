@@ -33,6 +33,13 @@ fn criterion_benchmark(c: &mut Criterion) {
             });
         },
     );
+
+    let cell = cells[cells.len() / 2];
+    group.bench_function("cell contains", |bencher| {
+        bencher.iter(|| {
+            let _ = ib.contains(&cell);
+        });
+    });
     group.finish();
 }
 
