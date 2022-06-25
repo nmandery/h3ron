@@ -20,7 +20,7 @@ io_osm = ["osmpbfreader"]
 io_serde_util = ["bincode", "lz4_flex", "h3ron/use-serde"]
 
 [dependencies]
-geo = "0.21"
+geo = "0.22"
 geo-types = "0.7"
 rayon = "^1.5"
 log = "^0.4"

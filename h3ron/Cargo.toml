@@ -15,7 +15,7 @@ use-rayon = ["hashbrown/rayon"]
 use-serde = ["serde", "hashbrown/serde"]
 
 [dependencies]
-geo = "^0.21"
+geo = "^0.22"
 thiserror = "1.0"
 ahash = "0.7"
 

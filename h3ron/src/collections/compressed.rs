@@ -365,20 +365,18 @@ fn rle_decode(bytes: &[u8], out: &mut Vec<u8>) -> Result<(), Error> {
 
 /// run-length-encode bytes
 fn rle_encode(bytes: &[u8], out: &mut Vec<u8>) {
-    let mut pos = 0_usize;
-    if bytes.len() > 0 {
-        out.push(bytes[0]);
-        pos += 1;
-    } else {
+    if bytes.is_empty() {
         return;
     }
+    out.push(bytes[0]);
+    let mut pos = 1_usize;
 
     let mut occurrences = 1;
-    for i in 1..bytes.len() {
-        if bytes[i] == out[pos - 1] && occurrences < 255 {
+    for byte in bytes.iter().skip(1) {
+        if *byte == out[pos - 1] && occurrences < 255 {
             occurrences += 1;
         } else {
-            out.extend(&[occurrences, bytes[i]]);
+            out.extend(&[occurrences, *byte]);
             pos += 2;
             occurrences = 1;
         }
