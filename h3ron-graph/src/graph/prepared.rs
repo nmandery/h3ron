@@ -25,7 +25,14 @@ use crate::graph::{
 #[derive(Serialize, Deserialize, Clone)]
 struct OwnedEdgeValue<W> {
     pub weight: W,
-    pub longedge: Option<(LongEdge, W)>,
+
+    /// the longedge is a shortcut which includes many consequent edges while
+    /// allowing to visit each of then individually.
+    ///
+    /// The Box takes care of allocating the LongEdge on the heap. That reduces
+    /// the footprint of the OwnedEdgeValue - when W = f32 to nearly 10% compared to
+    /// allocating the LongEdge on the stack.
+    pub longedge: Option<Box<(LongEdge, W)>>,
 }
 
 impl<'a, W> From<&'a OwnedEdgeValue<W>> for EdgeWeight<'a, W>
@@ -38,7 +45,7 @@ where
             longedge: owned_edge_value
                 .longedge
                 .as_ref()
-                .map(|(longedge, le_weight)| (longedge, *le_weight)),
+                .map(|boxed| (&boxed.0, boxed.1)),
         }
     }
 }
@@ -114,8 +121,11 @@ where
         let mut decompressor = Decompressor::default();
         for (_, owned_edge_values) in self.outgoing_edges.iter() {
             for (_, owned_edge_value) in owned_edge_values.iter() {
-                if let Some((longedge, _)) = owned_edge_value.longedge.as_ref() {
-                    for edge in decompressor.decompress_block(&longedge.edge_path)?.skip(1) {
+                if let Some(boxed_longedge) = owned_edge_value.longedge.as_ref() {
+                    for edge in decompressor
+                        .decompress_block(&boxed_longedge.0.edge_path)?
+                        .skip(1)
+                    {
                         covered_edges.insert(edge);
                     }
                 }
@@ -301,7 +311,8 @@ where
         }
 
         if edge_path.len() >= min_longedge_length {
-            graph_entry.longedge = Some((LongEdge::try_from(edge_path)?, longedge_weight));
+            graph_entry.longedge =
+                Some(Box::new((LongEdge::try_from(edge_path)?, longedge_weight)));
         }
     }
     Ok((origin_cell, (*edge, graph_entry)))

@@ -29,6 +29,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 * Upgrade `geo` dependency to 0.21.
 * Optimize `ShortestPath` to reduce overheads. This change also lead to the introduction of the `GetCellEdges` trait.
 * According to the naming-convention used by crates like `arrow2` the feature gates have been renamed. `use-gdal` became `io_gdal` and `osm` became `io_osm`. The `osm` module has been moved into the `io` module.
+* Reduced the stack-footprint of the `OwnedEDgeValue` struct. This allows holding larger graphs in memory.
 
 ## h3ron-graph 0.3.0 - 2022-01-23
 
