@@ -117,7 +117,7 @@ where
     }
 }
 
-impl<'a, T> From<&[T]> for IndexBlock<T>
+impl<T> From<&[T]> for IndexBlock<T>
 where
     T: Index,
 {

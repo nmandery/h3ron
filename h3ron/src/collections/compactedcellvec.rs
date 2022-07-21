@@ -22,7 +22,7 @@ pub struct CompactedCellVec {
     cells_by_resolution: [Vec<H3Cell>; H3_MAX_RESOLUTION as usize + 1],
 }
 
-impl<'a> CompactedCellVec {
+impl CompactedCellVec {
     pub fn new() -> Self {
         Self {
             cells_by_resolution: Default::default(),
