@@ -57,7 +57,7 @@ pub enum Error {
 
     /// Necessary memory allocation failed
     #[error("Necessary memory allocation failed")]
-    Memory, // 13
+    MemoryAlloc, // 13
 
     /// Bounds of provided memory were not large enough
     #[error("Bounds of provided memory were not large enough")]
@@ -95,7 +95,7 @@ impl Error {
             10 => Self::DuplicateInput,
             11 => Self::NotNeighbors,
             12 => Self::ResMismatch,
-            13 => Self::Memory,
+            13 => Self::MemoryAlloc,
             14 => Self::MemoryBounds,
             15 => Self::OptionInvalid,
             v => Self::UnknownError(v),
