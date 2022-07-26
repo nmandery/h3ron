@@ -1,0 +1,2 @@
+# https://agourlay.github.io/rust-performance-retrospective-part2/
+enum-variant-size-threshold = 100
