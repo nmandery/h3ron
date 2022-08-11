@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::algorithm::covered_area::{cells_covered_area, CoveredArea};
 use h3ron::collections::hashbrown::hash_map::Entry;
-use h3ron::collections::{H3CellMap, H3EdgeMap};
+use h3ron::collections::{H3CellMap, H3EdgeMap, RandomState};
 use h3ron::{H3Cell, H3DirectedEdge, HasH3Resolution};
 
 use crate::error::Error;
@@ -139,7 +139,7 @@ where
 }
 
 fn extract_nodes<W>(partition: &H3EdgeMap<W>) -> Result<H3CellMap<NodeType>, Error> {
-    let mut cells = H3CellMap::with_capacity(partition.len());
+    let mut cells = H3CellMap::with_capacity_and_hasher(partition.len(), RandomState::default());
     for edge in partition.keys() {
         let cell_from = edge.origin_cell()?;
         cells
@@ -230,9 +230,10 @@ where
         target_h3_resolution
     );
 
-    let mut downsampled_edges = H3EdgeMap::with_capacity(
+    let mut downsampled_edges = H3EdgeMap::with_capacity_and_hasher(
         graph.edges.len()
             / (graph.h3_resolution.saturating_sub(target_h3_resolution) as usize).pow(7),
+        RandomState::default(),
     );
 
     for (edge, weight) in graph.edges.iter() {

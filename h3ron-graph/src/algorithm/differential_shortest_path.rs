@@ -4,7 +4,7 @@ use std::ops::Add;
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
-use h3ron::collections::{ContainsIndex, H3CellMap, H3Treemap, HashMap};
+use h3ron::collections::{ContainsIndex, H3CellMap, H3Treemap, HashMap, RandomState};
 use h3ron::{H3Cell, HasH3Resolution, Index};
 
 use crate::algorithm::path::Path;
@@ -123,7 +123,8 @@ where
             path_transform_fn,
         )?;
 
-        let mut out_diffs = H3CellMap::with_capacity(paths_before.len());
+        let mut out_diffs =
+            H3CellMap::with_capacity_and_hasher(paths_before.len(), RandomState::default());
         for (cell, paths) in paths_before.drain() {
             out_diffs.insert(
                 cell,

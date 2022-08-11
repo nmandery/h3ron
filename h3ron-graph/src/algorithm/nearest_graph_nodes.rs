@@ -83,7 +83,7 @@ mod tests {
     #[test]
     fn nearest_finds_given_cell_first() {
         let cell = H3Cell::new(0x89283080ddbffff_u64);
-        let mut cellset = H3CellSet::new();
+        let mut cellset = H3CellSet::default();
         for ring_cell in cell.grid_disk(3).unwrap().iter() {
             cellset.insert(ring_cell);
         }
@@ -97,8 +97,8 @@ mod tests {
     #[test]
     fn nearest_finds_all_with_same_k() {
         let cell = H3Cell::new(0x89283080ddbffff_u64);
-        let mut cellset = H3CellSet::new();
-        let mut expected = H3CellSet::new();
+        let mut cellset = H3CellSet::default();
+        let mut expected = H3CellSet::default();
         for (_, ring_cell) in cell.grid_disk_distances(2, 3).unwrap().iter().take(2) {
             cellset.insert(*ring_cell);
             expected.insert(*ring_cell);

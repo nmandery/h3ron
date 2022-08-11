@@ -139,7 +139,7 @@ impl CompactedCellVec {
         I: IntoIterator,
         I::Item: Borrow<H3Cell> + Index,
     {
-        let mut resolutions_touched = HashSet::new();
+        let mut resolutions_touched = HashSet::default();
         for cell in cells {
             let res = cell.resolution() as usize;
             resolutions_touched.insert(res);

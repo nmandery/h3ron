@@ -17,7 +17,7 @@ use-serde = ["serde", "hashbrown/serde"]
 [dependencies]
 geo = "^0.22"
 thiserror = "1.0"
-ahash = "0.7"
+ahash = "0.8"
 
 [dependencies.h3ron-h3-sys]
 path = "../h3ron-h3-sys"

@@ -70,6 +70,7 @@ as well as making most functions return `Result<T, Error>` as H3 now returns err
 * Upgrade `geo` dependency to 0.21.
 * Upgrade `roaring` optional dependency to 0.9.
 * `IndexBlock` now uses the simpler run-length encoding instead of LZ4. Compression ratio stays nearly the same. Feature-gate is removed. This change makes deserialization of previously serialized data impossible
+* Upgrade `ahash` dependency to 0.8.
 
 ## h3ron 0.14.0 - 2022-01-23
 
