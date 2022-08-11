@@ -15,7 +15,7 @@ const H3_RESOLUTION_RANGE_USIZE: RangeInclusive<usize> =
 
 /// structure to keep compacted h3ron cells to allow more or less efficient
 /// adding of further cells
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "use-serde", derive(Serialize, Deserialize))]
 pub struct CompactedCellVec {
     /// cells by their resolution. The index of the array is the resolution for the referenced vec

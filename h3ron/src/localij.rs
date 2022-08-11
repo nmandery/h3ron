@@ -14,7 +14,7 @@ use crate::Index;
 ///
 /// This values are not guaranteed
 /// to be compatible across different versions of H3.
-#[derive(Debug, PartialEq, Copy, Clone, Default)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Default)]
 pub struct CoordIj {
     pub i: i32,
     pub j: i32,

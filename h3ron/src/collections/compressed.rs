@@ -21,7 +21,7 @@ use crate::{Error, Index, IndexVec};
 /// h3index. For spatially close h3index this results in a quite good compression ratio as many
 /// bytes are common over many h3indexes. As an example: a k-ring with `k=50` and 7651 cells
 /// compresses from 61kb to around 7.6kb.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "use-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "use-serde",

@@ -2,7 +2,7 @@ use std::ops::{Add, AddAssign};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum NodeType {
     Origin,
     Destination,
