@@ -83,8 +83,7 @@ impl H3DirectedEdge {
     /// Based on the exact edge length. See [`H3DirectedEdge::cell_centroid_distance_avg_m_at_resolution`]
     /// for a resolution based variant.
     pub fn cell_centroid_distance_m(&self) -> Result<f64, Error> {
-        self.exact_length_m()
-            .map(cell_centroid_distance_m_by_edge_length)
+        self.length_m().map(cell_centroid_distance_m_by_edge_length)
     }
 
     /// Retrieves the destination H3 Cell of `self`
@@ -153,30 +152,26 @@ impl H3DirectedEdge {
 
     /// Retrieves the exact length of `self` in meters
     /// This is the length of the cell boundary segment represented by the edge.
-    pub fn exact_length_m(&self) -> Result<f64, Error> {
+    pub fn length_m(&self) -> Result<f64, Error> {
         let mut length: f64 = 0.0;
-        Error::check_returncode(unsafe {
-            h3ron_h3_sys::exactEdgeLengthM(self.h3index(), &mut length)
-        })
-        .map(|_| length)
+        Error::check_returncode(unsafe { h3ron_h3_sys::edgeLengthM(self.h3index(), &mut length) })
+            .map(|_| length)
     }
 
     /// Retrieves the exact length of `self` in kilometers
     /// This is the length of the cell boundary segment represented by the edge.
-    pub fn exact_length_km(&self) -> Result<f64, Error> {
+    pub fn length_km(&self) -> Result<f64, Error> {
         let mut length: f64 = 0.0;
-        Error::check_returncode(unsafe {
-            h3ron_h3_sys::exactEdgeLengthKm(self.h3index(), &mut length)
-        })
-        .map(|_| length)
+        Error::check_returncode(unsafe { h3ron_h3_sys::edgeLengthKm(self.h3index(), &mut length) })
+            .map(|_| length)
     }
 
     /// Retrieves the exact length of `self` in radians
     /// This is the length of the cell boundary segment represented by the edge.
-    pub fn exact_length_rads(&self) -> Result<f64, Error> {
+    pub fn length_rads(&self) -> Result<f64, Error> {
         let mut length: f64 = 0.0;
         Error::check_returncode(unsafe {
-            h3ron_h3_sys::exactEdgeLengthRads(self.h3index(), &mut length)
+            h3ron_h3_sys::edgeLengthRads(self.h3index(), &mut length)
         })
         .map(|_| length)
     }
@@ -381,7 +376,7 @@ mod tests {
     #[test]
     fn test_cell_centroid_distance_m() {
         let edge = H3DirectedEdge::new(0x149283080ddbffff);
-        assert!(edge.exact_length_m().unwrap() < edge.cell_centroid_distance_m().unwrap());
-        assert!((2.0 * edge.exact_length_m().unwrap()) > edge.cell_centroid_distance_m().unwrap());
+        assert!(edge.length_m().unwrap() < edge.cell_centroid_distance_m().unwrap());
+        assert!((2.0 * edge.length_m().unwrap()) > edge.cell_centroid_distance_m().unwrap());
     }
 }

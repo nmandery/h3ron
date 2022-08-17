@@ -114,7 +114,7 @@ impl DirectedEdgePath {
             Self::DirectedEdgeSequence(edges) => {
                 let mut length_m = 0.0;
                 for edge in edges {
-                    length_m += edge.exact_length_m()?;
+                    length_m += edge.length_m()?;
                 }
                 Ok(length_m)
             }
