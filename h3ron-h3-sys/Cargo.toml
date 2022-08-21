@@ -21,6 +21,9 @@ exclude = [
     "libh3/.github",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [lib]
 
 [dependencies.geo-types]

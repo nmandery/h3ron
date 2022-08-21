@@ -14,6 +14,9 @@ exclude = [
     "doc/images/justfile",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 io_gdal = ["gdal", "ordered-float"]
 io_osm = ["osmpbfreader"]
