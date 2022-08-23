@@ -17,6 +17,7 @@ fn main() {
         .define("BUILD_FILTERS", "OFF")
         .define("BUILD_GENERATORS", "OFF")
         .define("BUILD_TESTING", "OFF")
+        .define("BUILD_FUZZERS", "OFF")
         .define("ENABLE_COVERAGE", "OFF")
         .define("ENABLE_DOCS", "OFF")
         .define("ENABLE_FORMAT", "OFF")
