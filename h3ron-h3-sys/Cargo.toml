@@ -11,14 +11,19 @@ readme = "README.md"
 homepage = "https://github.com/nmandery/h3ron"
 repository = "https://github.com/nmandery/h3ron"
 exclude = [
-    "libh3/docs",
+    "libh3/cmake",
+    "libh3/CMakeLists.txt",
+    "libh3/CMakeTests.cmake",
     "libh3/dev-docs",
-    "libh3/website",
-    "libh3/src/apps",
-    "libh3/tests",
+    "libh3/docs",
     "libh3/examples",
     "libh3/.git",
     "libh3/.github",
+    "libh3/KML",
+    "libh3/scripts",
+    "libh3/src/apps",
+    "libh3/tests",
+    "libh3/website",
 ]
 
 [package.metadata.docs.rs]
@@ -32,5 +37,6 @@ optional = true
 
 [build-dependencies]
 bindgen = "^0.60"
-cmake = "^0.1"
 regex = "^1.5.5"
+cc = "1"
+glob = "0.3"
