@@ -12,6 +12,8 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 
+* Drop the `cmake` build time dependency by building `libh3` with the `cc` crate.
+
 ## h3ron-h3-sys 0.14.0 - 2022-08-23
 
 * Upgrade to h3 v4.0.0
