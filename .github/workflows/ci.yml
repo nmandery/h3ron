@@ -14,7 +14,10 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v1
@@ -27,7 +30,8 @@ jobs:
       - name: Install GDAL
         run: |
           sudo apt-get update
-          sudo apt-get install cmake libgdal-dev
+          sudo apt-get install libgdal-dev
+        if: matrix.os == 'ubuntu-latest'
 
       - name: Install latest stable
         uses: actions-rs/toolchain@v1
@@ -46,6 +50,7 @@ jobs:
         with:
           command: clippy
           args: --all-targets --all-features
+        if: matrix.os == 'ubuntu-latest'
 
       - name: Test with cargo
         uses: actions-rs/cargo@v1.0.1
@@ -53,6 +58,16 @@ jobs:
           command: test
           toolchain: stable
           args: --workspace --all-features --all-targets
+        if: matrix.os == 'ubuntu-latest'
+
+      - name: Test with cargo
+        uses: actions-rs/cargo@v1.0.1
+        with:
+          command: test
+          toolchain: stable
+          # no gdal available
+          args: --workspace --exclude "h3ron-ndarray"
+        if: matrix.os != 'ubuntu-latest'
 
 #
 #  rust-publish:
