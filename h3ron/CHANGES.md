@@ -11,6 +11,10 @@ python extension.
 
 ## h3ron Unreleased
 
+## h3ron 0.15.1 - 2022-08-24
+
+* Upgraded `h3ron-h3-sys` to 0.15 to drop the `cmake` build time dependency by building `libh3` with the `cc` crate.
+
 ## h3ron 0.15.0 - 2022-08-23
 
 This version includes the migration from H3 version 3.x to 4.x. This includes some renaming of functions and
