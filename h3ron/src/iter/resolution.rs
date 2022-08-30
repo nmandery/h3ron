@@ -145,7 +145,7 @@ where
 mod tests {
     use std::iter::once;
 
-    use geo::Coordinate;
+    use geo_types::Coordinate;
 
     use crate::iter::change_resolution;
     use crate::iter::resolution::change_resolution_tuple;

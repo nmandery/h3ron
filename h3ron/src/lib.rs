@@ -208,8 +208,7 @@ pub fn res0_cells() -> IndexVec<H3Cell> {
 
 #[cfg(test)]
 mod tests {
-    use geo::Coordinate;
-    use geo_types::LineString;
+    use geo_types::{Coordinate, LineString};
 
     use crate::{grid_path_cells, line, res0_cell_count, res0_cells, H3Cell};
 

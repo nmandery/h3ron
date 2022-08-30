@@ -11,6 +11,8 @@ python extension.
 
 ## h3ron Unreleased
 
+* Use only types from `geo-types` in the public API, not from `geo`.
+* Upgrade `geo` from 0.22 to 0.23.
 * Include pre-build bindings in `h3ron-h3-sys` to drop the `bindgen` dependency as the default. 
   Enabling the `bindgen`-feature allows creating the bindings during build.
 

@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::os::raw::c_int;
 use std::str::FromStr;
 
-use geo::{LineString, MultiLineString};
+use geo_types::{LineString, MultiLineString};
 #[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 

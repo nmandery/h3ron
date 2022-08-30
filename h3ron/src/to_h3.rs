@@ -1,8 +1,7 @@
-use geo::{
-    GeometryCollection, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Rect,
-    Triangle,
+use geo_types::{
+    Coordinate, Geometry, GeometryCollection, Line, LineString, MultiLineString, MultiPoint,
+    MultiPolygon, Point, Polygon, Rect, Triangle,
 };
-use geo_types::{Coordinate, Geometry, Line, Polygon};
 
 use crate::collections::indexvec::IndexVec;
 use crate::error::check_valid_h3_resolution;
