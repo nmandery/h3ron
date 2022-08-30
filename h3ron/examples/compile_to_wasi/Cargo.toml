@@ -1,0 +1,8 @@
+[package]
+name = "compile_to_wasi"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+h3ron = { path = "../../" }
+geo-types = "0.7"

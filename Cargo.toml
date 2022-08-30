@@ -1,15 +1,17 @@
 [workspace]
 
 members = [
-    "h3ron-h3-sys",
     "h3ron",
-    "h3ron-ndarray",
+    "h3ron/examples/compile_to_wasi",
     "h3ron-graph",
+    "h3ron-h3-sys",
+    "h3ron-ndarray",
     "h3ron-playground",
 ]
 [profile.release]
 debug = true # for flamegraph
-lto = false # for callgrind
+lto = true
+# lto = false # for callgrind
 
 #debug = false
 #lto = "fat"

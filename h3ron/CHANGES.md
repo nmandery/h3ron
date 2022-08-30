@@ -13,6 +13,7 @@ python extension.
 
 * Include pre-build bindings in `h3ron-h3-sys` to drop the `bindgen` dependency as the default. 
   Enabling the `bindgen`-feature allows creating the bindings during build.
+* Add example describing how to compile to the wasm32-wasi target.
 
 ## h3ron 0.15.1 - 2022-08-24
 
