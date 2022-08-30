@@ -156,7 +156,7 @@ mod tests {
     use std::collections::HashMap;
     use std::iter::once;
 
-    use geo::Coordinate;
+    use geo_types::Coordinate;
 
     use super::{neighbors_within_distance_window, neighbors_within_distance_window_or_default};
     use crate::H3Cell;

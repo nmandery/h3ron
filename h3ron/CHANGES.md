@@ -11,6 +11,8 @@ python extension.
 
 ## h3ron Unreleased
 
+* Use only types from `geo-types` in the public API, not from `geo`.
+
 ## h3ron 0.15.1 - 2022-08-24
 
 * Upgraded `h3ron-h3-sys` to 0.15 to drop the `cmake` build time dependency by building `libh3` with the `cc` crate.

@@ -141,8 +141,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use geo::Coordinate;
-    use geo_types::{Geometry, Line};
+    use geo_types::{Coordinate, Geometry, Line};
 
     use crate::iter::{continuous_cells_to_edges, H3DirectedEdgesBuilder};
     use crate::{H3Cell, ToH3Cells};
