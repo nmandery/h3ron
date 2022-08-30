@@ -16,6 +16,7 @@ all-features = true
 [features]
 use-rayon = ["hashbrown/rayon"]
 use-serde = ["serde", "hashbrown/serde"]
+bindgen = ["h3ron-h3-sys/bindgen"]
 
 [dependencies]
 geo = "^0.22"

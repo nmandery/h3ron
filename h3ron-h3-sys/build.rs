@@ -1,6 +1,3 @@
-extern crate bindgen;
-extern crate regex;
-
 use glob::glob;
 use regex::Regex;
 use std::env;
@@ -51,6 +48,8 @@ fn configure_header() -> (PathBuf, PathBuf) {
 
 fn main() {
     println!("cargo:rerun-if-changed=libh3");
+
+    #[allow(unused_variables)]
     let (configured_includes, h3api_header) = configure_header();
 
     cc::Build::new()
@@ -59,38 +58,41 @@ fn main() {
         .files(glob("libh3/src/h3lib/lib/*.c").unwrap().map(|p| p.unwrap()))
         .compile("h3");
 
-    let mut builder = bindgen::Builder::default().header(
-        h3api_header
-            .as_path()
-            .as_os_str()
-            .to_owned()
-            .into_string()
-            .expect("Path could not be converted to string"),
-    );
-
-    // read the contents of the header to extract functions and types
-    let header_contents = read_to_string(h3api_header).expect("Unable to read h3 header");
-    for cap in Regex::new(r"H3_EXPORT\(\s*(?P<func>[a-zA-Z0-9_]+)\s*\)")
-        .unwrap()
-        .captures_iter(&header_contents)
+    #[cfg(feature = "bindgen")]
     {
-        builder = builder.allowlist_function(&cap["func"]);
-    }
-    for cap in Regex::new(r"struct\s+\{[^\}]*}\s*(?P<type>[a-zA-Z0-9_]+)")
-        .unwrap()
-        .captures_iter(&header_contents)
-    {
-        builder = builder.allowlist_type(&cap["type"]);
-    }
-    // Finish the builder and generate the bindings.
-    let bindings = builder
-        .generate()
-        // Unwrap the Result and panic on failure.
-        .expect("Unable to generate bindings");
+        let mut builder = bindgen::Builder::default().header(
+            h3api_header
+                .as_path()
+                .as_os_str()
+                .to_owned()
+                .into_string()
+                .expect("Path could not be converted to string"),
+        );
 
-    // Write the bindings to the $OUT_DIR/bindings.rs file.
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("bindings.rs"))
-        .expect("Couldn't write bindings!");
+        // read the contents of the header to extract functions and types
+        let header_contents = read_to_string(h3api_header).expect("Unable to read h3 header");
+        for cap in Regex::new(r"H3_EXPORT\(\s*(?P<func>[a-zA-Z0-9_]+)\s*\)")
+            .unwrap()
+            .captures_iter(&header_contents)
+        {
+            builder = builder.allowlist_function(&cap["func"]);
+        }
+        for cap in Regex::new(r"struct\s+\{[^\}]*}\s*(?P<type>[a-zA-Z0-9_]+)")
+            .unwrap()
+            .captures_iter(&header_contents)
+        {
+            builder = builder.allowlist_type(&cap["type"]);
+        }
+        // Finish the builder and generate the bindings.
+        let bindings = builder
+            .generate()
+            // Unwrap the Result and panic on failure.
+            .expect("Unable to generate bindings");
+
+        // Write the bindings to the $OUT_DIR/bindings.rs file.
+        let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+        bindings
+            .write_to_file(out_path.join("bindings.rs"))
+            .expect("Couldn't write bindings!");
+    }
 }

@@ -24,6 +24,7 @@ exclude = [
     "libh3/src/apps",
     "libh3/tests",
     "libh3/website",
+    "update-prebuild-bindings.sh"
 ]
 
 [package.metadata.docs.rs]
@@ -36,7 +37,7 @@ version = "0.7"
 optional = true
 
 [build-dependencies]
-bindgen = "^0.60"
+bindgen = { version = "^0.60", optional = true }
 regex = "^1.5.5"
 cc = "1"
 glob = "0.3"
