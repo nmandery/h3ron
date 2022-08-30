@@ -12,6 +12,9 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 
+* Include pre-build bindings to drop the `bindgen` dependency as the default. Enabling the `bindgen`-feature
+  allows creating the bindings during build.
+
 ## h3ron-h3-sys 0.15.0 - 2022-08-24
 
 * Drop the `cmake` build time dependency by building `libh3` with the `cc` crate. [#47](https://github.com/nmandery/h3ron/pull/47).
