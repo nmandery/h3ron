@@ -12,6 +12,7 @@ python extension.
 ## h3ron Unreleased
 
 * Use only types from `geo-types` in the public API, not from `geo`.
+* Upgrade `geo` from 0.22 to 0.23.
 
 ## h3ron 0.15.1 - 2022-08-24
 

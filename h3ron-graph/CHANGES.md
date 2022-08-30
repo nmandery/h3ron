@@ -11,6 +11,8 @@ python extension.
 
 ## h3ron-graph Unreleased
 
+* Upgrade `geo` from 0.22 to 0.23.
+
 ## h3ron-graph 0.4.0 - 2022-08-23
 
 This version includes the migration from H3 version 3.x to 4.x. This includes some renaming of functions and
