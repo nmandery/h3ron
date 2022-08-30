@@ -10,3 +10,4 @@ flamegraph*.svg
 /venv
 __pycache__
 *.osm.pbf
+/h3ron/examples/compile_to_wasi/wasi-sdk/
