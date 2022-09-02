@@ -3,10 +3,11 @@
 //!
 //! # Features
 //!
-//! * **use-serde**: serde support.
+//! * **use-serde**: serde serialization/deserialization for most types of this crate.
 //! * **use-rayon**
 //! * **roaring**: Enables `collections::H3Treemap` based on the `roaring` crate.
-//! during development.
+//! * **parse**: Parse [`H3Cell`] from different string representations using [`H3Cell::from_str`].
+//!
 #![warn(nonstandard_style)]
 #![allow(clippy::redundant_pub_crate)]
 use std::iter::Iterator;
@@ -37,6 +38,8 @@ pub mod iter;
 pub mod localij;
 pub mod to_geo;
 pub mod to_h3;
+
+use std::str::FromStr;
 
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;

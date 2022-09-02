@@ -348,8 +348,92 @@ impl ToString for H3Cell {
 impl FromStr for H3Cell {
     type Err = Error;
 
+    /// Parse a hex-representation of a H3Cell from a string.
+    ///
+    /// With the `parse` feature enabled this function is also able
+    /// to parse strings containing integers and a custom coordinate-based format
+    /// in the form of `"x,y,resolution"`.
+    ///
+    /// Examples:
+    ///
+    /// ```rust
+    /// use h3ron::{H3Cell, Index};
+    /// use std::str::FromStr;
+    ///
+    /// let index = H3Cell::from_str("89283080ddbffff").unwrap();
+    ///
+    /// #[cfg(feature = "parse")]
+    /// {
+    ///     // parse from a string containing an integer
+    ///     let index = H3Cell::from_str("617700169518678015").unwrap();
+    ///
+    ///     // parse from coordinates and resolution
+    ///     let index = H3Cell::from_str("23.3,12.3,6").unwrap();
+    /// }
+    /// ```
+    ///
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        index_from_str(s)
+        #[cfg(not(feature = "parse"))]
+        {
+            index_from_str(s)
+        }
+
+        #[cfg(feature = "parse")]
+        {
+            if let Ok(cell) = index_from_str(s) {
+                return Ok(cell);
+            }
+
+            if let Ok(h3index) = u64::from_str(s) {
+                return H3Cell::try_from(h3index);
+            }
+
+            // attempt to parse as coordinate pair and resolution
+            if let Ok((_, (coord, res))) = parse::parse_coordinate_and_resolution(s) {
+                return H3Cell::from_coordinate(coord, res);
+            }
+
+            Err(Self::Err::Failed)
+        }
+    }
+}
+
+#[cfg(feature = "parse")]
+mod parse {
+    use geo_types::Coordinate;
+    use nom::branch::alt;
+    use nom::bytes::complete::{tag, take_while, take_while_m_n};
+    use nom::combinator::map_res;
+    use nom::number::complete::double;
+    use nom::IResult;
+    use std::str::FromStr;
+
+    fn is_whitespace(c: char) -> bool {
+        c.is_ascii_whitespace()
+    }
+
+    fn seperator(s: &str) -> IResult<&str, &str> {
+        alt((tag(","), (tag(";"))))(s)
+    }
+
+    fn u8_str(s: &str) -> IResult<&str, u8> {
+        map_res(take_while_m_n(1, 2, |c: char| c.is_ascii_digit()), |u8s| {
+            u8::from_str(u8s)
+        })(s)
+    }
+
+    pub(crate) fn parse_coordinate_and_resolution(s: &str) -> IResult<&str, (Coordinate, u8)> {
+        let (s, _) = take_while(is_whitespace)(s)?;
+        let (s, x) = double(s)?;
+        let (s, _) = take_while(is_whitespace)(s)?;
+        let (s, _) = seperator(s)?;
+        let (s, _) = take_while(is_whitespace)(s)?;
+        let (s, y) = double(s)?;
+        let (s, _) = take_while(is_whitespace)(s)?;
+        let (s, _) = seperator(s)?;
+        let (s, _) = take_while(is_whitespace)(s)?;
+        let (s, r) = u8_str(s)?;
+        Ok((s, (Coordinate::from((x, y)), r as u8)))
     }
 }
 
@@ -600,6 +684,31 @@ mod tests {
             let index: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
             let wrong_neighbor: H3Cell = 0x8a2a1072b59ffff_u64.try_into().unwrap();
             index.directed_edge_to(wrong_neighbor).unwrap();
+        }
+    }
+
+    #[cfg(feature = "parse")]
+    mod parse {
+        use crate::{H3Cell, Index, ToCoordinate};
+        use std::str::FromStr;
+
+        #[test]
+        fn parse_cell_from_numeric() {
+            let cell: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
+            let s = format!("{}", cell.h3index());
+
+            let cell2 = H3Cell::from_str(&s).unwrap();
+            assert_eq!(cell, cell2);
+        }
+
+        #[test]
+        fn parse_cell_from_coordinate_and_resolution() {
+            let cell: H3Cell = 0x89283080ddbffff_u64.try_into().unwrap();
+            let coord = cell.to_coordinate().unwrap();
+            let s = format!("{},{},{}", coord.x, coord.y, cell.resolution());
+
+            let cell2 = H3Cell::from_str(&s).unwrap();
+            assert_eq!(cell, cell2);
         }
     }
 }
