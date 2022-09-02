@@ -11,11 +11,15 @@ python extension.
 
 ## h3ron Unreleased
 
+### Added
+* Add example describing how to compile to the wasm32-wasi target.
+* Parse `H3Cell` from different string representations using `H3Cell::from_str`. [#52](https://github.com/nmandery/h3ron/pull/52)
+
+### Changed
 * Use only types from `geo-types` in the public API, not from `geo`.
 * Upgrade `geo` from 0.22 to 0.23.
 * Include pre-build bindings in `h3ron-h3-sys` to drop the `bindgen` dependency as the default. 
   Enabling the `bindgen`-feature allows creating the bindings during build.
-* Add example describing how to compile to the wasm32-wasi target.
 
 ## h3ron 0.15.1 - 2022-08-24
 

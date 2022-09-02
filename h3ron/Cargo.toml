@@ -17,6 +17,7 @@ all-features = true
 use-rayon = ["hashbrown/rayon"]
 use-serde = ["serde", "hashbrown/serde"]
 bindgen = ["h3ron-h3-sys/bindgen"]
+parse = ["nom"]
 
 [dependencies]
 geo = "^0.23"
@@ -42,6 +43,10 @@ features = []
 
 [dependencies.roaring]
 version = "0.9"
+optional = true
+
+[dependencies.nom]
+version = "7"
 optional = true
 
 [dev-dependencies]
