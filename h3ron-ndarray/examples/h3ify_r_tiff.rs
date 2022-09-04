@@ -29,7 +29,7 @@ fn main() {
     });
 
     // write to vector file
-    let out_drv = Driver::get("GPKG").unwrap();
+    let out_drv = Driver::get_by_name("GPKG").unwrap();
     let mut out_dataset = out_drv
         .create_vector_only("h3ify_r_tiff_results.gpkg")
         .unwrap();

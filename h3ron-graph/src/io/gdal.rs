@@ -122,7 +122,7 @@ where
         output_name: S,
         layer_name: S,
     ) -> Result<(), Error> {
-        let drv = Driver::get(driver_name.as_ref())?;
+        let drv = Driver::get_by_name(driver_name.as_ref())?;
         let mut ds = drv.create_vector_only(output_name.as_ref())?;
 
         let lyr = ds.create_layer(LayerOptions {
