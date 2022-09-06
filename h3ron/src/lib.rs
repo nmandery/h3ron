@@ -39,8 +39,6 @@ pub mod localij;
 pub mod to_geo;
 pub mod to_h3;
 
-use std::str::FromStr;
-
 pub const H3_MIN_RESOLUTION: u8 = 0_u8;
 pub const H3_MAX_RESOLUTION: u8 = 15_u8;
 
