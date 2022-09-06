@@ -5,7 +5,10 @@ use geo_types::{
 
 use crate::collections::indexvec::IndexVec;
 use crate::error::check_valid_h3_resolution;
-use crate::{line, polygon_to_cells, Error, H3Cell, Index};
+use crate::{line, Error, H3Cell, Index};
+use h3ron_h3_sys::{GeoLoop, GeoPolygon, LatLng};
+use std::os::raw::c_int;
+
 use std::convert::TryInto;
 
 /// convert to indexes at the given resolution
@@ -119,4 +122,73 @@ impl ToH3Cells for Geometry<f64> {
             Geometry::Triangle(tr) => tr.to_h3_cells(h3_resolution),
         }
     }
+}
+
+fn to_geoloop(ring: &mut Vec<LatLng>) -> GeoLoop {
+    GeoLoop {
+        numVerts: ring.len() as c_int,
+        verts: ring.as_mut_ptr(),
+    }
+}
+
+fn with_geopolygon<F, O>(poly: &Polygon<f64>, inner_fn: F) -> O
+where
+    F: Fn(&GeoPolygon) -> O,
+{
+    let mut exterior: Vec<LatLng> = linestring_to_latlng_vec(poly.exterior());
+    let mut interiors: Vec<Vec<LatLng>> = poly
+        .interiors()
+        .iter()
+        .map(linestring_to_latlng_vec)
+        .collect();
+
+    let mut holes: Vec<GeoLoop> = interiors.iter_mut().map(to_geoloop).collect();
+
+    let geo_polygon = GeoPolygon {
+        geoloop: to_geoloop(&mut exterior),
+        numHoles: holes.len() as c_int,
+        holes: holes.as_mut_ptr(),
+    };
+    inner_fn(&geo_polygon)
+}
+
+#[inline]
+fn linestring_to_latlng_vec(ls: &LineString<f64>) -> Vec<LatLng> {
+    ls.points().map(LatLng::from).collect()
+}
+
+fn max_polygon_to_cells_size_internal(gp: &GeoPolygon, h3_resolution: u8) -> Result<usize, Error> {
+    let mut cells_size: i64 = 0;
+    Error::check_returncode(unsafe {
+        h3ron_h3_sys::maxPolygonToCellsSize(gp, c_int::from(h3_resolution), 0, &mut cells_size)
+    })?;
+    Ok(cells_size as usize)
+}
+
+pub fn max_polygon_to_cells_size(poly: &Polygon<f64>, h3_resolution: u8) -> Result<usize, Error> {
+    with_geopolygon(poly, |gp| {
+        max_polygon_to_cells_size_internal(gp, h3_resolution)
+    })
+}
+
+pub fn polygon_to_cells(poly: &Polygon<f64>, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
+    with_geopolygon(poly, |gp| {
+        match max_polygon_to_cells_size_internal(gp, h3_resolution) {
+            Ok(cells_size) => {
+                // pre-allocate for the expected number of hexagons
+                let mut index_vec = IndexVec::with_length(cells_size as usize);
+
+                Error::check_returncode(unsafe {
+                    h3ron_h3_sys::polygonToCells(
+                        gp,
+                        c_int::from(h3_resolution),
+                        0,
+                        index_vec.as_mut_ptr(),
+                    )
+                })
+                .map(|_| index_vec)
+            }
+            Err(e) => Err(e),
+        }
+    })
 }

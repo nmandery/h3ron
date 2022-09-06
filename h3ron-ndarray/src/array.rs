@@ -6,7 +6,7 @@ use geo_types::{Coordinate, Rect};
 use log::debug;
 use ndarray::{parallel::prelude::*, ArrayView2, Axis};
 
-use h3ron::{collections::CompactedCellVec, polygon_to_cells, ToCoordinate};
+use h3ron::{collections::CompactedCellVec, ToCoordinate, ToH3Cells};
 
 use crate::resolution::{nearest_h3_resolution, ResolutionSearchMode};
 use crate::{error::Error, transform::Transform};
@@ -322,7 +322,7 @@ where
     T: Sized + PartialEq + Sync + Eq + Hash,
 {
     let mut chunk_h3_map = HashMap::<&T, CompactedCellVec>::new();
-    for cell in polygon_to_cells(&window_box.to_polygon(), h3_resolution)?.drain() {
+    for cell in window_box.to_h3_cells(h3_resolution)?.iter() {
         // find the array element for the coordinate of the h3ron index
         let arr_coord = {
             let transformed = inverse_transform * cell.to_coordinate()?;
