@@ -42,7 +42,7 @@ version = "0.12"
 features = []
 
 [dependencies.roaring]
-version = "0.9"
+version = "0.10"
 optional = true
 
 [dependencies.nom]
