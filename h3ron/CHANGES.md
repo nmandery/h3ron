@@ -21,6 +21,7 @@ python extension.
 * Include pre-build bindings in `h3ron-h3-sys` to drop the `bindgen` dependency as the default. 
   Enabling the `bindgen`-feature allows creating the bindings during build.
 * Upgrade `roaring` from 0.9 to 0.10.
+* Move `polygon_to_cells` and `max_polygon_to_cells_size` to `to_h3` module.
 
 ## h3ron 0.15.1 - 2022-08-24
 
