@@ -12,8 +12,11 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 
+## h3ron-h3-sys 0.15.1 - 2022-09-16
+
 * Include pre-build bindings to drop the `bindgen` dependency as the default. Enabling the `bindgen`-feature
   allows creating the bindings during build.
+* Update H3 to [v4.0.1](https://github.com/uber/h3/releases/tag/v4.0.1).
 
 ## h3ron-h3-sys 0.15.0 - 2022-08-24
 
