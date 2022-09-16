@@ -22,7 +22,7 @@ features = ["rayon"]
 
 [dependencies.h3ron]
 path = "../h3ron"
-version = "0.15.0" # for publishing on crates.io
+version = "0.15" # for publishing on crates.io
 
 
 [dev-dependencies]
@@ -31,7 +31,7 @@ env_logger = "^0.9"
 ordered-float = "3"
 
 [dev-dependencies.criterion]
-version = "^0.3"
+version = "^0.4"
 features = ["html_reports"]
 
 [dev-dependencies.gdal]
