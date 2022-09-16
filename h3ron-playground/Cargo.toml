@@ -25,7 +25,7 @@ features = [ "derive" ]
 optional = true
 
 [dev-dependencies.criterion]
-version = "^0.3"
+version = "^0.4"
 features = ["html_reports"]
 
 [dev-dependencies.geo-types]

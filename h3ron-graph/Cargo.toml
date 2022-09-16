@@ -33,7 +33,7 @@ num-traits = "0.2"
 
 [dependencies.h3ron]
 path = "../h3ron"
-version = "0.15.0" # for publishing on crates.io
+version = "0.15" # for publishing on crates.io
 features = ["use-rayon", "roaring", "use-serde"]
 
 [dependencies.smallvec]
@@ -72,7 +72,7 @@ optional = true
 #features = ["geo-types"]
 
 [dev-dependencies.criterion]
-version = "^0.3"
+version = "^0.4"
 features = ["html_reports"]
 
 [dev-dependencies.clap]
