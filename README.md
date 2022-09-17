@@ -32,6 +32,12 @@ Graph algorithms on edges of the H3 spatial indexing system.
 
 [Documentation](https://docs.rs/h3ron-graph) | [Changelog](h3ron-graph/CHANGES.md)
 
+### [h3ron-polars](h3ron-polars) [![Latest Version](https://img.shields.io/crates/v/h3ron-polars.svg)](https://crates.io/crates/h3ron-polars) [![Documentation](https://docs.rs/h3ron-polars/badge.svg)](https://docs.rs/h3ron-polars)
+
+[h3ron](https://docs.rs/h3ron)-[polars](https://docs.rs/polars) integration by providing extension traits 
+
+[Documentation](https://docs.rs/h3ron-polars) | [Changelog](h3ron-polars/CHANGES.md)
+
 ### [h3ron-playground](h3ron-playground)
 
 Toy-crate to test out ideas. Not published to crates.io.
