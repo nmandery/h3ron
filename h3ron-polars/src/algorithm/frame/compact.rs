@@ -275,7 +275,6 @@ mod tests {
         }
 
         let uncompacted = compacted
-            .clone()
             .h3_uncompact_dataframe(CELL_COL_NAME, max_res)
             .unwrap();
         assert_eq!(uncompacted.shape(), shape_before);
