@@ -1,0 +1,29 @@
+[package]
+name = "h3ron-polars"
+version = "0.1.0"
+authors = ["Nico Mandery <nico@nmandery.net>"]
+description = "H3 integration for polars dataframes"
+edition = "2021"
+license = "MIT"
+keywords = ["geo", "spatial", "h3", "polars"]
+readme = "README.md"
+homepage = "https://github.com/nmandery/h3ron"
+repository = "https://github.com/nmandery/h3ron"
+
+[package.metadata.docs.rs]
+all-features = true
+
+[features]
+kdbush = ["dep:kdbush"]
+
+[dependencies]
+geo = "0.23"
+geo-types = "0.7"
+kdbush = { version = "0.2", optional = true }
+polars = { version = "0.23", features = ["lazy"] }
+polars-core = "0.23"
+thiserror = "1"
+
+[dependencies.h3ron]
+path = "../h3ron"
+version = "0.15"
