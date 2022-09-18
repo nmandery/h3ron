@@ -1,4 +1,4 @@
-use crate::{Error, IndexChunked, IndexValue};
+use crate::{AsH3IndexChunked, Error, IndexChunked, IndexValue};
 use geo::{BoundingRect, Contains};
 use geo_types::{Coordinate, MultiPolygon, Polygon, Rect};
 use h3ron::{H3Cell, H3DirectedEdge, ToCoordinate};
@@ -7,6 +7,8 @@ use polars::datatypes::ArrowDataType;
 use polars::export::arrow::array::BooleanArray;
 use polars::export::arrow::bitmap::{Bitmap, MutableBitmap};
 use polars::prelude::{BooleanChunked, TakeRandom};
+use polars_core::prelude::UInt64Chunked;
+use std::marker::PhantomData;
 
 pub trait KDBushCoordinate {
     fn kdbush_coordinate(&self) -> Result<Coordinate, Error>;
@@ -82,14 +84,14 @@ where
     /// assert_eq!(mask.get(1), Some(false));
     /// assert_eq!(mask.get(2), Some(false));
     /// ```
-    fn kdbush_index(&self) -> KDBushIndex<'a, IX> {
+    fn kdbush_index(&self) -> KDBushIndex<IX> {
         self.kdbush_index_with_node_size(64)
     }
 
     /// Build a [`KDBushIndex`] using custom parameters.
     ///
     /// `node_size` - Size of the KD-tree node, 64 by default. Higher means faster indexing but slower search, and vise versa
-    fn kdbush_index_with_node_size(&self, node_size: u8) -> KDBushIndex<'a, IX>;
+    fn kdbush_index_with_node_size(&self, node_size: u8) -> KDBushIndex<IX>;
 }
 
 impl<'a, IX: IndexValue> BuildKDBushIndex<'a, IX> for IndexChunked<'a, IX>
@@ -97,9 +99,14 @@ where
     Self: PointReader,
     IX: KDBushCoordinate,
 {
-    fn kdbush_index_with_node_size(&self, node_size: u8) -> KDBushIndex<'a, IX> {
+    fn kdbush_index_with_node_size(&self, node_size: u8) -> KDBushIndex<IX> {
         KDBushIndex {
-            index_chunked: self.clone(),
+            index_phantom: PhantomData::<IX>::default(),
+
+            // clones of arrow-backed arrays are cheap, so we clone this for the benefit of not
+            // requiring a lifetime dependency
+            chunked_array: self.chunked_array.clone(),
+
             kdbush: KDBush::create((*self).clone(), node_size),
         }
     }
@@ -108,26 +115,27 @@ where
 /// A very fast static spatial index for 2D points based on a flat KD-tree.
 ///
 /// Operates on the centroid coordinate of [`H3Cell`] and [`H3DirectedEdge`] values.
-pub struct KDBushIndex<'a, IX: IndexValue> {
-    /// this reference prevents the underlying array from being mutated while
-    /// this index exists
-    index_chunked: IndexChunked<'a, IX>,
+pub struct KDBushIndex<IX: IndexValue> {
+    index_phantom: PhantomData<IX>,
+
+    chunked_array: UInt64Chunked,
 
     kdbush: KDBush,
 }
 
-impl<'a, IX: IndexValue> KDBushIndex<'a, IX>
+impl<IX: IndexValue> KDBushIndex<IX>
 where
     IX: KDBushCoordinate,
 {
     fn build_negative_mask(&self) -> MutableBitmap {
         let mut mask = MutableBitmap::new();
-        mask.extend_constant(self.index_chunked.len(), false);
+        mask.extend_constant(self.chunked_array.len(), false);
         mask
     }
 
     fn finish_mask(&self, mask: Bitmap) -> BooleanChunked {
-        let validites = self.index_chunked.validity_bitmap();
+        let index_chunked = self.chunked_array.h3indexchunked::<IX>();
+        let validites = index_chunked.validity_bitmap();
         let bool_arr = BooleanArray::from_data(ArrowDataType::Boolean, mask, Some(validites));
         BooleanChunked::from(bool_arr)
     }
@@ -187,10 +195,11 @@ where
 {
     if let Some(rect) = polygon.bounding_rect() {
         let mut mask = kdbi.within_rect_impl(&rect);
+
+        let indexchunked = kdbi.chunked_array.h3indexchunked::<IX>();
         for i in 0..mask.len() {
             if mask.get(i) {
-                if let Some(coord) = kdbi
-                    .index_chunked
+                if let Some(coord) = indexchunked
                     .get(i)
                     .and_then(|cell| cell.kdbush_coordinate().ok())
                 {
