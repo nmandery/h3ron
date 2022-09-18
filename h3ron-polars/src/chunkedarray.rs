@@ -61,16 +61,26 @@ impl<'a, IX: IndexValue> TakeRandom for IndexChunked<'a, IX> {
     }
 }
 
+pub trait AsH3IndexChunked {
+    fn h3indexchunked<IX: IndexValue>(&self) -> IndexChunked<IX>;
+}
+
+impl AsH3IndexChunked for UInt64Chunked {
+    fn h3indexchunked<IX: IndexValue>(&self) -> IndexChunked<IX> {
+        IndexChunked {
+            chunked_array: self,
+            index_phantom: PhantomData::<IX>::default(),
+        }
+    }
+}
+
 pub trait AsH3CellChunked {
     fn h3cell(&self) -> IndexChunked<H3Cell>;
 }
 
 impl AsH3CellChunked for UInt64Chunked {
     fn h3cell(&self) -> IndexChunked<H3Cell> {
-        IndexChunked {
-            chunked_array: self,
-            index_phantom: PhantomData::<H3Cell>::default(),
-        }
+        self.h3indexchunked()
     }
 }
 
@@ -80,9 +90,6 @@ pub trait AsH3DirectedEdgeChunked {
 
 impl AsH3DirectedEdgeChunked for UInt64Chunked {
     fn h3directededge(&self) -> IndexChunked<H3DirectedEdge> {
-        IndexChunked {
-            chunked_array: self,
-            index_phantom: PhantomData::<H3DirectedEdge>::default(),
-        }
+        self.h3indexchunked()
     }
 }
