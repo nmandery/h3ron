@@ -69,6 +69,7 @@ impl H3CompactDataframe for DataFrame {
 
             let listchunked_cells = grouped.column(cell_column_name.as_ref())?.list()?;
             let compacted_series_vec = POOL.install(|| {
+                // Ordering is preserved. see https://github.com/rayon-rs/rayon/issues/551
                 listchunked_cells
                     .par_iter()
                     .map(compact_maybe_series)
