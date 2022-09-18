@@ -74,22 +74,19 @@ impl AsH3IndexChunked for UInt64Chunked {
     }
 }
 
-pub trait AsH3CellChunked {
-    fn h3cell(&self) -> IndexChunked<H3Cell>;
+macro_rules! specialized_as_impl {
+    ($name:ident, $fn_name:ident, $ret_type:ty) => {
+        pub trait $name {
+            fn $fn_name(&self) -> IndexChunked<$ret_type>;
+        }
+
+        impl $name for UInt64Chunked {
+            fn $fn_name(&self) -> IndexChunked<$ret_type> {
+                self.h3indexchunked()
+            }
+        }
+    };
 }
 
-impl AsH3CellChunked for UInt64Chunked {
-    fn h3cell(&self) -> IndexChunked<H3Cell> {
-        self.h3indexchunked()
-    }
-}
-
-pub trait AsH3DirectedEdgeChunked {
-    fn h3directededge(&self) -> IndexChunked<H3DirectedEdge>;
-}
-
-impl AsH3DirectedEdgeChunked for UInt64Chunked {
-    fn h3directededge(&self) -> IndexChunked<H3DirectedEdge> {
-        self.h3indexchunked()
-    }
-}
+specialized_as_impl!(AsH3CellChunked, h3cell, H3Cell);
+specialized_as_impl!(AsH3DirectedEdgeChunked, h3directededge, H3DirectedEdge);
