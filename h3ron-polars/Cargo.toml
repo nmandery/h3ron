@@ -20,8 +20,8 @@ kdbush = ["dep:kdbush"]
 geo = "0.23"
 geo-types = "0.7"
 kdbush = { version = "0.2", optional = true }
-polars = { version = "0.23", features = ["lazy"] }
-polars-core = "0.23"
+polars = { version = "0.24", features = ["lazy"] }
+polars-core = "0.24"
 thiserror = "1"
 
 [dependencies.h3ron]
