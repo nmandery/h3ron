@@ -6,7 +6,9 @@ use polars::prelude::{BooleanChunked, UInt64Chunked};
 use static_aabb2d_index::{NeighborVisitor, StaticAABB2DIndex, StaticAABB2DIndexBuilder};
 use std::marker::PhantomData;
 
-/// flatbush implementation
+/// Spatial index implementation using the packed Hilbert R-tree algorithm
+///
+/// Based on [flatbush](https://github.com/mourner/flatbush) and the rust port [static_aabb2d_index](https://github.com/jbuckmccready/static_aabb2d_index).
 pub struct PackedHilbertRTreeIndex<IX: IndexValue> {
     pub index: Option<StaticAABB2DIndex<f64>>,
     index_phantom: PhantomData<IX>,
@@ -16,6 +18,9 @@ pub struct PackedHilbertRTreeIndex<IX: IndexValue> {
 }
 
 pub trait BuildPackedHilbertRTreeIndex<IX: IndexValue> {
+    /// Build a spatial index using the packed Hilbert R-tree algorithm
+    ///
+    /// Based on [flatbush](https://github.com/mourner/flatbush) and the rust port [static_aabb2d_index](https://github.com/jbuckmccready/static_aabb2d_index).
     fn packed_hilbert_rtree_index(&self) -> Result<PackedHilbertRTreeIndex<IX>, Error>;
 }
 

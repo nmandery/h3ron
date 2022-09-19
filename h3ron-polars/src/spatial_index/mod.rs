@@ -15,7 +15,7 @@ pub mod packed_hilbert_rtree;
 use crate::{Error, IndexChunked, IndexValue};
 use geo::bounding_rect::BoundingRect;
 use geo::{Contains, Intersects};
-use geo_types::{Coordinate, Line, MultiPolygon, Polygon, Rect};
+use geo_types::{Coordinate, MultiPolygon, Polygon, Rect};
 use h3ron::to_geo::ToLine;
 use h3ron::{H3Cell, H3DirectedEdge, ToCoordinate, ToPolygon};
 use polars::export::arrow::array::BooleanArray;
@@ -81,39 +81,11 @@ where
     }
 
     fn geometries_intersect_polygon(&self, polygon: &Polygon) -> BooleanChunked {
-        let mask = if let Some(rect) = polygon.bounding_rect() {
-            let mask = self.envelopes_intersect_impl(&rect);
-            intersect_coordinates_with_polygon(mask, &self.h3indexchunked(), polygon)
-        } else {
-            negative_mask(self.h3indexchunked().chunked_array)
-        };
-        finish_mask(mask.into(), &self.h3indexchunked())
+        geometries_intersect_polygon(self, polygon, validate_coordinate_containment)
     }
 
     fn geometries_intersect_multipolygon(&self, multipolygon: &MultiPolygon) -> BooleanChunked {
-        let mask = multipolygon
-            .0
-            .iter()
-            .map(|polygon| {
-                if let Some(rect) = polygon.bounding_rect() {
-                    let mask = self.envelopes_intersect_impl(&rect);
-                    Some(intersect_coordinates_with_polygon(
-                        mask,
-                        &self.h3indexchunked(),
-                        polygon,
-                    ))
-                } else {
-                    None
-                }
-            })
-            .fold(
-                negative_mask(self.h3indexchunked().chunked_array),
-                |acc_mask, mask| match mask {
-                    Some(mask) => acc_mask | &(mask.into()),
-                    None => acc_mask,
-                },
-            );
-        finish_mask(mask.into(), &self.h3indexchunked())
+        geometries_intersect_multipolygon(self, multipolygon, validate_coordinate_containment)
     }
 }
 
@@ -128,39 +100,11 @@ where
     }
 
     fn geometries_intersect_polygon(&self, polygon: &Polygon) -> BooleanChunked {
-        let mask = if let Some(rect) = polygon.bounding_rect() {
-            let mask = self.envelopes_intersect_impl(&rect);
-            intersect_geometries_with_polygon(mask, &self.h3indexchunked(), polygon)
-        } else {
-            negative_mask(self.h3indexchunked().chunked_array)
-        };
-        finish_mask(mask.into(), &self.h3indexchunked())
+        geometries_intersect_polygon(self, polygon, validate_geometry_intersection)
     }
 
     fn geometries_intersect_multipolygon(&self, multipolygon: &MultiPolygon) -> BooleanChunked {
-        let mask = multipolygon
-            .0
-            .iter()
-            .map(|polygon| {
-                if let Some(rect) = polygon.bounding_rect() {
-                    let mask = self.envelopes_intersect_impl(&rect);
-                    Some(intersect_geometries_with_polygon(
-                        mask,
-                        &self.h3indexchunked(),
-                        polygon,
-                    ))
-                } else {
-                    None
-                }
-            })
-            .fold(
-                negative_mask(self.h3indexchunked().chunked_array),
-                |acc_mask, mask| match mask {
-                    Some(mask) => acc_mask | &(mask.into()),
-                    None => acc_mask,
-                },
-            );
-        finish_mask(mask.into(), &self.h3indexchunked())
+        geometries_intersect_multipolygon(self, multipolygon, validate_geometry_intersection)
     }
 }
 
@@ -185,42 +129,27 @@ impl CoordinateIndexable for H3DirectedEdge {
 }
 
 pub trait RectIndexable {
-    type GeomType;
-
     fn spatial_index_rect(&self) -> Result<Option<Rect>, Error>;
-    fn spatial_index_geometry(&self) -> Result<Self::GeomType, Error>;
     fn intersects_with_polygon(&self, poly: &Polygon) -> Result<bool, Error>;
 }
 
 impl RectIndexable for H3Cell {
-    type GeomType = Polygon;
-
     fn spatial_index_rect(&self) -> Result<Option<Rect>, Error> {
-        Ok(self.spatial_index_geometry()?.bounding_rect())
-    }
-
-    fn spatial_index_geometry(&self) -> Result<Self::GeomType, Error> {
-        Ok(self.to_polygon()?)
+        Ok(self.to_polygon()?.bounding_rect())
     }
 
     fn intersects_with_polygon(&self, poly: &Polygon) -> Result<bool, Error> {
-        Ok(poly.intersects(&self.spatial_index_geometry()?))
+        Ok(poly.intersects(&self.to_polygon()?))
     }
 }
 
 impl RectIndexable for H3DirectedEdge {
-    type GeomType = Line;
-
     fn spatial_index_rect(&self) -> Result<Option<Rect>, Error> {
-        Ok(Some(self.spatial_index_geometry()?.bounding_rect()))
-    }
-
-    fn spatial_index_geometry(&self) -> Result<Self::GeomType, Error> {
-        Ok(self.to_line()?)
+        Ok(Some(self.to_line()?.bounding_rect()))
     }
 
     fn intersects_with_polygon(&self, poly: &Polygon) -> Result<bool, Error> {
-        Ok(poly.intersects(&self.spatial_index_geometry()?))
+        Ok(poly.intersects(&self.to_line()?))
     }
 }
 
@@ -236,7 +165,54 @@ pub(crate) fn finish_mask<IX: IndexValue>(mask: Bitmap, ic: &IndexChunked<IX>) -
     BooleanChunked::from(bool_arr)
 }
 
-pub(crate) fn intersect_geometries_with_polygon<IX>(
+fn geometries_intersect_polygon<IX: IndexValue, SI, Kind, Validator>(
+    spatial_index: &SI,
+    polygon: &Polygon,
+    validator: Validator,
+) -> BooleanChunked
+where
+    SI: SpatialIndex<IX, Kind>,
+    Kind: SIKind,
+    Validator: Fn(MutableBitmap, &IndexChunked<IX>, &Polygon) -> MutableBitmap,
+{
+    let mask = if let Some(rect) = polygon.bounding_rect() {
+        let mask = spatial_index.envelopes_intersect_impl(&rect);
+        validator(mask, &spatial_index.h3indexchunked(), polygon)
+    } else {
+        negative_mask(spatial_index.h3indexchunked().chunked_array)
+    };
+    finish_mask(mask.into(), &spatial_index.h3indexchunked())
+}
+
+fn geometries_intersect_multipolygon<IX: IndexValue, SI, Kind, Validator>(
+    spatial_index: &SI,
+    multipolygon: &MultiPolygon,
+    validator: Validator,
+) -> BooleanChunked
+where
+    SI: SpatialIndex<IX, Kind>,
+    Kind: SIKind,
+    Validator: Fn(MutableBitmap, &IndexChunked<IX>, &Polygon) -> MutableBitmap,
+{
+    let mask = multipolygon
+        .0
+        .iter()
+        .filter_map(|polygon| {
+            if let Some(rect) = polygon.bounding_rect() {
+                let mask = spatial_index.envelopes_intersect_impl(&rect);
+                Some(validator(mask, &spatial_index.h3indexchunked(), polygon))
+            } else {
+                None
+            }
+        })
+        .fold(
+            negative_mask(spatial_index.h3indexchunked().chunked_array),
+            |acc_mask, mask| acc_mask | &(mask.into()),
+        );
+    finish_mask(mask.into(), &spatial_index.h3indexchunked())
+}
+
+pub(crate) fn validate_geometry_intersection<IX>(
     mut mask: MutableBitmap,
     indexchunked: &IndexChunked<IX>,
     polygon: &Polygon,
@@ -247,9 +223,8 @@ where
     for i in 0..mask.len() {
         if mask.get(i) {
             if let Some(index) = indexchunked.get(i) {
-                match index.intersects_with_polygon(polygon) {
-                    Ok(true) => mask.set(i, true),
-                    _ => (),
+                if let Ok(true) = index.intersects_with_polygon(polygon) {
+                    mask.set(i, true)
                 }
             }
         }
@@ -257,7 +232,7 @@ where
     mask
 }
 
-pub(crate) fn intersect_coordinates_with_polygon<IX>(
+pub(crate) fn validate_coordinate_containment<IX>(
     mut mask: MutableBitmap,
     indexchunked: &IndexChunked<IX>,
     polygon: &Polygon,
@@ -268,13 +243,10 @@ where
     for i in 0..mask.len() {
         if mask.get(i) {
             if let Some(index) = indexchunked.get(i) {
-                match index.spatial_index_coordinate() {
-                    Ok(coord) => {
-                        if polygon.contains(&coord) {
-                            mask.set(i, true)
-                        }
+                if let Ok(coord) = index.spatial_index_coordinate() {
+                    if polygon.contains(&coord) {
+                        mask.set(i, true)
                     }
-                    _ => (),
                 }
             }
         }
@@ -307,7 +279,7 @@ pub(crate) mod tests {
             }
 
             #[test]
-            fn cell_within_distance() {
+            fn cell_envelopes_within_distance() {
                 let ca = build_cell_ca();
                 let idx = $mk_index(&ca.h3cell());
                 let mask = idx.envelopes_within_distance((-60.0, -60.0).into(), 2.0);
@@ -320,7 +292,7 @@ pub(crate) mod tests {
             }
 
             #[test]
-            fn cell_within_rect() {
+            fn cell_geometries_intersect() {
                 let ca = build_cell_ca();
                 let idx = $mk_index(&ca.h3cell());
                 let mask = idx.geometries_intersect(&Rect::new((40.0, 40.0), (50.0, 50.0)));
@@ -333,7 +305,7 @@ pub(crate) mod tests {
             }
 
             #[test]
-            fn cell_within_polygon() {
+            fn cell_geometries_intersect_polygon() {
                 let ca = build_cell_ca();
                 let idx = $mk_index(&ca.h3cell());
                 let mask = idx.geometries_intersect_polygon(&polygon!(exterior: [

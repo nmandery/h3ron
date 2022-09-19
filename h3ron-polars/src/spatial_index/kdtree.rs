@@ -1,15 +1,11 @@
 use crate::spatial_index::{
     finish_mask, negative_mask, CoordinateIndexable, CoordinateSIKind, SpatialIndex,
 };
-use crate::{AsH3IndexChunked, Error, IndexChunked, IndexValue};
-use geo::{BoundingRect, Contains};
-use geo_types::{Coordinate, MultiPolygon, Polygon, Rect};
-use h3ron::{H3Cell, H3DirectedEdge, ToCoordinate};
+use crate::{AsH3IndexChunked, IndexChunked, IndexValue};
+use geo_types::{Coordinate, Rect};
 use kdbush::{KDBush, PointReader};
-use polars::datatypes::ArrowDataType;
-use polars::export::arrow::array::BooleanArray;
-use polars::export::arrow::bitmap::{Bitmap, MutableBitmap};
-use polars::prelude::{BooleanChunked, TakeRandom};
+use polars::export::arrow::bitmap::MutableBitmap;
+use polars::prelude::BooleanChunked;
 use polars_core::prelude::UInt64Chunked;
 use std::marker::PhantomData;
 
