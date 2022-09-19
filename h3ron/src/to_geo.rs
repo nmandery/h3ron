@@ -2,7 +2,7 @@ use crate::collections::H3CellMap;
 use std::os::raw::c_int;
 
 use geo::algorithm::euclidean_distance::EuclideanDistance;
-use geo_types::{Coordinate, LineString, MultiLineString, Point, Polygon};
+use geo_types::{Coordinate, Line, LineString, MultiLineString, Point, Polygon};
 
 use h3ron_h3_sys::H3Index;
 
@@ -21,6 +21,12 @@ pub trait ToCoordinate {
     type Error;
 
     fn to_coordinate(&self) -> Result<Coordinate<f64>, Self::Error>;
+}
+
+pub trait ToLine {
+    type Error;
+
+    fn to_line(&self) -> Result<Line<f64>, Self::Error>;
 }
 
 pub trait ToLineString {

@@ -8,4 +8,7 @@ pub enum Error {
     Arrow(#[from] polars::error::ArrowError),
     #[error(transparent)]
     H3ron(#[from] h3ron::Error),
+
+    #[error("spatial indexing error: {0}")]
+    SpatialIndex(String),
 }

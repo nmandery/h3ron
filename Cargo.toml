@@ -11,11 +11,11 @@ members = [
 ]
 [profile.release]
 debug = true # for flamegraph
-lto = true
+#lto = true
 # lto = false # for callgrind
 
 #debug = false
 #lto = "fat"
 
 [profile.bench]
-debug = true
+#debug = true
