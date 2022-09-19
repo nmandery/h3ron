@@ -114,3 +114,16 @@ impl NeighborVisitor<f64, Result<(), ()>> for Visitor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::spatial_index::packed_hilbert_rtree::BuildPackedHilbertRTreeIndex;
+    use crate::spatial_index::PackedHilbertRTreeIndex;
+    use crate::IndexChunked;
+    use h3ron::H3Cell;
+
+    fn build_index(cc: &IndexChunked<H3Cell>) -> PackedHilbertRTreeIndex<H3Cell> {
+        cc.packed_hilbert_rtree_index().unwrap()
+    }
+    crate::spatial_index::tests::impl_std_tests!(build_index);
+}
