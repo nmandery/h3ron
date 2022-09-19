@@ -9,24 +9,19 @@ use polars::prelude::BooleanChunked;
 use polars_core::prelude::UInt64Chunked;
 use std::marker::PhantomData;
 
-impl<'a, IX> PointReader for IndexChunked<'a, IX>
-where
-    IX: IndexValue + CoordinateIndexable,
-{
+struct Points(Vec<(usize, Coordinate)>);
+
+impl PointReader for Points {
     fn size_hint(&self) -> usize {
-        self.len()
+        self.0.len()
     }
 
     fn visit_all<F>(&self, mut visitor: F)
     where
         F: FnMut(usize, f64, f64),
     {
-        for (id, maybe_point) in self.iter_indexes_validated().enumerate() {
-            if let Some(Ok(point)) = maybe_point {
-                if let Ok(coord) = point.spatial_index_coordinate() {
-                    visitor(id, coord.x, coord.y);
-                }
-            }
+        for (pos, coord) in self.0.iter() {
+            visitor(*pos, coord.x, coord.y)
         }
     }
 }
@@ -76,10 +71,26 @@ where
 
 impl<'a, IX: IndexValue> BuildKDTreeIndex<'a, IX> for IndexChunked<'a, IX>
 where
-    Self: PointReader,
     IX: CoordinateIndexable,
 {
     fn kdtree_index_with_node_size(&self, node_size: u8) -> KDTreeIndex<IX> {
+        // KDBush requires at least one entry to be successful build, so we need to inspect
+        // the data first.
+        let entries: Vec<_> = self
+            .iter_indexes_validated()
+            .enumerate()
+            .filter_map(|(pos, maybe_index)| match maybe_index {
+                Some(Ok(index)) => index.spatial_index_coordinate().ok().map(|c| (pos, c)),
+                _ => None,
+            })
+            .collect();
+
+        let kdbush = if entries.is_empty() {
+            None
+        } else {
+            Some(KDBush::create(Points(entries), node_size))
+        };
+
         KDTreeIndex {
             index_phantom: PhantomData::<IX>::default(),
 
@@ -87,7 +98,7 @@ where
             // requiring a lifetime dependency
             chunked_array: self.chunked_array.clone(),
 
-            kdbush: KDBush::create((*self).clone(), node_size),
+            kdbush,
         }
     }
 }
@@ -100,7 +111,7 @@ pub struct KDTreeIndex<IX: IndexValue> {
 
     chunked_array: UInt64Chunked,
 
-    pub kdbush: KDBush,
+    pub kdbush: Option<KDBush>,
 }
 
 impl<IX: IndexValue> SpatialIndex<IX, CoordinateSIKind> for KDTreeIndex<IX>
@@ -113,20 +124,23 @@ where
 
     fn envelopes_intersect_impl(&self, rect: &Rect) -> MutableBitmap {
         let mut mask = negative_mask(&self.chunked_array);
-        self.kdbush.range(
-            rect.min().x,
-            rect.min().y,
-            rect.max().x,
-            rect.max().y,
-            |id| mask.set(id, true),
-        );
+        if let Some(kdbush) = self.kdbush.as_ref() {
+            kdbush.range(
+                rect.min().x,
+                rect.min().y,
+                rect.max().x,
+                rect.max().y,
+                |id| mask.set(id, true),
+            );
+        }
         mask
     }
 
     fn envelopes_within_distance(&self, coord: Coordinate, distance: f64) -> BooleanChunked {
         let mut mask = negative_mask(&self.chunked_array);
-        self.kdbush
-            .within(coord.x, coord.y, distance, |id| mask.set(id, true));
+        if let Some(kdbush) = self.kdbush.as_ref() {
+            kdbush.within(coord.x, coord.y, distance, |id| mask.set(id, true));
+        }
         finish_mask(mask.into(), &self.h3indexchunked())
     }
 }
