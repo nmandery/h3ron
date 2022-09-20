@@ -111,8 +111,12 @@ where
     IX: RectIndexable,
 {
     fn geometries_intersect(&self, rect: &Rect) -> BooleanChunked {
-        // todo: comparing directly with rect is probably cheaper than polygon
-        self.geometries_intersect_polygon(&rect.to_polygon())
+        let mask = self.envelopes_intersect_impl(rect);
+        let ic = self.h3indexchunked();
+        finish_mask(
+            validate_geometry_intersection(mask, &ic, &rect.to_polygon()).into(),
+            &ic,
+        )
     }
 
     fn geometries_intersect_polygon(&self, polygon: &Polygon) -> BooleanChunked {

@@ -14,16 +14,16 @@ type LocatedArrayPosition = GeomWithData<BBox, usize>;
 
 pub struct RTreeIndex<IX: IndexValue> {
     index_phantom: PhantomData<IX>,
-
     chunked_array: UInt64Chunked,
-
     pub rtree: RTree<LocatedArrayPosition>,
 }
 
+#[inline]
 fn to_coord(coord: Coordinate) -> Coord {
     [coord.x, coord.y]
 }
 
+#[inline]
 fn to_bbox(rect: &Rect) -> BBox {
     BBox::from_corners(to_coord(rect.min()), to_coord(rect.max()))
 }
