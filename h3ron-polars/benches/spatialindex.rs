@@ -4,7 +4,8 @@ use polars_core::prelude::UInt64Chunked;
 
 use h3ron::H3Cell;
 use h3ron_polars::spatial_index::{
-    BuildKDTreeIndex, BuildPackedHilbertRTreeIndex, SIKind, SpatialIndex, SpatialIndexGeomOp,
+    BuildKDTreeIndex, BuildPackedHilbertRTreeIndex, BuildRTreeIndex, SIKind, SpatialIndex,
+    SpatialIndexGeomOp,
 };
 use h3ron_polars::{AsH3CellChunked, FromIndexIterator, IndexChunked, IndexValue};
 
@@ -30,13 +31,13 @@ fn bench_spatialindex<Builder, SI, IX, Kind>(
     let si = builder(ic);
     group.bench_with_input("envelopes_intersect", &si, |bencher, si| {
         bencher.iter(|| {
-            let _ = si.envelopes_intersect(&aoi);
+            let _ = si.envelopes_intersect(aoi);
         });
     });
 
     group.bench_with_input("geometries_intersect", &si, |bencher, si| {
         bencher.iter(|| {
-            let _ = si.geometries_intersect(&aoi);
+            let _ = si.geometries_intersect(aoi);
         });
     });
     group.finish();
@@ -61,6 +62,7 @@ fn criterion_benchmark(c: &mut Criterion) {
         &aoi,
         "packed_hilbert_rtree",
     );
+    bench_spatialindex(c, |ic| ic.rtree_index(), &cellchunked, &aoi, "rtree");
 }
 
 criterion_group!(benches, criterion_benchmark);

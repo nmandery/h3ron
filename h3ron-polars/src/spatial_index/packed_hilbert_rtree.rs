@@ -6,19 +6,40 @@ use polars::prelude::{BooleanChunked, UInt64Chunked};
 use static_aabb2d_index::{NeighborVisitor, StaticAABB2DIndex, StaticAABB2DIndexBuilder};
 use std::marker::PhantomData;
 
-/// Spatial index implementation using the packed Hilbert R-tree algorithm
+/// Spatial index implementation using the [packed Hilbert R-tree](https://en.wikipedia.org/wiki/Hilbert_R-tree#Packed_Hilbert_R-trees) algorithm
 ///
 /// Based on [flatbush](https://github.com/mourner/flatbush) and the rust port [static_aabb2d_index](https://github.com/jbuckmccready/static_aabb2d_index).
+///
+/// # Example
+///
+/// ```
+/// use polars::prelude::UInt64Chunked;
+/// use h3ron::H3Cell;
+/// use h3ron_polars::{AsH3CellChunked, NamedFromIndexes};
+/// use h3ron_polars::spatial_index::BuildPackedHilbertRTreeIndex;
+///
+/// let uc = UInt64Chunked::new_from_indexes(
+///     "",
+///     vec![
+///         H3Cell::from_coordinate((45.5, 45.5).into(), 7).unwrap(),
+///         H3Cell::from_coordinate((-60.5, -60.5).into(), 7).unwrap(),
+///         H3Cell::from_coordinate((120.5, 70.5).into(), 7).unwrap(),
+///     ],
+/// );
+///
+/// let idx = uc.h3cell().packed_hilbert_rtree_index();
+/// ```
 pub struct PackedHilbertRTreeIndex<IX: IndexValue> {
     pub index: Option<StaticAABB2DIndex<f64>>,
     index_phantom: PhantomData<IX>,
     chunked_array: UInt64Chunked,
 
+    /// maps the positions of the index contents to the position in the `chunked_array`
     positions_in_chunked_array: Box<[usize]>,
 }
 
 pub trait BuildPackedHilbertRTreeIndex<IX: IndexValue> {
-    /// Build a spatial index using the packed Hilbert R-tree algorithm
+    /// Build a spatial index using the [packed Hilbert R-tree](https://en.wikipedia.org/wiki/Hilbert_R-tree#Packed_Hilbert_R-trees) algorithm
     ///
     /// Based on [flatbush](https://github.com/mourner/flatbush) and the rust port [static_aabb2d_index](https://github.com/jbuckmccready/static_aabb2d_index).
     fn packed_hilbert_rtree_index(&self) -> Result<PackedHilbertRTreeIndex<IX>, Error>;

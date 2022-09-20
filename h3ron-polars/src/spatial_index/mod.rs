@@ -2,6 +2,17 @@
 //!
 //! For some background on spatial search algorithms see [A dive into spatial search algorithms](https://blog.mapbox.com/a-dive-into-spatial-search-algorithms-ebd0c5e39d2a).
 //!
+//! Available implementations:
+//! * [KDTreeIndex]: Fast to create and query, works only on centroids.
+//! * [PackedHilbertRTreeIndex]: Still fast to create and query, works on envelopes. Creation is a bit slower than [KDTreeIndex]
+//! * [RTreeIndex]
+//!
+//! All of the above spatial indexes provide a second stage which can perform fine-grained filtering
+//! by doing geometry intersections on the returned index-matches using the exact geometry of the indexed
+//! entity and the queried `Polygon` or `MultiPolygon`. See the [SpatialIndexGeomOp] trait.
+//! This of course comes with an additional runtime cost.
+//!
+//! For a more detailed comparison of the runtime characteristics see the included `spatialindex` benchmark.
 
 #[cfg(feature = "si_kdtree")]
 pub mod kdtree;
@@ -11,6 +22,9 @@ pub mod rtree;
 
 #[cfg(feature = "si_packed_hilbert_rtree")]
 pub mod packed_hilbert_rtree;
+
+#[cfg(test)]
+pub(crate) mod tests;
 
 use crate::{Error, IndexChunked, IndexValue};
 use geo::bounding_rect::BoundingRect;
@@ -36,9 +50,11 @@ pub use crate::spatial_index::packed_hilbert_rtree::*;
 /// operates.
 pub trait SIKind {}
 
+/// Marks spatial indexes operating on [Coordinate] points
 pub struct CoordinateSIKind {}
 impl SIKind for CoordinateSIKind {}
 
+/// Marks spatial indexes operating on [Rect] envelopes
 pub struct RectSIKind {}
 impl SIKind for RectSIKind {}
 
@@ -56,18 +72,18 @@ pub trait SpatialIndex<IX: IndexValue, Kind: SIKind> {
         )
     }
 
-    /// The envelope of the indexed elements is with `distance` of the given `Coordinate` `coord`.
+    /// The envelope of the indexed elements is with `distance` of the given [Coordinate] `coord`.
     fn envelopes_within_distance(&self, coord: Coordinate, distance: f64) -> BooleanChunked;
 }
 
 pub trait SpatialIndexGeomOp<IX: IndexValue, Kind: SIKind> {
-    /// The geometry of the indexed elements is with in the given `Rect`
+    /// The geometry of the indexed elements is with in the given [Rect]
     fn geometries_intersect(&self, rect: &Rect) -> BooleanChunked;
 
-    /// The geometry of the indexed elements is with in the given `Polygon`
+    /// The geometry of the indexed elements is with in the given [Polygon]
     fn geometries_intersect_polygon(&self, polygon: &Polygon) -> BooleanChunked;
 
-    /// The geometry of the indexed elements is with in the given `MultiPolygon`
+    /// The geometry of the indexed elements is with in the given [MultiPolygon]
     fn geometries_intersect_multipolygon(&self, multipolygon: &MultiPolygon) -> BooleanChunked;
 }
 
@@ -252,79 +268,4 @@ where
         }
     }
     mask
-}
-
-#[cfg(test)]
-pub(crate) mod tests {
-
-    macro_rules! impl_std_tests {
-        ($mk_index:expr) => {
-            use crate::from::NamedFromIndexes;
-            use crate::spatial_index::{SpatialIndex, SpatialIndexGeomOp};
-            use crate::AsH3CellChunked;
-            use geo_types::{coord, polygon, Rect};
-            use h3ron::{Index};
-            use polars::prelude::{TakeRandom, UInt64Chunked};
-
-            fn build_cell_ca() -> UInt64Chunked {
-                UInt64Chunked::new_from_indexes(
-                    "",
-                    vec![
-                        H3Cell::from_coordinate((45.5, 45.5).into(), 7).unwrap(),
-                        H3Cell::from_coordinate((-60.5, -60.5).into(), 7).unwrap(),
-                        H3Cell::from_coordinate((120.5, 70.5).into(), 7).unwrap(),
-                        H3Cell::new(55), // invalid
-                    ],
-                )
-            }
-
-            #[test]
-            fn cell_envelopes_within_distance() {
-                let ca = build_cell_ca();
-                let idx = $mk_index(&ca.h3cell());
-                let mask = idx.envelopes_within_distance((-60.0, -60.0).into(), 2.0);
-
-                assert_eq!(mask.len(), 4);
-                assert_eq!(mask.get(0), Some(false));
-                assert_eq!(mask.get(1), Some(true));
-                assert_eq!(mask.get(2), Some(false));
-                assert_eq!(mask.get(3), None);
-            }
-
-            #[test]
-            fn cell_geometries_intersect() {
-                let ca = build_cell_ca();
-                let idx = $mk_index(&ca.h3cell());
-                let mask = idx.geometries_intersect(&Rect::new((40.0, 40.0), (50.0, 50.0)));
-
-                assert_eq!(mask.len(), 4);
-                assert_eq!(mask.get(0), Some(true));
-                assert_eq!(mask.get(1), Some(false));
-                assert_eq!(mask.get(2), Some(false));
-                assert_eq!(mask.get(3), None);
-            }
-
-            #[test]
-            fn cell_geometries_intersect_polygon() {
-                let ca = build_cell_ca();
-                let idx = $mk_index(&ca.h3cell());
-                let mask = idx.geometries_intersect_polygon(&polygon!(exterior: [
-                        coord! {x: 40.0, y: 40.0},
-                        coord! {x: 40.0, y: 50.0},
-                        coord! {x: 49.0, y: 50.0},
-                        coord! {x: 49.0, y: 40.0},
-                        coord! {x: 40.0, y: 40.0},
-                    ], interiors: []));
-
-                assert_eq!(mask.len(), 4);
-                assert_eq!(mask.get(0), Some(true));
-                assert_eq!(mask.get(1), Some(false));
-                assert_eq!(mask.get(2), Some(false));
-                assert_eq!(mask.get(3), None);
-            }
-        }
-    }
-
-    // make the macro available to other modules
-    pub(crate) use impl_std_tests;
 }

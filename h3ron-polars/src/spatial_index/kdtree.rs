@@ -30,7 +30,7 @@ pub trait BuildKDTreeIndex<'a, IX>
 where
     IX: IndexValue + CoordinateIndexable,
 {
-    /// Build a [`KDTreeIndex`] using the default parameters.
+    /// Build a [KDTreeIndex] using the default parameters.
     ///
     /// # Example
     ///
@@ -63,7 +63,7 @@ where
         self.kdtree_index_with_node_size(64)
     }
 
-    /// Build a [`KDTreeIndex`] using custom parameters.
+    /// Build a [KDTreeIndex] using custom parameters.
     ///
     /// `node_size` - Size of the KD-tree node, 64 by default. Higher means faster indexing but slower search, and vise versa
     fn kdtree_index_with_node_size(&self, node_size: u8) -> KDTreeIndex<IX>;
@@ -103,9 +103,29 @@ where
     }
 }
 
-/// A very fast static spatial index for 2D points based on a flat KD-tree.
+/// A very fast static spatial index for 2D points based on a flat [KD-tree](https://en.wikipedia.org/wiki/K-d_tree).
 ///
-/// Operates on the centroid coordinate of [`H3Cell`] and [`H3DirectedEdge`] values.
+/// Operates only the centroid coordinate, not on envelopes / bounding boxes.
+///
+/// # Example
+///
+/// ```
+/// use polars::prelude::UInt64Chunked;
+/// use h3ron::H3Cell;
+/// use h3ron_polars::{AsH3CellChunked, NamedFromIndexes};
+/// use h3ron_polars::spatial_index::BuildKDTreeIndex;
+///
+/// let uc = UInt64Chunked::new_from_indexes(
+///     "",
+///     vec![
+///         H3Cell::from_coordinate((45.5, 45.5).into(), 7).unwrap(),
+///         H3Cell::from_coordinate((-60.5, -60.5).into(), 7).unwrap(),
+///         H3Cell::from_coordinate((120.5, 70.5).into(), 7).unwrap(),
+///     ],
+/// );
+///
+/// let idx = uc.h3cell().kdtree_index();
+/// ```
 pub struct KDTreeIndex<IX: IndexValue> {
     index_phantom: PhantomData<IX>,
 
@@ -147,8 +167,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use crate::spatial_index::kdtree::BuildKDTreeIndex;
-    use crate::spatial_index::KDTreeIndex;
+    use crate::spatial_index::{BuildKDTreeIndex, KDTreeIndex};
     use crate::IndexChunked;
     use h3ron::H3Cell;
 
