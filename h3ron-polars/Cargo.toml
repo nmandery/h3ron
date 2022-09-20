@@ -14,7 +14,12 @@ repository = "https://github.com/nmandery/h3ron"
 all-features = true
 
 [features]
-kdbush = ["dep:kdbush"]
+
+# spatial indexing
+si_kdtree = ["dep:kdbush"]
+si_rtree = ["dep:rstar", "geo-types/use-rstar_0_9"]
+si_packed_hilbert_rtree = ["dep:static_aabb2d_index"]
+si_full = ["si_kdtree", "si_rtree", "si_packed_hilbert_rtree"]
 
 [dependencies]
 geo = "0.23"
@@ -23,7 +28,17 @@ kdbush = { version = "0.2", optional = true }
 polars = { version = "0.24", features = ["lazy"] }
 polars-core = "0.24"
 thiserror = "1"
+rstar = { version = "0.9", optional = true }
+static_aabb2d_index = { version = "0.6", optional = true }
 
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.15"
+
+[dev-dependencies]
+criterion = { version = "^0.4", features = ["html_reports"] }
+
+[[bench]]
+name = "spatialindex"
+harness = false
+required-features = ["si_full"]

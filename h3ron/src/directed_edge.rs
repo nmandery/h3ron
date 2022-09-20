@@ -4,7 +4,7 @@ use std::ops::Deref;
 use std::os::raw::c_int;
 use std::str::FromStr;
 
-use geo_types::{LineString, MultiLineString};
+use geo_types::{Line, LineString, MultiLineString};
 #[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,7 @@ use h3ron_h3_sys::H3Index;
 
 use crate::index::{index_from_str, Index};
 use crate::iter::CellBoundaryIter;
-use crate::to_geo::{ToLineString, ToMultiLineString};
+use crate::to_geo::{ToLine, ToLineString, ToMultiLineString};
 use crate::{Error, FromH3Index, H3Cell, ToCoordinate};
 
 /// H3 Index representing an directed H3 edge
@@ -215,6 +215,29 @@ impl FromStr for H3DirectedEdge {
     }
 }
 
+impl ToLine for H3DirectedEdge {
+    type Error = Error;
+
+    /// Create a line geometry from the origin index to the destination index
+    ///
+    /// ```
+    /// use h3ron::{H3DirectedEdge, Index};
+    /// use h3ron::to_geo::{ToLine, ToCoordinate};
+    ///
+    /// let edge = H3DirectedEdge::new(0x149283080ddbffff);
+    /// let l = edge.to_line().unwrap();
+    /// assert_eq!(l.start, edge.origin_cell().unwrap().to_coordinate().unwrap());
+    /// assert_eq!(l.end, edge.destination_cell().unwrap().to_coordinate().unwrap());
+    /// ```
+    fn to_line(&self) -> Result<Line<f64>, Self::Error> {
+        let edge_cells = self.cells()?;
+        Ok(Line::new(
+            edge_cells.origin.to_coordinate()?,
+            edge_cells.destination.to_coordinate()?,
+        ))
+    }
+}
+
 impl ToLineString for H3DirectedEdge {
     type Error = Error;
 
@@ -231,11 +254,7 @@ impl ToLineString for H3DirectedEdge {
     /// assert_eq!(ls.0[1], edge.destination_cell().unwrap().to_coordinate().unwrap());
     /// ```
     fn to_linestring(&self) -> Result<LineString<f64>, Self::Error> {
-        let edge_cells = self.cells()?;
-        Ok(LineString::from(vec![
-            edge_cells.origin.to_coordinate()?,
-            edge_cells.destination.to_coordinate()?,
-        ]))
+        Ok(self.to_line()?.into())
     }
 }
 
