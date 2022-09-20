@@ -8,10 +8,13 @@ use rstar::primitives::{GeomWithData, Rectangle};
 use rstar::{RTree, AABB};
 use std::marker::PhantomData;
 
+// todo: Use the Line type supported by rtree instead of Rectangle to index H3DirectedEdges
+
 type Coord = [f64; 2];
 type BBox = Rectangle<Coord>;
 type LocatedArrayPosition = GeomWithData<BBox, usize>;
 
+/// [R-Tree](https://en.wikipedia.org/wiki/R-tree) spatial index
 pub struct RTreeIndex<IX: IndexValue> {
     index_phantom: PhantomData<IX>,
     chunked_array: UInt64Chunked,
@@ -39,6 +42,35 @@ impl<'a, IX: IndexValue> BuildRTreeIndex<'a, IX> for IndexChunked<'a, IX>
 where
     IX: RectIndexable,
 {
+    /// Build a [R-Tree](https://en.wikipedia.org/wiki/R-tree) spatial index
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use geo_types::Rect;
+    /// use polars::prelude::UInt64Chunked;
+    /// use polars_core::prelude::TakeRandom;
+    /// use h3ron::{H3Cell, Index};
+    /// use h3ron_polars::{AsH3CellChunked, NamedFromIndexes};
+    /// use h3ron_polars::spatial_index::{BuildRTreeIndex, SpatialIndex, SpatialIndexGeomOp};
+    ///
+    /// let ca = UInt64Chunked::new_from_indexes(
+    ///     "",
+    ///     vec![
+    ///         H3Cell::from_coordinate((45.5, 45.5).into(), 7).unwrap(),
+    ///         H3Cell::from_coordinate((-60.5, -60.5).into(), 7).unwrap(),
+    ///         H3Cell::from_coordinate((120.5, 70.5).into(), 7).unwrap(),
+    ///     ],
+    /// );
+    ///
+    /// let rtree = ca.h3cell().rtree_index();
+    /// let mask = rtree.geometries_intersect(&Rect::new((40.0, 40.0), (50.0, 50.0)));
+    ///
+    /// assert_eq!(mask.len(), 3);
+    /// assert_eq!(mask.get(0), Some(true));
+    /// assert_eq!(mask.get(1), Some(false));
+    /// assert_eq!(mask.get(2), Some(false));
+    /// ```
     fn rtree_index(&self) -> RTreeIndex<IX> {
         let entries: Vec<_> = self
             .iter_indexes_validated()
