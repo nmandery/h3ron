@@ -7,43 +7,40 @@ use h3ron_polars::spatial_index::{
     BuildKDTreeIndex, BuildPackedHilbertRTreeIndex, BuildRTreeIndex, SIKind, SpatialIndex,
     SpatialIndexGeomOp,
 };
-use h3ron_polars::{AsH3CellChunked, FromIndexIterator, IndexChunked, IndexValue};
+use h3ron_polars::{AsH3CellChunked, FromIndexIterator, IndexChunked};
 
-fn bench_spatialindex<Builder, SI, IX, Kind>(
-    c: &mut Criterion,
-    builder: Builder,
-    ic: &IndexChunked<IX>,
-    aoi: &Rect,
-    name: &str,
-) where
-    SI: SpatialIndex<IX, Kind> + SpatialIndexGeomOp<IX, Kind>,
-    IX: IndexValue,
+fn bench_spatialindex<Builder, SI, Kind>(c: &mut Criterion, builder: Builder, name: &str)
+where
+    SI: SpatialIndex<H3Cell, Kind> + SpatialIndexGeomOp<H3Cell, Kind>,
     Kind: SIKind,
-    Builder: Fn(&IndexChunked<IX>) -> SI,
+    Builder: Fn(&IndexChunked<H3Cell>) -> SI,
 {
-    let mut group = c.benchmark_group(format!("{}-{}-cells", name, ic.len()));
-    group.bench_with_input("build", ic, |bencher, ic| {
+    let (disk, aoi) = build_inputs();
+    let cellchunked = disk.h3cell();
+
+    let mut group = c.benchmark_group(format!("{}-{}-cells", name, cellchunked.len()));
+    group.bench_with_input("build", &cellchunked, |bencher, cellchunked| {
         bencher.iter(|| {
-            let _ = builder(ic);
+            let _ = builder(cellchunked);
         });
     });
 
-    let si = builder(ic);
+    let si = builder(&cellchunked);
     group.bench_with_input("envelopes_intersect", &si, |bencher, si| {
         bencher.iter(|| {
-            let _ = si.envelopes_intersect(aoi);
+            let _ = si.envelopes_intersect(&aoi);
         });
     });
 
     group.bench_with_input("geometries_intersect", &si, |bencher, si| {
         bencher.iter(|| {
-            let _ = si.geometries_intersect(aoi);
+            let _ = si.geometries_intersect(&aoi);
         });
     });
     group.finish();
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
+fn build_inputs() -> (UInt64Chunked, Rect) {
     let disk = UInt64Chunked::from_index_iter(
         H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 8)
             .unwrap()
@@ -52,18 +49,30 @@ fn criterion_benchmark(c: &mut Criterion) {
             .iter(),
     );
     let aoi = Rect::new((12.28, 45.35), (12.35, 45.45));
-    let cellchunked = disk.h3cell();
 
-    bench_spatialindex(c, |ic| ic.kdtree_index(), &cellchunked, &aoi, "kdtree");
+    (disk, aoi)
+}
+
+fn bench_kdtree(c: &mut Criterion) {
+    bench_spatialindex(c, |ic| ic.kdtree_index(), "kdtree")
+}
+
+fn bench_rtree(c: &mut Criterion) {
+    bench_spatialindex(c, |ic| ic.rtree_index(), "rtree")
+}
+
+fn bench_packed_hilbert_rtree(c: &mut Criterion) {
     bench_spatialindex(
         c,
         |ic| ic.packed_hilbert_rtree_index().unwrap(),
-        &cellchunked,
-        &aoi,
         "packed_hilbert_rtree",
-    );
-    bench_spatialindex(c, |ic| ic.rtree_index(), &cellchunked, &aoi, "rtree");
+    )
 }
 
-criterion_group!(benches, criterion_benchmark);
+criterion_group!(
+    benches,
+    bench_kdtree,
+    bench_rtree,
+    bench_packed_hilbert_rtree
+);
 criterion_main!(benches);
