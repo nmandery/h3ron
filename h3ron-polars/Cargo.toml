@@ -2,7 +2,7 @@
 name = "h3ron-polars"
 version = "0.1.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
-description = "H3 integration for polars dataframes"
+description = "Integration of the h3 geospatial indexing system with polars dataframes"
 edition = "2021"
 license = "MIT"
 keywords = ["geo", "spatial", "h3", "polars"]

@@ -34,7 +34,8 @@ Graph algorithms on edges of the H3 spatial indexing system.
 
 ### [h3ron-polars](h3ron-polars) [![Latest Version](https://img.shields.io/crates/v/h3ron-polars.svg)](https://crates.io/crates/h3ron-polars) [![Documentation](https://docs.rs/h3ron-polars/badge.svg)](https://docs.rs/h3ron-polars)
 
-[h3ron](https://docs.rs/h3ron)-[polars](https://docs.rs/polars) integration by providing extension traits 
+Integration of the [h3](https://h3geo.org) geospatial indexing system with [polars](https://docs.rs/polars) dataframes by providing extension traits
+to `UInt64Chunked` and `DataFrame`.
 
 [Documentation](https://docs.rs/h3ron-polars) | [Changelog](h3ron-polars/CHANGES.md)
 
