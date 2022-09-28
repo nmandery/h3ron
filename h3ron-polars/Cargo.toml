@@ -25,7 +25,7 @@ si_full = ["si_kdtree", "si_rtree", "si_packed_hilbert_rtree"]
 geo = "0.23"
 geo-types = "0.7"
 kdbush = { version = "0.2", optional = true }
-polars = { version = "0.24", features = ["lazy"] }
+polars = { version = "0.24", features = ["lazy", "dtype-u8"] }
 polars-core = "0.24"
 thiserror = "1"
 rstar = { version = "0.9", optional = true }
