@@ -3,9 +3,9 @@
 //! For some background on spatial search algorithms see [A dive into spatial search algorithms](https://blog.mapbox.com/a-dive-into-spatial-search-algorithms-ebd0c5e39d2a).
 //!
 //! Available implementations:
-//! * [KDTreeIndex]: Fast to create and query, works only on centroids.
-//! * [PackedHilbertRTreeIndex]: Still fast to create and query, works on envelopes. Creation is a bit slower than [KDTreeIndex]
-//! * [RTreeIndex]: Also envelope based.
+//! * `KDTreeIndex`: Fast to create and query, works only on centroids.
+//! * `PackedHilbertRTreeIndex`: Still fast to create and query, works on envelopes. Creation is a bit slower than `KDTreeIndex`
+//! * `RTreeIndex`: Also envelope based.
 //!
 //! All of the above spatial indexes provide a second stage which can perform fine-grained filtering
 //! by doing geometry intersections on the returned index-matches using the exact geometry of the indexed

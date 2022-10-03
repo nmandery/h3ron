@@ -6,7 +6,7 @@
 //! * **use-serde**: serde serialization/deserialization for most types of this crate.
 //! * **use-rayon**
 //! * **roaring**: Enables `collections::H3Treemap` based on the `roaring` crate.
-//! * **parse**: Parse [`H3Cell`] from different string representations using [`H3Cell::from_str`].
+//! * **parse**: Parse [`H3Cell`] from different string representations using `H3Cell::from_str`.
 //!
 #![warn(nonstandard_style)]
 #![allow(clippy::redundant_pub_crate)]
