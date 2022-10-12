@@ -210,8 +210,8 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Result<Vec<Polygo
                 let mut cur_linked_geo_coord = linked_loop.first.as_ref();
                 while let Some(linked_coord) = cur_linked_geo_coord {
                     coordinates.push((
-                        (linked_coord.vertex.lng as f64).to_degrees(),
-                        (linked_coord.vertex.lat as f64).to_degrees(),
+                        linked_coord.vertex.lng.to_degrees(),
+                        linked_coord.vertex.lat.to_degrees(),
                     ));
                     cur_linked_geo_coord = linked_coord.next.as_ref();
                 }

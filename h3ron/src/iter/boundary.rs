@@ -70,8 +70,8 @@ impl<'b> CellBoundaryIter<'b> {
     fn get_coordinate(&self, pos: usize) -> Coordinate<f64> {
         assert!(pos < self.num_verts());
         Coordinate::from((
-            (self.cell_boundary.verts[pos].lng as f64).to_degrees(),
-            (self.cell_boundary.verts[pos].lat as f64).to_degrees(),
+            self.cell_boundary.verts[pos].lng.to_degrees(),
+            self.cell_boundary.verts[pos].lat.to_degrees(),
         ))
     }
 }

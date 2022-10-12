@@ -56,7 +56,7 @@ where
         if self.num_indexes == 0 {
             return Ok(false);
         }
-        let h3index_bytes = (index.h3index() as u64).to_le_bytes();
+        let h3index_bytes = index.h3index().to_le_bytes();
         let mut matching = vec![true; self.num_indexes];
         let mut byte_pos = 0_usize;
         let mut found = true;
@@ -126,7 +126,7 @@ where
         let mut buf = vec![255u8; index_slice.len() * (size_of::<u64>() / size_of::<u8>())];
 
         for (pos, index) in index_slice.iter().enumerate() {
-            let h3index = index.h3index() as u64;
+            let h3index = index.h3index();
 
             // keep the same bits of the h3indexes together to improve compression
             // when the h3indexes are closely together.
@@ -376,7 +376,7 @@ fn rle_encode(bytes: &[u8], out: &mut Vec<u8>) {
         if *byte == out[pos - 1] && occurrences < 255 {
             occurrences += 1;
         } else {
-            out.extend(&[occurrences, *byte]);
+            out.extend([occurrences, *byte]);
             pos += 2;
             occurrences = 1;
         }

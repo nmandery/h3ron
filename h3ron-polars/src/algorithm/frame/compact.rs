@@ -198,14 +198,14 @@ where
         match cell.resolution().cmp(&target_resolution) {
             Ordering::Less => {
                 for cell_child in cell.get_children(target_resolution)?.iter().filter(&filter) {
-                    original_indexes.push(cell.h3index() as u64);
-                    uncompacted_indexes.push(cell_child.h3index() as u64);
+                    original_indexes.push(cell.h3index());
+                    uncompacted_indexes.push(cell_child.h3index());
                 }
             }
             Ordering::Equal => {
                 if filter(&cell) {
-                    original_indexes.push(cell.h3index() as u64);
-                    uncompacted_indexes.push(cell.h3index() as u64);
+                    original_indexes.push(cell.h3index());
+                    uncompacted_indexes.push(cell.h3index());
                 }
             }
             Ordering::Greater => {
@@ -230,8 +230,8 @@ where
             col(cell_column_name.as_ref()),
             col(cell_column_name.as_ref()),
         )
-        .drop_columns(&[cell_column_name.as_ref()])
-        .rename(&[UNCOMPACT_JOIN_COL_NAME], &[cell_column_name.as_ref()])
+        .drop_columns([cell_column_name.as_ref()])
+        .rename([UNCOMPACT_JOIN_COL_NAME], [cell_column_name.as_ref()])
         .collect()?;
 
     Ok(df)

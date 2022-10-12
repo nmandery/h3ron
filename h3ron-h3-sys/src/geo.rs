@@ -4,8 +4,8 @@ use geo_types::{Coordinate, Point};
 impl From<LatLng> for Coordinate<f64> {
     fn from(lat_lng: LatLng) -> Self {
         Coordinate {
-            x: (lat_lng.lng as f64).to_degrees(),
-            y: (lat_lng.lat as f64).to_degrees(),
+            x: lat_lng.lng.to_degrees(),
+            y: lat_lng.lat.to_degrees(),
         }
     }
 }

@@ -62,7 +62,7 @@ impl LongEdge {
 
     /// length of `self` as the number of contained h3edges
     pub const fn h3edges_len(&self) -> usize {
-        (self.edge_path.len() as usize).saturating_sub(1)
+        self.edge_path.len().saturating_sub(1)
     }
 
     /// the path of the longedge described by multiple, successive `H3DirectedEdge` values

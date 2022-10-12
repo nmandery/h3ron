@@ -33,10 +33,7 @@ where
     /// Please note the - for unsorted values faster - `from_iter_with_sort` method.
     fn from_iter<I: IntoIterator<Item = Q>>(iter: I) -> Self {
         Self {
-            treemap: iter
-                .into_iter()
-                .map(|c| c.borrow().h3index() as u64)
-                .collect(),
+            treemap: iter.into_iter().map(|c| c.borrow().h3index()).collect(),
             phantom_data: Default::default(),
         }
     }
@@ -114,10 +111,7 @@ where
     /// Requires accumulating the whole iterator in memory for a short while.
     pub fn from_iter_with_sort<I: IntoIterator<Item = T>>(iter: I) -> Self {
         // pre-sort for improved creation-speed of the RoaringTreemap
-        let mut h3indexes: Vec<_> = iter
-            .into_iter()
-            .map(|c| c.borrow().h3index() as u64)
-            .collect();
+        let mut h3indexes: Vec<_> = iter.into_iter().map(|c| c.borrow().h3index()).collect();
         h3indexes.sort_unstable();
 
         Self {
@@ -139,7 +133,7 @@ where
         // pre-sort for improved creation-speed of the RoaringTreemap
         let mut h3indexes = iter
             .into_iter()
-            .map(|c| c.map(|c| c.h3index() as u64))
+            .map(|c| c.map(|c| c.h3index()))
             .collect::<Result<Vec<_>, E>>()?;
         h3indexes.sort_unstable();
         h3indexes.dedup();

@@ -93,7 +93,7 @@ impl H3Direction {
         if target_resolution > index.resolution() {
             return Err(Error::ResMismatch);
         }
-        direction(index.h3index() as u64, offset(target_resolution))
+        direction(index.h3index(), offset(target_resolution))
     }
 
     /// iterate over all directions leading to the given `index` starting from

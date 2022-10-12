@@ -176,7 +176,7 @@ pub fn polygon_to_cells(poly: &Polygon<f64>, h3_resolution: u8) -> Result<IndexV
         match max_polygon_to_cells_size_internal(gp, h3_resolution) {
             Ok(cells_size) => {
                 // pre-allocate for the expected number of hexagons
-                let mut index_vec = IndexVec::with_length(cells_size as usize);
+                let mut index_vec = IndexVec::with_length(cells_size);
 
                 Error::check_returncode(unsafe {
                     h3ron_h3_sys::polygonToCells(

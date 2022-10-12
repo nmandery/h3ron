@@ -99,8 +99,8 @@ impl Transform {
     /// Apply the transformation to a coordinate
     pub fn transform_coordinate(&self, coordinate: &Coordinate<f64>) -> Coordinate<f64> {
         Coordinate {
-            x: (coordinate.x as f64).mul_add(self.a, coordinate.y as f64 * self.b) + self.c,
-            y: (coordinate.x as f64).mul_add(self.d, coordinate.y as f64 * self.e) + self.f,
+            x: coordinate.x.mul_add(self.a, coordinate.y * self.b) + self.c,
+            y: coordinate.x.mul_add(self.d, coordinate.y * self.e) + self.f,
         }
     }
 }
