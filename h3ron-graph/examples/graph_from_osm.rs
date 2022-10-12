@@ -66,7 +66,7 @@ fn main() {
         .arg(
             Arg::new("h3_resolution")
                 .short('r')
-                .takes_value(true)
+                .num_args(1)
                 .default_value("7"),
         )
         .arg(
@@ -78,20 +78,16 @@ fn main() {
             Arg::new("OSM-PBF")
                 .help("input OSM .pbf file")
                 .required(true)
-                .min_values(1),
+                .num_args(1..),
         );
 
     let matches = app.get_matches();
 
-    let h3_resolution: u8 = matches
-        .value_of("h3_resolution")
-        .unwrap()
-        .parse()
-        .expect("invalid h3 resolution");
-    let graph_output = matches.value_of("OUTPUT-GRAPH").unwrap().to_string();
+    let h3_resolution = *matches.get_one::<u8>("h3_resolution").unwrap();
+    let graph_output = matches.get_one::<String>("OUTPUT-GRAPH").unwrap().clone();
 
     let mut builder = OsmPbfH3EdgeGraphBuilder::new(h3_resolution, MyWayAnalyzer {});
-    for pbf_input in matches.values_of("OSM-PBF").unwrap() {
+    for pbf_input in matches.get_many::<String>("OSM-PBF").unwrap() {
         builder
             .read_pbf(Path::new(&pbf_input))
             .expect("reading pbf failed");
