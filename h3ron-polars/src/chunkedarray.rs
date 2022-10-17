@@ -13,7 +13,7 @@ impl IndexValue for H3DirectedEdge {}
 
 #[derive(Clone)]
 pub struct IndexChunked<'a, IX: IndexValue> {
-    pub(crate) chunked_array: &'a UInt64Chunked,
+    pub chunked_array: &'a UInt64Chunked,
     index_phantom: PhantomData<IX>,
 }
 
