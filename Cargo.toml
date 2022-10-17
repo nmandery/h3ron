@@ -6,7 +6,6 @@ members = [
     "h3ron-graph",
     "h3ron-h3-sys",
     "h3ron-ndarray",
-    "h3ron-playground",
     "h3ron-polars",
 ]
 [profile.release]

@@ -37,12 +37,6 @@ Graph algorithms on edges of the H3 spatial indexing system.
 Integration of the [h3](https://h3geo.org) geospatial indexing system with [polars](https://docs.rs/polars) dataframes by providing extension traits
 to `UInt64Chunked` and `DataFrame`.
 
-[Documentation](https://docs.rs/h3ron-polars) | [Changelog](h3ron-polars/CHANGES.md)
-
-### [h3ron-playground](h3ron-playground)
-
-Toy-crate to test out ideas. Not published to crates.io.
-
 ## Python bindings
 
 Python bindings for parts of the functionalities are available in the `h3ronpy` extension now located in an [own repository](https://github.com/nmandery/h3ronpy).
