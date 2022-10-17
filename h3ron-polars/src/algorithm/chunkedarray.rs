@@ -124,6 +124,9 @@ pub trait H3IsValid {
     /// assert_eq!(is_valid_ca.get(2), None);
     /// ```
     fn h3_is_valid(&self) -> BooleanChunked;
+
+    /// Returns true when all contained h3indexes are valid.
+    fn h3_all_valid(&self) -> bool;
 }
 
 impl<'a, IX: IndexValue> H3IsValid for IndexChunked<'a, IX> {
@@ -132,6 +135,11 @@ impl<'a, IX: IndexValue> H3IsValid for IndexChunked<'a, IX> {
             self.iter_indexes_nonvalidated()
                 .map(|maybe_index| maybe_index.map(|index| index.is_valid())),
         )
+    }
+
+    fn h3_all_valid(&self) -> bool {
+        self.iter_indexes_validated()
+            .all(|v| matches!(v, Some(Ok(_))))
     }
 }
 

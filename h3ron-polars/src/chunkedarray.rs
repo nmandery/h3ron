@@ -1,6 +1,7 @@
 use crate::iter::{
     iter_indexes_nonvalidated, iter_indexes_validated, NonValidatedIndexIter, ValidatedIndexIter,
 };
+use crate::Error;
 use h3ron::{H3Cell, H3DirectedEdge, Index};
 use polars::export::arrow::bitmap::{Bitmap, MutableBitmap};
 use polars::prelude::{TakeRandom, UInt64Chunked};
@@ -49,6 +50,15 @@ impl<'a, IX: IndexValue> IndexChunked<'a, IX> {
             })
         }
         mask.into()
+    }
+
+    pub fn to_collection<C>(&self) -> Result<C, Error>
+    where
+        C: FromIterator<IX>,
+    {
+        self.iter_indexes_validated()
+            .flatten()
+            .collect::<Result<C, _>>()
     }
 }
 

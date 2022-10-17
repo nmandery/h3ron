@@ -11,4 +11,7 @@ pub enum Error {
 
     #[error("spatial indexing error: {0}")]
     SpatialIndex(String),
+
+    #[error("invalid h3indexes")]
+    InvalidH3Indexes,
 }

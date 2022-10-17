@@ -1,6 +1,7 @@
 use polars_core::prelude::{ChunkCompare, DataFrame, NamedFrom, Series, UInt8Chunked};
 
 use crate::algorithm::chunkedarray::H3Resolution;
+use crate::frame::H3DataFrame;
 use crate::{AsH3IndexChunked, Error, IndexValue};
 
 pub trait H3ResolutionOp {
@@ -64,6 +65,33 @@ impl H3ResolutionOp for DataFrame {
                 Ok(out_dfs)
             }
         }
+    }
+}
+
+impl<IX: IndexValue> H3DataFrame<IX> {
+    /// obtain the contained H3 resolutions
+    pub fn h3_resolution(&self) -> Result<UInt8Chunked, Error> {
+        self.dataframe()
+            .h3_resolution::<IX, _>(self.h3index_column_name())
+    }
+
+    /// Split the dataframe into separate frames for each H3 resolution found in the contents.
+    pub fn h3_split_by_resolution(&self) -> Result<Vec<(u8, Self)>, Error> {
+        self.dataframe()
+            .h3_split_by_resolution::<IX, _>(self.h3index_column_name())
+            .map(|vc| {
+                vc.into_iter()
+                    .map(|(r, df)| {
+                        (
+                            r,
+                            H3DataFrame::from_dataframe_nonvalidated(
+                                df,
+                                self.h3index_column_name(),
+                            ),
+                        )
+                    })
+                    .collect()
+            })
     }
 }
 

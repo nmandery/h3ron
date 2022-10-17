@@ -1,3 +1,4 @@
+use crate::frame::H3DataFrame;
 use crate::{AsH3IndexChunked, Error, IndexValue};
 use polars::export::arrow::array::BooleanArray;
 use polars::prelude::{ArrowDataType, BooleanChunked, DataFrame};
@@ -44,5 +45,13 @@ impl FilterH3IsValid for DataFrame {
             BooleanArray::from_data(ArrowDataType::Boolean, indexchunked.validity_bitmap(), None);
 
         Ok(self.filter(&BooleanChunked::from(ba))?)
+    }
+}
+
+impl<IX: IndexValue> H3DataFrame<IX> {
+    pub fn filter_h3_is_valid(&self) -> Result<Self, Error> {
+        self.dataframe()
+            .filter_h3_is_valid::<IX, _>(self.h3index_column_name())
+            .map(|df| H3DataFrame::from_dataframe_nonvalidated(df, self.h3index_column_name()))
     }
 }

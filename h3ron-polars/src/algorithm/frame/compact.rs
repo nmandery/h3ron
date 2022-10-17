@@ -1,4 +1,5 @@
 use crate::algorithm::chunkedarray::H3CompactCells;
+use crate::frame::H3DataFrame;
 use crate::{AsH3CellChunked, Error};
 use h3ron::collections::H3CellSet;
 use h3ron::iter::change_resolution;
@@ -172,6 +173,56 @@ impl H3UncompactDataframe for DataFrame {
         uncompact_df(self, cell_column_name, target_resolution, |cell| {
             subset.contains(cell)
         })
+    }
+}
+
+impl H3DataFrame<H3Cell> {
+    /// Compact the cells.
+    ///
+    /// This is done by first grouping the dataframe using all other columns and then
+    /// compacting the list of cells of each group.
+    pub fn h3_compact_dataframe(&self, return_exploded: bool) -> Result<Self, Error> {
+        self.dataframe()
+            .clone()
+            .h3_compact_dataframe(self.h3index_column_name(), return_exploded)
+            .map(|df| H3DataFrame::from_dataframe_nonvalidated(df, self.h3index_column_name()))
+    }
+
+    /// Uncompact the cells.
+    pub fn h3_uncompact_dataframe(&self, target_resolution: u8) -> Result<Self, Error> {
+        self.dataframe()
+            .clone()
+            .h3_uncompact_dataframe(self.h3index_column_name(), target_resolution)
+            .map(|df| H3DataFrame::from_dataframe_nonvalidated(df, self.h3index_column_name()))
+    }
+
+    /// Uncompact the cells while only returning the cells from
+    /// the given `subset`.
+    pub fn h3_uncompact_dataframe_subset(
+        &self,
+        target_resolution: u8,
+        subset: &H3CellSet,
+    ) -> Result<Self, Error> {
+        self.dataframe()
+            .clone()
+            .h3_uncompact_dataframe_subset(self.h3index_column_name(), target_resolution, subset)
+            .map(|df| H3DataFrame::from_dataframe_nonvalidated(df, self.h3index_column_name()))
+    }
+
+    /// Uncompact the cells while only returning the cells from
+    /// the given `subset`.
+    pub fn h3_uncompact_dataframe_subset_iter<I>(
+        &self,
+        target_resolution: u8,
+        subset: I,
+    ) -> Result<Self, Error>
+    where
+        I: IntoIterator,
+        I::Item: Borrow<H3Cell>,
+    {
+        let subset =
+            change_resolution(subset, target_resolution).collect::<Result<H3CellSet, _>>()?;
+        self.h3_uncompact_dataframe_subset(target_resolution, &subset)
     }
 }
 
