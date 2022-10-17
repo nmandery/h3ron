@@ -12,6 +12,8 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 
+* Upgrade `bindgen` from 0.60 to 0.61.
+
 ## h3ron-h3-sys 0.15.1 - 2022-09-16
 
 * Include pre-build bindings to drop the `bindgen` dependency as the default. Enabling the `bindgen`-feature
