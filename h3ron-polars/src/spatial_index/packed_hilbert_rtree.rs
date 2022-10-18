@@ -1,6 +1,7 @@
+use crate::algorithm::bounding_rect::BoundingRect;
 use crate::spatial_index::{finish_mask, negative_mask, RectIndexable, RectSIKind, SpatialIndex};
 use crate::{AsH3IndexChunked, Error, IndexChunked, IndexValue};
-use geo_types::{Coordinate, Rect};
+use geo_types::{coord, Coordinate, Rect};
 use polars::export::arrow::bitmap::MutableBitmap;
 use polars::prelude::{BooleanChunked, UInt64Chunked};
 use static_aabb2d_index::{NeighborVisitor, StaticAABB2DIndex, StaticAABB2DIndexBuilder};
@@ -122,6 +123,19 @@ impl<IX: IndexValue> SpatialIndex<IX, RectSIKind> for PackedHilbertRTreeIndex<IX
         }
 
         finish_mask(mask.into(), &self.h3indexchunked())
+    }
+}
+
+impl<IX: IndexValue> BoundingRect for PackedHilbertRTreeIndex<IX> {
+    fn bounding_rect(&self) -> Result<Option<Rect>, Error> {
+        if let Some(index) = self.index.as_ref() {
+            Ok(Some(Rect::new(
+                coord! {x: index.min_x(), y: index.min_y()},
+                coord! {x: index.max_x(), y: index.max_y()},
+            )))
+        } else {
+            Ok(None)
+        }
     }
 }
 
