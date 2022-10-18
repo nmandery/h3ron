@@ -43,6 +43,10 @@ impl<IX: IndexValue> H3DataFrame<IX> {
         &self.df
     }
 
+    pub fn dataframe_mut(&mut self) -> &mut DataFrame {
+        &mut self.df
+    }
+
     pub fn h3index_column_name(&self) -> &str {
         &self.h3index_column_name
     }
