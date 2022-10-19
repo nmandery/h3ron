@@ -1,7 +1,7 @@
 use crate::{Error, IndexChunked, IndexValue};
 use geo::BoundingRect as GeoBoundingRect;
 use geo_types::{coord, CoordNum, Rect};
-use h3ron::to_geo::ToLineString;
+use h3ron::to_geo::ToLine;
 use h3ron::{H3Cell, H3DirectedEdge, ToPolygon};
 
 pub trait BoundingRect {
@@ -16,7 +16,7 @@ impl BoundingRect for H3Cell {
 
 impl BoundingRect for H3DirectedEdge {
     fn bounding_rect(&self) -> Result<Option<Rect>, Error> {
-        Ok(self.to_linestring()?.bounding_rect())
+        Ok(Some(self.to_line()?.bounding_rect()))
     }
 }
 
