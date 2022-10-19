@@ -8,6 +8,10 @@ use std::marker::PhantomData;
 /// Simple container to associate the name of the column containing h3 indexes
 /// with a `DataFrame`.
 ///
+/// This container is just a convenience wrapper to provide some often needed feature
+/// of associating a column name with a dataframe. Most algorithms of this crate are traits
+/// and can be directly applied to dataframes and series.
+///
 /// Some of the algorithms of this crate are available as methods on this struct.
 #[derive(Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
