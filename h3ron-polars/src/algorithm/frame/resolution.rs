@@ -11,8 +11,11 @@ pub trait H3ResolutionOp {
         IX: IndexValue,
         S: AsRef<str>;
 
-    /// Split the dataframe into separate frames for each H3 resolution found in the contents.
-    fn h3_split_by_resolution<IX, S>(&self, index_column_name: S) -> Result<Vec<(u8, Self)>, Error>
+    /// Partition the dataframe into separate frames for each H3 resolution found in the contents.
+    fn h3_partition_by_resolution<IX, S>(
+        &self,
+        index_column_name: S,
+    ) -> Result<Vec<(u8, Self)>, Error>
     where
         Self: Sized,
         IX: IndexValue,
@@ -34,7 +37,10 @@ impl H3ResolutionOp for DataFrame {
         Ok(ic.h3_resolution())
     }
 
-    fn h3_split_by_resolution<IX, S>(&self, index_column_name: S) -> Result<Vec<(u8, Self)>, Error>
+    fn h3_partition_by_resolution<IX, S>(
+        &self,
+        index_column_name: S,
+    ) -> Result<Vec<(u8, Self)>, Error>
     where
         Self: Sized,
         IX: IndexValue,
@@ -75,10 +81,10 @@ impl<IX: IndexValue> H3DataFrame<IX> {
             .h3_resolution::<IX, _>(self.h3index_column_name())
     }
 
-    /// Split the dataframe into separate frames for each H3 resolution found in the contents.
-    pub fn h3_split_by_resolution(&self) -> Result<Vec<(u8, Self)>, Error> {
+    /// Partition the dataframe into separate frames for each H3 resolution found in the contents.
+    pub fn h3_partition_by_resolution(&self) -> Result<Vec<(u8, Self)>, Error> {
         self.dataframe()
-            .h3_split_by_resolution::<IX, _>(self.h3index_column_name())
+            .h3_partition_by_resolution::<IX, _>(self.h3index_column_name())
             .map(|vc| {
                 vc.into_iter()
                     .map(|(r, df)| {
@@ -104,7 +110,7 @@ mod tests {
     use crate::algorithm::frame::H3ResolutionOp;
 
     #[test]
-    fn split_frame_by_resolution() {
+    fn partition_frame_by_resolution() {
         let series = Series::new(
             "cell",
             vec![
@@ -125,7 +131,7 @@ mod tests {
         let value_series = Series::new("value", &(0u32..(series.len() as u32)).collect::<Vec<_>>());
         let df = DataFrame::new(vec![series, value_series]).unwrap();
 
-        let parts = df.h3_split_by_resolution::<H3Cell, _>("cell").unwrap();
+        let parts = df.h3_partition_by_resolution::<H3Cell, _>("cell").unwrap();
         assert_eq!(parts.len(), 3);
         for (h3_resolution, df) in parts {
             let expected = if h3_resolution == 8 { 2 } else { 1 };
