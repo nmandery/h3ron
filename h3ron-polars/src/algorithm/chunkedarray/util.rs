@@ -8,11 +8,10 @@ where
     F: Fn(H3Cell) -> Result<UInt64Chunked, Error>,
 {
     // todo: parallelize
-    cc.iter_indexes_validated()
+    cc.iter_indexes_nonvalidated()
         .map(|opt| match opt {
+            Some(cell) => map_fn(cell).map(|uc| Some(uc.into_series())),
             None => Ok(None),
-            Some(Err(e)) => Err(e),
-            Some(Ok(cell)) => map_fn(cell).map(|uc| Some(uc.into_series())),
         })
         .collect::<Result<ListChunked, _>>()
 }

@@ -14,11 +14,7 @@ pub trait H3CompactCells {
 impl<'a> H3CompactCells for IndexChunked<'a, H3Cell> {
     fn h3_compact_cells(&self) -> Result<UInt64Chunked, Error> {
         let mut ccv = CompactedCellVec::new();
-        ccv.add_cells(
-            self.iter_indexes_validated()
-                .filter_map(|c_opt| c_opt.and_then(|c| c.ok())),
-            true,
-        )?;
+        ccv.add_cells(self.iter_indexes_nonvalidated().flatten(), true)?;
 
         Ok(UInt64Chunked::from_index_iter(ccv.iter_compacted_cells()))
     }
