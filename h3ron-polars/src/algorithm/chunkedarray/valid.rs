@@ -36,7 +36,7 @@ impl<'a, IX: IndexValue> H3IsValid for IndexChunked<'a, IX> {
     fn h3_is_valid(&self) -> BooleanChunked {
         BooleanChunked::from_iter(
             self.iter_indexes_validated()
-                .map(|v| maybe_index.map(|index| index.is_ok())),
+                .map(|v| v.map(|index| index.is_ok())),
         )
     }
 
