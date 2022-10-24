@@ -1,13 +1,13 @@
 use geo_types::{Coordinate, Rect};
 
+use h3ron::{H3Cell, ToPolygon, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
+
 use crate::{
     error::Error,
     sphere::{area_squaremeters_linearring, area_squaremeters_rect},
     transform::Transform,
     AxisOrder,
 };
-
-use h3ron::{H3Cell, ToPolygon, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 
 pub enum ResolutionSearchMode {
     /// Chose the h3 resolution where the difference in the area of a pixel and the h3index is

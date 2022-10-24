@@ -1,4 +1,3 @@
-use h3ron::collections::HashMap;
 use std::cmp::{max, min};
 use std::hash::Hash;
 
@@ -7,13 +6,11 @@ use log::debug;
 use ndarray::{ArrayView2, Axis};
 use rayon::prelude::*;
 
+use h3ron::collections::HashMap;
 use h3ron::{collections::CompactedCellVec, ToCoordinate, ToH3Cells};
 
 use crate::resolution::{nearest_h3_resolution, ResolutionSearchMode};
 use crate::{error::Error, transform::Transform};
-
-// already imported by ndarray::parallel::prelude
-//use rayon::prelude::*;
 
 /// The order of the axis in the two-dimensional array
 #[derive(Copy, Clone)]

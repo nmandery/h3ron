@@ -22,13 +22,13 @@ extern crate approx;
 #[macro_use]
 extern crate ndarray;
 
+pub use crate::array::{AxisOrder, H3Converter};
+pub use crate::error::Error;
+pub use crate::resolution::ResolutionSearchMode;
+pub use crate::transform::Transform;
+
 pub mod array;
 pub mod error;
 pub mod resolution;
 mod sphere;
 pub mod transform;
-
-pub use crate::array::{AxisOrder, H3Converter};
-pub use crate::error::Error;
-pub use crate::resolution::ResolutionSearchMode;
-pub use crate::transform::Transform;
