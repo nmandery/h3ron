@@ -23,6 +23,7 @@ features = ["rayon"]
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.15" # for publishing on crates.io
+features = ["use-rayon"]
 
 
 [dev-dependencies]

@@ -11,6 +11,10 @@ python extension.
 
 ## h3ron-ndarray Unreleased
 
+### Changed
+
+* Minor speedups by switching to `ahash` hashing internally and parallelizing compacting.
+
 ## h3ron-ndarray 0.15.0 - 2022-08-23
 
 This version includes the migration from H3 version 3.x to 4.x. This includes some renaming of functions and

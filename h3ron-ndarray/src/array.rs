@@ -1,10 +1,11 @@
+use h3ron::collections::HashMap;
 use std::cmp::{max, min};
-use std::collections::HashMap;
 use std::hash::Hash;
 
 use geo_types::{Coordinate, Rect};
 use log::debug;
-use ndarray::{parallel::prelude::*, ArrayView2, Axis};
+use ndarray::{ArrayView2, Axis};
+use rayon::prelude::*;
 
 use h3ron::{collections::CompactedCellVec, ToCoordinate, ToH3Cells};
 
@@ -294,9 +295,9 @@ where
             .collect::<Result<Vec<_>, _>>()?;
 
         // combine the results from all chunks
-        let mut h3_map = HashMap::new();
-        for mut chunk_h3_map in chunk_h3_maps.into_iter() {
-            for (value, mut compacted_vec) in chunk_h3_map.drain() {
+        let mut h3_map = HashMap::default();
+        for chunk_h3_map in chunk_h3_maps.into_iter() {
+            for (value, mut compacted_vec) in chunk_h3_map {
                 h3_map
                     .entry(value)
                     .or_insert_with(CompactedCellVec::new)
@@ -304,8 +305,7 @@ where
             }
         }
 
-        finalize_chunk_map(&mut h3_map, compact)?;
-        Ok(h3_map)
+        finalize_chunk_map(h3_map, compact)
     }
 }
 
@@ -321,7 +321,7 @@ fn convert_array_window<'a, T>(
 where
     T: Sized + PartialEq + Sync + Eq + Hash,
 {
-    let mut chunk_h3_map = HashMap::<&T, CompactedCellVec>::new();
+    let mut chunk_h3_map = HashMap::<&T, CompactedCellVec>::default();
     for cell in window_box.to_h3_cells(h3_resolution)?.iter() {
         // find the array element for the coordinate of the h3ron index
         let arr_coord = {
@@ -352,24 +352,30 @@ where
     }
 
     // do an early compacting to free a bit of memory
-    finalize_chunk_map(&mut chunk_h3_map, compact)?;
-
-    Ok(chunk_h3_map)
+    finalize_chunk_map(chunk_h3_map, compact)
 }
 
 fn finalize_chunk_map<T>(
-    chunk_map: &mut HashMap<&T, CompactedCellVec>,
+    chunk_map: HashMap<&T, CompactedCellVec>,
     compact: bool,
-) -> Result<(), Error> {
-    for (_, compacted_vec) in chunk_map.iter_mut() {
-        if compact {
-            compacted_vec.compact()?;
-        } else {
-            compacted_vec.dedup()?;
-        }
-        compacted_vec.shrink_to_fit();
-    }
-    Ok(())
+) -> Result<HashMap<&T, CompactedCellVec>, Error>
+where
+    T: Sync + Eq + Hash,
+{
+    chunk_map
+        .into_par_iter()
+        .map(|(k, mut compact_vec)| {
+            if compact {
+                compact_vec.compact().map_err(Error::from)
+            } else {
+                compact_vec.dedup().map_err(Error::from)
+            }
+            .map(|_| {
+                compact_vec.shrink_to_fit();
+                (k, compact_vec)
+            })
+        })
+        .collect()
 }
 
 #[cfg(test)]
