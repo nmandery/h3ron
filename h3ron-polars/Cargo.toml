@@ -36,6 +36,7 @@ thiserror = "1"
 [dependencies.h3ron]
 path = "../h3ron"
 version = "0.15"
+features = ["indexmap"]
 
 [dev-dependencies]
 criterion = { version = "^0.4", features = ["html_reports"] }

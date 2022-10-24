@@ -5,7 +5,6 @@ use ahash::RandomState;
 use hashbrown::hash_map::Entry;
 use indexmap::IndexMap;
 use std::cmp::Ordering;
-use std::iter::repeat;
 
 /// find clusters of neighboring cells
 ///
@@ -14,7 +13,7 @@ pub fn find_cell_clusters<CellsIter>(cells: CellsIter) -> Result<Vec<Vec<H3Cell>
 where
     CellsIter: Iterator<Item = H3Cell>,
 {
-    Ok(find_cell_clusters_eq_value_impl(cells, repeat(()))?
+    Ok(find_cell_clusters_eq_value_impl(cells)?
         .into_values()
         .map(|(cluster, _)| cluster)
         .collect())
@@ -22,36 +21,55 @@ where
 
 /// find clusters of neighboring cells where the same value is associated with the cells.
 ///
-/// The `cells` and `values` should have the same length. Any excess in either of them
-/// will be ignored.
-///
 /// Cells are assumed to be unique, otherwise the behaviour is undefined.
 ///
 /// Requires the `indexmap` feature.
-pub fn find_cell_clusters_eq_value<CellsIter, Value, ValuesIter>(
-    cells: CellsIter,
-    values: ValuesIter,
+pub fn find_cell_clusters_eq_value<CellValueIter, CV, Value>(
+    cell_value_iter: CellValueIter,
 ) -> Result<Vec<(Vec<H3Cell>, Value)>, Error>
 where
-    CellsIter: Iterator<Item = H3Cell>,
-    ValuesIter: Iterator<Item = Value>,
+    CV: CellAndValue<Value>,
+    CellValueIter: Iterator<Item = CV>,
     Value: PartialEq,
 {
-    Ok(find_cell_clusters_eq_value_impl(cells, values)?
+    Ok(find_cell_clusters_eq_value_impl(cell_value_iter)?
         .into_values()
         .collect())
 }
 
-fn find_cell_clusters_eq_value_impl<CellsIter, Value, ValuesIter>(
-    cells: CellsIter,
-    values: ValuesIter,
+pub trait CellAndValue<Value> {
+    fn cell(&self) -> H3Cell;
+    fn value(self) -> Value;
+}
+
+impl CellAndValue<()> for H3Cell {
+    fn cell(&self) -> H3Cell {
+        *self
+    }
+
+    fn value(self) {}
+}
+
+impl<Value> CellAndValue<Value> for (H3Cell, Value) {
+    fn cell(&self) -> H3Cell {
+        self.0
+    }
+
+    fn value(self) -> Value {
+        self.1
+    }
+}
+
+fn find_cell_clusters_eq_value_impl<CellValueIter, CV, Value>(
+    cell_value_iter: CellValueIter,
 ) -> Result<HashMap<usize, (Vec<H3Cell>, Value)>, Error>
 where
-    CellsIter: Iterator<Item = H3Cell>,
-    ValuesIter: Iterator<Item = Value>,
+    CV: CellAndValue<Value>,
+    CellValueIter: Iterator<Item = CV>,
     Value: PartialEq,
 {
-    let items: IndexMap<_, _, RandomState> = cells.zip(values).collect();
+    let items: IndexMap<_, _, RandomState> =
+        cell_value_iter.map(|cv| (cv.cell(), cv.value())).collect();
     let mut cluster_ids: Vec<usize> = (0..items.len()).collect();
 
     let mut mutated = true;
