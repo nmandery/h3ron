@@ -85,48 +85,48 @@ fn find_boxes_containing_data<T>(
 where
     T: Sized + PartialEq,
 {
-    let mut boxes = Vec::new();
-
-    for chunk_x_raw_indexes in
-        find_continuous_chunks_along_axis(a, axis_order.x_axis(), nodata_value)
-    {
-        let sv = {
-            let x_raw_range = chunk_x_raw_indexes.0..=chunk_x_raw_indexes.1;
-            match axis_order {
-                AxisOrder::XY => a.slice(s![x_raw_range, ..]),
-                AxisOrder::YX => a.slice(s![.., x_raw_range]),
-            }
-        };
-        for chunks_y_raw_indexes in
-            find_continuous_chunks_along_axis(&sv, axis_order.y_axis(), nodata_value)
-        {
-            let sv2 = {
-                let x_raw_range = 0..=(chunk_x_raw_indexes.1 - chunk_x_raw_indexes.0);
-                let y_raw_range = chunks_y_raw_indexes.0..=chunks_y_raw_indexes.1;
+    find_continuous_chunks_along_axis(a, axis_order.x_axis(), nodata_value)
+        .into_iter()
+        .map(|chunk_x_raw_indexes| {
+            let sv = {
+                let x_raw_range = chunk_x_raw_indexes.0..=chunk_x_raw_indexes.1;
                 match axis_order {
-                    AxisOrder::XY => sv.slice(s![x_raw_range, y_raw_range]),
-                    AxisOrder::YX => sv.slice(s![y_raw_range, x_raw_range]),
+                    AxisOrder::XY => a.slice(s![x_raw_range, ..]),
+                    AxisOrder::YX => a.slice(s![.., x_raw_range]),
                 }
             };
+            find_continuous_chunks_along_axis(&sv, axis_order.y_axis(), nodata_value)
+                .into_iter()
+                .map(move |chunks_y_raw_indexes| {
+                    let sv2 = {
+                        let x_raw_range = 0..=(chunk_x_raw_indexes.1 - chunk_x_raw_indexes.0);
+                        let y_raw_range = chunks_y_raw_indexes.0..=chunks_y_raw_indexes.1;
+                        match axis_order {
+                            AxisOrder::XY => sv.slice(s![x_raw_range, y_raw_range]),
+                            AxisOrder::YX => sv.slice(s![y_raw_range, x_raw_range]),
+                        }
+                    };
 
-            // one more iteration along axis 0 to get the specific range for that axis 1 range
-            for chunks_x_indexes in
-                find_continuous_chunks_along_axis(&sv2, axis_order.x_axis(), nodata_value)
-            {
-                boxes.push(Rect::new(
-                    Coordinate {
-                        x: chunks_x_indexes.0 + chunk_x_raw_indexes.0,
-                        y: chunks_y_raw_indexes.0,
-                    },
-                    Coordinate {
-                        x: chunks_x_indexes.1 + chunk_x_raw_indexes.0,
-                        y: chunks_y_raw_indexes.1,
-                    },
-                ))
-            }
-        }
-    }
-    boxes
+                    // one more iteration along axis 0 to get the specific range for that axis 1 range
+                    find_continuous_chunks_along_axis(&sv2, axis_order.x_axis(), nodata_value)
+                        .into_iter()
+                        .map(move |chunks_x_indexes| {
+                            Rect::new(
+                                Coordinate {
+                                    x: chunks_x_indexes.0 + chunk_x_raw_indexes.0,
+                                    y: chunks_y_raw_indexes.0,
+                                },
+                                Coordinate {
+                                    x: chunks_x_indexes.1 + chunk_x_raw_indexes.0,
+                                    y: chunks_y_raw_indexes.1,
+                                },
+                            )
+                        })
+                })
+                .flatten()
+        })
+        .flatten()
+        .collect::<Vec<_>>()
 }
 
 /// convert a 2-d ndarray to h3
@@ -187,30 +187,31 @@ where
                             AxisOrder::YX => axis_x_chunk.slice(s![y_range, x_range]),
                         }
                     };
-                    chunk_rect_view
-                        .axis_chunks_iter(Axis(self.axis_order.y_axis()), rect_size)
-                        .enumerate()
-                        .for_each(|(axis_y_chunk_i, axis_y_chunk)| {
-                            let offset_y = (axis_y_chunk_i * rect_size) + chunk_x_rect.min().y;
+                    rects.extend(
+                        chunk_rect_view
+                            .axis_chunks_iter(Axis(self.axis_order.y_axis()), rect_size)
+                            .enumerate()
+                            .map(|(axis_y_chunk_i, axis_y_chunk)| {
+                                let offset_y = (axis_y_chunk_i * rect_size) + chunk_x_rect.min().y;
 
-                            // the window in array coordinates
-                            let window = Rect::new(
-                                Coordinate {
-                                    x: offset_x as f64,
-                                    y: offset_y as f64,
-                                },
-                                // add 1 to the max coordinate to include the whole last pixel
-                                Coordinate {
-                                    x: (offset_x
-                                        + axis_y_chunk.shape()[self.axis_order.x_axis()]
-                                        + 1) as f64,
-                                    y: (offset_y
-                                        + axis_y_chunk.shape()[self.axis_order.y_axis()]
-                                        + 1) as f64,
-                                },
-                            );
-                            rects.push(window)
-                        })
+                                // the window in array coordinates
+                                Rect::new(
+                                    Coordinate {
+                                        x: offset_x as f64,
+                                        y: offset_y as f64,
+                                    },
+                                    // add 1 to the max coordinate to include the whole last pixel
+                                    Coordinate {
+                                        x: (offset_x
+                                            + axis_y_chunk.shape()[self.axis_order.x_axis()]
+                                            + 1) as f64,
+                                        y: (offset_y
+                                            + axis_y_chunk.shape()[self.axis_order.y_axis()]
+                                            + 1) as f64,
+                                    },
+                                )
+                            }),
+                    )
                 }
                 rects
             })
@@ -223,21 +224,19 @@ where
         let x_size = self.arr.shape()[self.axis_order.x_axis()];
         let y_size = self.arr.shape()[self.axis_order.y_axis()];
         (0..((x_size as f64 / rect_size as f64).ceil() as usize))
-            .flat_map(|r_x| {
-                (0..((y_size as f64 / rect_size as f64).ceil() as usize))
-                    .map(|r_y| {
-                        Rect::new(
-                            Coordinate {
-                                x: (r_x * rect_size) as f64,
-                                y: (r_y * rect_size) as f64,
-                            },
-                            Coordinate {
-                                x: (min(x_size, (r_x + 1) * rect_size)) as f64,
-                                y: (min(y_size, (r_y + 1) * rect_size)) as f64,
-                            },
-                        )
-                    })
-                    .collect::<Vec<_>>()
+            .flat_map(move |r_x| {
+                (0..((y_size as f64 / rect_size as f64).ceil() as usize)).map(move |r_y| {
+                    Rect::new(
+                        Coordinate {
+                            x: (r_x * rect_size) as f64,
+                            y: (r_y * rect_size) as f64,
+                        },
+                        Coordinate {
+                            x: (min(x_size, (r_x + 1) * rect_size)) as f64,
+                            y: (min(y_size, (r_y + 1) * rect_size)) as f64,
+                        },
+                    )
+                })
             })
             .collect()
     }
