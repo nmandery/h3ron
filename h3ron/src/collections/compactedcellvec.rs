@@ -45,17 +45,14 @@ impl CompactedCellVec {
         }
         if compact {
             if let Some(max_res) = resolutions_touched.iter().max() {
-                self.compact_from_resolution_up(*max_res, &resolutions_touched)?;
+                self.compact_from_resolution_up(*max_res, resolutions_touched)?;
             }
         }
         Ok(())
     }
 
     pub fn compact(&mut self) -> Result<(), Error> {
-        self.compact_from_resolution_up(
-            H3_MAX_RESOLUTION as usize,
-            &H3_RESOLUTION_RANGE_USIZE.collect::<Vec<_>>(),
-        )
+        self.compact_from_resolution_up(H3_MAX_RESOLUTION as usize, H3_RESOLUTION_RANGE_USIZE)
     }
 
     /// append the contents of a vector. The caller is responsible to ensure that
@@ -70,7 +67,7 @@ impl CompactedCellVec {
     ) -> Result<(), Error> {
         self.cells_by_resolution[resolution as usize].append(cells);
         if compact {
-            self.compact_from_resolution_up(resolution as usize, &[])?;
+            self.compact_from_resolution_up(resolution as usize, [])?;
         }
         Ok(())
     }
@@ -127,7 +124,7 @@ impl CompactedCellVec {
         let res = cell.resolution() as usize;
         self.cells_by_resolution[res].push(cell);
         if compact {
-            self.compact_from_resolution_up(res, &[])?;
+            self.compact_from_resolution_up(res, [])?;
         }
         Ok(())
     }
@@ -149,10 +146,7 @@ impl CompactedCellVec {
         if compact {
             let recompact_res = resolutions_touched.iter().max();
             if let Some(rr) = recompact_res {
-                self.compact_from_resolution_up(
-                    *rr,
-                    &resolutions_touched.drain().collect::<Vec<usize>>(),
-                )?;
+                self.compact_from_resolution_up(*rr, resolutions_touched.into_iter())?;
             }
         }
         Ok(())
@@ -216,12 +210,15 @@ impl CompactedCellVec {
     /// former finer resolution added no new cells to
     /// the parent resolution unless include_resolutions
     /// forces the recompacting of a given resolution
-    fn compact_from_resolution_up(
+    fn compact_from_resolution_up<InclResIter>(
         &mut self,
         resolution: usize,
-        include_resolutions: &[usize],
-    ) -> Result<(), Error> {
-        let mut resolutions_touched = include_resolutions.iter().copied().collect::<HashSet<_>>();
+        include_resolutions: InclResIter,
+    ) -> Result<(), Error>
+    where
+        InclResIter: IntoIterator<Item = usize>,
+    {
+        let mut resolutions_touched = include_resolutions.into_iter().collect::<HashSet<_>>();
         resolutions_touched.insert(resolution);
 
         for res in ((H3_MIN_RESOLUTION as usize)..=resolution).rev() {
