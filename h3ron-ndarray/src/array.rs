@@ -84,7 +84,7 @@ where
 {
     find_continuous_chunks_along_axis(a, axis_order.x_axis(), nodata_value)
         .into_iter()
-        .map(|chunk_x_raw_indexes| {
+        .flat_map(|chunk_x_raw_indexes| {
             let sv = {
                 let x_raw_range = chunk_x_raw_indexes.0..=chunk_x_raw_indexes.1;
                 match axis_order {
@@ -94,7 +94,7 @@ where
             };
             find_continuous_chunks_along_axis(&sv, axis_order.y_axis(), nodata_value)
                 .into_iter()
-                .map(move |chunks_y_raw_indexes| {
+                .flat_map(move |chunks_y_raw_indexes| {
                     let sv2 = {
                         let x_raw_range = 0..=(chunk_x_raw_indexes.1 - chunk_x_raw_indexes.0);
                         let y_raw_range = chunks_y_raw_indexes.0..=chunks_y_raw_indexes.1;
@@ -120,9 +120,7 @@ where
                             )
                         })
                 })
-                .flatten()
         })
-        .flatten()
         .collect::<Vec<_>>()
 }
 
