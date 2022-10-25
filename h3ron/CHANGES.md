@@ -11,6 +11,8 @@ python extension.
 
 ## h3ron Unreleased
 
+## h3ron 0.16.0 - 2022-10-25
+
 ### Added
 * Add example describing how to compile to the wasm32-wasi target.
 * Parse `H3Cell` from different string representations using `H3Cell::from_str`. [#52](https://github.com/nmandery/h3ron/pull/52)

@@ -11,6 +11,8 @@ python extension.
 
 ## h3ron-graph Unreleased
 
+## h3ron-graph 0.5.0 - 2022-10-25
+
 * Upgrade `geo` from 0.22 to 0.23, `gdal` from 0.12 to 0.13.
 
 ## h3ron-graph 0.4.0 - 2022-08-23

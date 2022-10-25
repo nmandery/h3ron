@@ -11,6 +11,8 @@ python extension.
 
 ## h3ron-ndarray Unreleased
 
+## h3ron-ndarray 0.16.0 - 2022-10-25
+
 ### Changed
 
 * Minor speedups by switching to `ahash` hashing internally and parallelizing compacting.

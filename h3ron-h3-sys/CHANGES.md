@@ -12,6 +12,8 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 
+## h3ron-h3-sys 0.15.2 - 2022-10-25
+
 * Upgrade `bindgen` from 0.60 to 0.61.
 
 ## h3ron-h3-sys 0.15.1 - 2022-09-16
