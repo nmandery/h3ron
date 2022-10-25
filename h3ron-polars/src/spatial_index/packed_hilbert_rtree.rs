@@ -51,21 +51,22 @@ where
     IX: RectIndexable,
 {
     fn packed_hilbert_rtree_index(&self) -> Result<PackedHilbertRTreeIndex<IX>, Error> {
-        let (positions_in_chunked_array, rects) = self.iter_indexes_validated().enumerate().fold(
-            (
-                Vec::with_capacity(self.len()),
-                Vec::with_capacity(self.len()),
-            ),
-            |(mut positions, mut rects), (pos, maybe_index)| {
-                if let Some(Ok(index)) = maybe_index {
-                    if let Ok(Some(rect)) = index.spatial_index_rect() {
-                        positions.push(pos);
-                        rects.push(rect)
+        let (positions_in_chunked_array, rects) =
+            self.iter_indexes_nonvalidated().enumerate().fold(
+                (
+                    Vec::with_capacity(self.len()),
+                    Vec::with_capacity(self.len()),
+                ),
+                |(mut positions, mut rects), (pos, maybe_index)| {
+                    if let Some(index) = maybe_index {
+                        if let Ok(Some(rect)) = index.spatial_index_rect() {
+                            positions.push(pos);
+                            rects.push(rect)
+                        }
                     }
-                }
-                (positions, rects)
-            },
-        );
+                    (positions, rects)
+                },
+            );
 
         let index = if !positions_in_chunked_array.is_empty() {
             let mut builder = StaticAABB2DIndexBuilder::new(positions_in_chunked_array.len());

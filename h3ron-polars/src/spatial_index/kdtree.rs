@@ -77,10 +77,10 @@ where
         // KDBush requires at least one entry to be successful build, so we need to inspect
         // the data first.
         let entries: Vec<_> = self
-            .iter_indexes_validated()
+            .iter_indexes_nonvalidated()
             .enumerate()
             .filter_map(|(pos, maybe_index)| match maybe_index {
-                Some(Ok(index)) => index.spatial_index_coordinate().ok().map(|c| (pos, c)),
+                Some(index) => index.spatial_index_coordinate().ok().map(|c| (pos, c)),
                 _ => None,
             })
             .collect();

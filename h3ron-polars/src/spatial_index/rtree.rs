@@ -73,10 +73,10 @@ where
     /// ```
     fn rtree_index(&self) -> RTreeIndex<IX> {
         let entries: Vec<_> = self
-            .iter_indexes_validated()
+            .iter_indexes_nonvalidated()
             .enumerate()
             .filter_map(|(pos, maybe_index)| match maybe_index {
-                Some(Ok(index)) => index.spatial_index_rect().ok().and_then(|maybe_rect| {
+                Some(index) => index.spatial_index_rect().ok().and_then(|maybe_rect| {
                     maybe_rect.map(|rect| LocatedArrayPosition::new(to_bbox(&rect), pos))
                 }),
                 _ => None,
