@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-polars"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Integration of the h3 geospatial indexing system with polars dataframes"
 edition = "2021"
