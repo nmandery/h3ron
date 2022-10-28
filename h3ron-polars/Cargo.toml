@@ -26,8 +26,8 @@ serde = ["dep:serde", "polars-core/serde"]
 geo = "0.23"
 geo-types = "0.7"
 kdbush = { version = "0.2", optional = true }
-polars-core = "0.24"
-polars = { version = "0.24", features = ["lazy", "dtype-u8"] }
+polars-core = "0.25"
+polars = { version = "0.25", features = ["lazy", "dtype-u8"] }
 rstar = { version = "0.9", optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 static_aabb2d_index = { version = "0.6", optional = true }
