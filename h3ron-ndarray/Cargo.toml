@@ -36,7 +36,7 @@ version = "^0.4"
 features = ["html_reports"]
 
 [dev-dependencies.gdal]
-version = "^0.13"
+version = "^0.14"
 features = ["array"]
 
 
