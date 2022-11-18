@@ -10,6 +10,8 @@ done without github actions and without having to coordinate the release process
 python extension.
 
 ## h3ron-ndarray Unreleased
+### Changed
+* Upgrade `gdal` from 0.13 to 0.14.
 
 ## h3ron-ndarray 0.16.0 - 2022-10-25
 

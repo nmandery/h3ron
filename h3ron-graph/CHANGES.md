@@ -10,9 +10,11 @@ without github actions and without having to coordinate the release process with
 python extension.
 
 ## h3ron-graph Unreleased
+### Changed
+* Upgrade `gdal` from 0.13 to 0.14.
 
 ## h3ron-graph 0.5.0 - 2022-10-25
-
+### Changed
 * Upgrade `geo` from 0.22 to 0.23, `gdal` from 0.12 to 0.13.
 
 ## h3ron-graph 0.4.0 - 2022-08-23
