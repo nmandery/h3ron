@@ -60,7 +60,7 @@ fn main() {
 
     #[cfg(feature = "bindgen")]
     {
-        let mut builder = bindgen::Builder::default().header(
+        let mut builder = bindgen::Builder::default().sort_semantically(true).header(
             h3api_header
                 .as_path()
                 .as_os_str()
