@@ -1,13 +1,13 @@
 use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use geo_types::Coordinate;
+use geo_types::Coord;
 
 use h3ron::collections::compressed::IndexBlock;
 use h3ron::H3Cell;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let cells = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 10)
+    let cells = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 10)
         .unwrap()
         .grid_disk(200)
         .unwrap()
@@ -35,7 +35,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     );
 
     let cell = cells[cells.len() / 2];
-    //let cell = H3Cell::from_coordinate(Coordinate::from((-62.3, 45.4)), 10).unwrap();
+    //let cell = H3Cell::from_coordinate(Coord::from((-62.3, 45.4)), 10).unwrap();
     group.bench_function("cell contains", |bencher| {
         bencher.iter(|| {
             let _ = ib.contains(&cell);

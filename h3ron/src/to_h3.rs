@@ -1,5 +1,5 @@
 use geo_types::{
-    Coordinate, Geometry, GeometryCollection, Line, LineString, MultiLineString, MultiPoint,
+    Coord, Geometry, GeometryCollection, Line, LineString, MultiLineString, MultiPoint,
     MultiPolygon, Point, Polygon, Rect, Triangle,
 };
 
@@ -53,7 +53,7 @@ impl ToH3Cells for MultiPoint<f64> {
     }
 }
 
-impl ToH3Cells for Coordinate<f64> {
+impl ToH3Cells for Coord<f64> {
     fn to_h3_cells(&self, h3_resolution: u8) -> Result<IndexVec<H3Cell>, Error> {
         check_valid_h3_resolution(h3_resolution)?;
         vec![H3Cell::from_coordinate(*self, h3_resolution)?.h3index()].try_into()

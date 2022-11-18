@@ -1,7 +1,7 @@
 use std::mem::MaybeUninit;
 use std::ptr::addr_of_mut;
 
-use geo_types::{Coordinate, LineString, Polygon};
+use geo_types::{Coord, LineString, Polygon};
 
 use h3ron_h3_sys::{cellToBoundary, CellBoundary};
 
@@ -67,9 +67,9 @@ impl<'b> CellBoundaryIter<'b> {
     }
 
     #[inline(always)]
-    fn get_coordinate(&self, pos: usize) -> Coordinate<f64> {
+    fn get_coordinate(&self, pos: usize) -> Coord<f64> {
         assert!(pos < self.num_verts());
-        Coordinate::from((
+        Coord::from((
             self.cell_boundary.verts[pos].lng.to_degrees(),
             self.cell_boundary.verts[pos].lat.to_degrees(),
         ))
@@ -77,7 +77,7 @@ impl<'b> CellBoundaryIter<'b> {
 }
 
 impl<'b> Iterator for CellBoundaryIter<'b> {
-    type Item = Coordinate<f64>;
+    type Item = Coord<f64>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let num_verts = self.num_verts();

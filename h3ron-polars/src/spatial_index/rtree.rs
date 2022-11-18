@@ -1,6 +1,6 @@
 use crate::spatial_index::{finish_mask, negative_mask, RectIndexable, RectSIKind, SpatialIndex};
 use crate::{AsH3IndexChunked, IndexChunked, IndexValue};
-use geo_types::{Coordinate, Rect};
+use geo_types::{Coord, Rect};
 use polars::export::arrow::bitmap::MutableBitmap;
 use polars::prelude::UInt64Chunked;
 use polars_core::datatypes::BooleanChunked;
@@ -10,9 +10,9 @@ use std::marker::PhantomData;
 
 // todo: Use the Line type supported by rtree instead of Rectangle to index H3DirectedEdges
 
-type Coord = [f64; 2];
-type BBox = Rectangle<Coord>;
-type LocatedArrayPosition = GeomWithData<BBox, usize>;
+type RTreeCoord = [f64; 2];
+type RTreeBBox = Rectangle<RTreeCoord>;
+type LocatedArrayPosition = GeomWithData<RTreeBBox, usize>;
 
 /// [R-Tree](https://en.wikipedia.org/wiki/R-tree) spatial index
 pub struct RTreeIndex<IX: IndexValue> {
@@ -22,13 +22,13 @@ pub struct RTreeIndex<IX: IndexValue> {
 }
 
 #[inline]
-fn to_coord(coord: Coordinate) -> Coord {
+fn to_coord(coord: Coord) -> RTreeCoord {
     [coord.x, coord.y]
 }
 
 #[inline]
-fn to_bbox(rect: &Rect) -> BBox {
-    BBox::from_corners(to_coord(rect.min()), to_coord(rect.max()))
+fn to_bbox(rect: &Rect) -> RTreeBBox {
+    RTreeBBox::from_corners(to_coord(rect.min()), to_coord(rect.max()))
 }
 
 pub trait BuildRTreeIndex<'a, IX>
@@ -109,7 +109,7 @@ where
         mask
     }
 
-    fn envelopes_within_distance(&self, coord: Coordinate, distance: f64) -> BooleanChunked {
+    fn envelopes_within_distance(&self, coord: Coord, distance: f64) -> BooleanChunked {
         let mut mask = negative_mask(&self.chunked_array);
 
         let locator = self.rtree.locate_within_distance(to_coord(coord), distance);

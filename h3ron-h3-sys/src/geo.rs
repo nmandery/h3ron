@@ -1,17 +1,17 @@
 use crate::LatLng;
-use geo_types::{Coordinate, Point};
+use geo_types::{Coord, Point};
 
-impl From<LatLng> for Coordinate<f64> {
+impl From<LatLng> for Coord<f64> {
     fn from(lat_lng: LatLng) -> Self {
-        Coordinate {
+        Coord {
             x: lat_lng.lng.to_degrees(),
             y: lat_lng.lat.to_degrees(),
         }
     }
 }
 
-impl From<Coordinate<f64>> for LatLng {
-    fn from(coord: Coordinate<f64>) -> Self {
+impl From<Coord<f64>> for LatLng {
+    fn from(coord: Coord<f64>) -> Self {
         LatLng {
             lat: coord.y.to_radians(),
             lng: coord.x.to_radians(),

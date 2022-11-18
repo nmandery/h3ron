@@ -139,7 +139,7 @@ pub fn res0_cells() -> IndexVec<H3Cell> {
 
 #[cfg(test)]
 mod tests {
-    use geo_types::{Coordinate, LineString};
+    use geo_types::{Coord, LineString};
 
     use crate::{grid_path_cells, line, res0_cell_count, res0_cells, H3Cell};
 
@@ -156,11 +156,11 @@ mod tests {
     #[test]
     fn linestring() {
         let ls = LineString::from(vec![
-            Coordinate::from((11.60, 37.16)),
-            Coordinate::from((3.86, 39.63)),
-            Coordinate::from((-4.57, 35.17)),
-            Coordinate::from((-20.74, 34.88)),
-            Coordinate::from((-23.55, 48.92)),
+            Coord::from((11.60, 37.16)),
+            Coord::from((3.86, 39.63)),
+            Coord::from((-4.57, 35.17)),
+            Coord::from((-20.74, 34.88)),
+            Coord::from((-23.55, 48.92)),
         ]);
         assert!(line(&ls, 5).unwrap().count() > 200);
     }

@@ -2,14 +2,14 @@ use crate::spatial_index::{
     finish_mask, negative_mask, CoordinateIndexable, CoordinateSIKind, SpatialIndex,
 };
 use crate::{AsH3IndexChunked, IndexChunked, IndexValue};
-use geo_types::{Coordinate, Rect};
+use geo_types::{Coord, Rect};
 use kdbush::{KDBush, PointReader};
 use polars::export::arrow::bitmap::MutableBitmap;
 use polars::prelude::BooleanChunked;
 use polars_core::prelude::UInt64Chunked;
 use std::marker::PhantomData;
 
-struct Points(Vec<(usize, Coordinate)>);
+struct Points(Vec<(usize, Coord)>);
 
 impl PointReader for Points {
     fn size_hint(&self) -> usize {
@@ -156,7 +156,7 @@ where
         mask
     }
 
-    fn envelopes_within_distance(&self, coord: Coordinate, distance: f64) -> BooleanChunked {
+    fn envelopes_within_distance(&self, coord: Coord, distance: f64) -> BooleanChunked {
         let mut mask = negative_mask(&self.chunked_array);
         if let Some(kdbush) = self.kdbush.as_ref() {
             kdbush.within(coord.x, coord.y, distance, |id| mask.set(id, true));

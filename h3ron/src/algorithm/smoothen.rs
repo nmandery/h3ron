@@ -2,9 +2,9 @@ use std::cmp::min;
 
 use geo::algorithm::area::Area;
 use geo::algorithm::simplifyvw::SimplifyVW;
-use geo_types::{Coordinate, LineString, Polygon, Triangle};
+use geo_types::{Coord, LineString, Polygon, Triangle};
 
-fn is_closed(ls: &[Coordinate<f64>]) -> bool {
+fn is_closed(ls: &[Coord<f64>]) -> bool {
     if ls.len() < 2 {
         false
     } else {
@@ -14,7 +14,7 @@ fn is_closed(ls: &[Coordinate<f64>]) -> bool {
 
 /// Smoothen a linestring to remove some of the artifacts
 /// of the h3indexes left after creating a h3 linkedpolygon.
-pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coordinate<f64>> {
+pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coord<f64>]) -> Vec<Coord<f64>> {
     let closed = is_closed(in_coords);
     let mut out = Vec::with_capacity(in_coords.len() + if closed { 2 } else { 0 });
     if in_coords.len() >= 3 {
@@ -27,7 +27,7 @@ pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coordinate<f64>]) -> Vec<Coor
             // preserve the unmodified starting coordinate
             out.push(*in_coords.first().unwrap());
         }
-        let apply_window = |c1: &Coordinate<f64>, c2: &Coordinate<f64>| Coordinate {
+        let apply_window = |c1: &Coord<f64>, c2: &Coord<f64>| Coord {
             x: 0.5_f64.mul_add(c1.x, 0.5 * c2.x),
             y: 0.5_f64.mul_add(c1.y, 0.5 * c2.y),
         };
@@ -77,14 +77,14 @@ pub fn smoothen_h3_linked_polygon(in_poly: &Polygon<f64>) -> Polygon<f64> {
 #[cfg(test)]
 mod tests {
     use geo::algorithm::coords_iter::CoordsIter;
-    use geo_types::Coordinate;
+    use geo_types::Coord;
 
     use crate::algorithm::smoothen_h3_linked_polygon;
     use crate::{H3Cell, ToLinkedPolygons};
 
     #[test]
     fn smooth_donut_linked_polygon() {
-        let ring = H3Cell::from_coordinate(Coordinate::from((23.3, 12.3)), 6)
+        let ring = H3Cell::from_coordinate(Coord::from((23.3, 12.3)), 6)
             .unwrap()
             .grid_ring_unsafe(4)
             .unwrap();

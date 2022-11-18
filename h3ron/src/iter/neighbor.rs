@@ -156,14 +156,14 @@ mod tests {
     use std::collections::HashMap;
     use std::iter::once;
 
-    use geo_types::Coordinate;
+    use geo_types::Coord;
 
     use super::{neighbors_within_distance_window, neighbors_within_distance_window_or_default};
     use crate::H3Cell;
 
     #[test]
     fn test_neighbors_within_distance_window() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 6).unwrap();
         let hm = cell
             .grid_disk(2)
             .unwrap() // one k more than required
@@ -186,7 +186,7 @@ mod tests {
 
     #[test]
     fn test_neighbors_within_distance_window_or_default() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 6).unwrap();
         let mut hm: HashMap<H3Cell, u32> = Default::default();
         hm.insert(cell, 4_u32);
 
@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_neighbors_within_distance_window_or_default_empty() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 6).unwrap();
         let hm: HashMap<H3Cell, u32> = Default::default();
 
         let n_neighbors = neighbors_within_distance_window_or_default(

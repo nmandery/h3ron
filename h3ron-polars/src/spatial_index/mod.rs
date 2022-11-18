@@ -29,7 +29,7 @@ pub(crate) mod tests;
 use crate::{Error, IndexChunked, IndexValue};
 use geo::bounding_rect::BoundingRect;
 use geo::{Contains, Intersects};
-use geo_types::{Coordinate, MultiPolygon, Polygon, Rect};
+use geo_types::{Coord, MultiPolygon, Polygon, Rect};
 use h3ron::to_geo::ToLine;
 use h3ron::{H3Cell, H3DirectedEdge, ToCoordinate, ToPolygon};
 use polars::export::arrow::array::BooleanArray;
@@ -50,7 +50,7 @@ pub use crate::spatial_index::packed_hilbert_rtree::*;
 /// operates.
 pub trait SIKind {}
 
-/// Marks spatial indexes operating on [Coordinate] points
+/// Marks spatial indexes operating on [Coord] points
 pub struct CoordinateSIKind {}
 impl SIKind for CoordinateSIKind {}
 
@@ -72,8 +72,8 @@ pub trait SpatialIndex<IX: IndexValue, Kind: SIKind> {
         )
     }
 
-    /// The envelope of the indexed elements is with `distance` of the given [Coordinate] `coord`.
-    fn envelopes_within_distance(&self, coord: Coordinate, distance: f64) -> BooleanChunked;
+    /// The envelope of the indexed elements is with `distance` of the given [Coord] `coord`.
+    fn envelopes_within_distance(&self, coord: Coord, distance: f64) -> BooleanChunked;
 }
 
 pub trait SpatialIndexGeomOp<IX: IndexValue, Kind: SIKind> {
@@ -130,17 +130,17 @@ where
 
 pub trait CoordinateIndexable {
     /// coordinate to use for spatial indexing
-    fn spatial_index_coordinate(&self) -> Result<Coordinate, Error>;
+    fn spatial_index_coordinate(&self) -> Result<Coord, Error>;
 }
 
 impl CoordinateIndexable for H3Cell {
-    fn spatial_index_coordinate(&self) -> Result<Coordinate, Error> {
+    fn spatial_index_coordinate(&self) -> Result<Coord, Error> {
         self.to_coordinate().map_err(Error::from)
     }
 }
 
 impl CoordinateIndexable for H3DirectedEdge {
-    fn spatial_index_coordinate(&self) -> Result<Coordinate, Error> {
+    fn spatial_index_coordinate(&self) -> Result<Coord, Error> {
         let cells = self.cells()?;
         let c1 = cells.destination.to_coordinate()?;
         let c2 = cells.origin.to_coordinate()?;

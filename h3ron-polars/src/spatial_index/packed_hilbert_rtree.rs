@@ -1,7 +1,7 @@
 use crate::algorithm::bounding_rect::BoundingRect;
 use crate::spatial_index::{finish_mask, negative_mask, RectIndexable, RectSIKind, SpatialIndex};
 use crate::{AsH3IndexChunked, Error, IndexChunked, IndexValue};
-use geo_types::{coord, Coordinate, Rect};
+use geo_types::{coord, Coord, Rect};
 use polars::export::arrow::bitmap::MutableBitmap;
 use polars::prelude::{BooleanChunked, UInt64Chunked};
 use static_aabb2d_index::{NeighborVisitor, StaticAABB2DIndex, StaticAABB2DIndexBuilder};
@@ -108,7 +108,7 @@ impl<IX: IndexValue> SpatialIndex<IX, RectSIKind> for PackedHilbertRTreeIndex<IX
         mask
     }
 
-    fn envelopes_within_distance(&self, coord: Coordinate, distance: f64) -> BooleanChunked {
+    fn envelopes_within_distance(&self, coord: Coord, distance: f64) -> BooleanChunked {
         let mut mask = negative_mask(&self.chunked_array);
 
         if let Some(index) = self.index.as_ref() {

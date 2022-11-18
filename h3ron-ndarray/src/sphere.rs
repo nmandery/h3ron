@@ -1,4 +1,4 @@
-use geo_types::{Coordinate, LineString, Rect};
+use geo_types::{Coord, LineString, Rect};
 
 /// earth radius at the equator in meters
 const EARTH_RADIUS_EQUATOR: f64 = 6_378_137_f64;
@@ -25,23 +25,23 @@ pub fn area_squaremeters_linearring(ring: &LineString<f64>) -> f64 {
 /// calculate the approximate area of the given rect (wgs84 coordinates) in square meters
 pub fn area_squaremeters_rect(bounds: &Rect<f64>) -> f64 {
     let ring = LineString::from(vec![
-        Coordinate {
+        Coord {
             x: bounds.min().x,
             y: bounds.min().y,
         },
-        Coordinate {
+        Coord {
             x: bounds.min().x,
             y: bounds.max().y,
         },
-        Coordinate {
+        Coord {
             x: bounds.max().x,
             y: bounds.max().y,
         },
-        Coordinate {
+        Coord {
             x: bounds.max().x,
             y: bounds.min().y,
         },
-        Coordinate {
+        Coord {
             x: bounds.min().x,
             y: bounds.min().y,
         },

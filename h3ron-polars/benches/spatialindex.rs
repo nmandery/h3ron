@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, Criterion};
-use geo_types::{Coordinate, Rect};
+use geo_types::{Coord, Rect};
 use polars_core::prelude::UInt64Chunked;
 
 use h3ron::H3Cell;
@@ -42,7 +42,7 @@ where
 
 fn build_inputs() -> (UInt64Chunked, Rect) {
     let disk = UInt64Chunked::from_index_iter(
-        H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 8)
+        H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 8)
             .unwrap()
             .grid_disk(100)
             .unwrap()

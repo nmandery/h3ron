@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use geo::bounding_rect::BoundingRect;
 use geo::concave_hull::ConcaveHull;
-use geo_types::{Coordinate, MultiPoint, MultiPolygon, Point, Polygon, Rect};
+use geo_types::{Coord, MultiPoint, MultiPolygon, Point, Polygon, Rect};
 use num_traits::Zero;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -414,7 +414,7 @@ impl<W> BoundingRect<f64> for PreparedH3EdgeGraph<W> {
         for (cell, _) in iter {
             if let Ok(coord) = cell.to_coordinate() {
                 rect = Rect::new(
-                    Coordinate {
+                    Coord {
                         x: if coord.x < rect.min().x {
                             coord.x
                         } else {
@@ -426,7 +426,7 @@ impl<W> BoundingRect<f64> for PreparedH3EdgeGraph<W> {
                             rect.min().y
                         },
                     },
-                    Coordinate {
+                    Coord {
                         x: if coord.x > rect.max().x {
                             coord.x
                         } else {
@@ -449,17 +449,14 @@ impl<W> BoundingRect<f64> for PreparedH3EdgeGraph<W> {
 mod tests {
     use std::convert::TryInto;
 
-    use geo_types::{Coordinate, LineString};
+    use geo_types::{Coord, LineString};
 
     use crate::graph::{H3EdgeGraph, PreparedH3EdgeGraph};
 
     fn build_line_prepared_graph() -> PreparedH3EdgeGraph<u32> {
         let full_h3_res = 8;
         let cells: Vec<_> = h3ron::line(
-            &LineString::from(vec![
-                Coordinate::from((23.3, 12.3)),
-                Coordinate::from((24.2, 12.2)),
-            ]),
+            &LineString::from(vec![Coord::from((23.3, 12.3)), Coord::from((24.2, 12.2))]),
             full_h3_res,
         )
         .unwrap()

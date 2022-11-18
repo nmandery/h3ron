@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use geo_types::Coordinate;
+use geo_types::Coord;
 
 use h3ron::collections::{H3CellMap, H3Treemap, RandomState};
 use h3ron::H3Cell;
 
 fn criterion_benchmark(c: &mut Criterion) {
-    let cells = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 10)
+    let cells = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 10)
         .unwrap()
         .grid_disk(1000)
         .unwrap()
