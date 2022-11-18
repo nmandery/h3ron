@@ -1,6 +1,6 @@
 use std::ops::Mul;
 
-use geo_types::{Coordinate, Rect};
+use geo_types::{Coord, Rect};
 
 use crate::error::Error;
 
@@ -97,8 +97,8 @@ impl Transform {
     }
 
     /// Apply the transformation to a coordinate
-    pub fn transform_coordinate(&self, coordinate: &Coordinate<f64>) -> Coordinate<f64> {
-        Coordinate {
+    pub fn transform_coordinate(&self, coordinate: &Coord<f64>) -> Coord<f64> {
+        Coord {
             x: coordinate.x.mul_add(self.a, coordinate.y * self.b) + self.c,
             y: coordinate.x.mul_add(self.d, coordinate.y * self.e) + self.f,
         }
@@ -106,19 +106,19 @@ impl Transform {
 }
 
 /// apply the transformation to a coordinate
-impl Mul<&Coordinate<f64>> for &Transform {
-    type Output = Coordinate<f64>;
+impl Mul<&Coord<f64>> for &Transform {
+    type Output = Coord<f64>;
 
-    fn mul(self, rhs: &Coordinate<f64>) -> Self::Output {
+    fn mul(self, rhs: &Coord<f64>) -> Self::Output {
         self.transform_coordinate(rhs)
     }
 }
 
 /// apply the transformation to a coordinate
-impl Mul<Coordinate<f64>> for &Transform {
-    type Output = Coordinate<f64>;
+impl Mul<Coord<f64>> for &Transform {
+    type Output = Coord<f64>;
 
-    fn mul(self, rhs: Coordinate<f64>) -> Self::Output {
+    fn mul(self, rhs: Coord<f64>) -> Self::Output {
         self.transform_coordinate(&rhs)
     }
 }
@@ -172,13 +172,13 @@ mod tests {
       NoData Value=0
      */
 
-    use geo_types::Coordinate;
+    use geo_types::Coord;
 
     use crate::transform::Transform;
 
     fn r_tiff_test_helper(gt: &Transform) {
         // upper left pixel
-        let px_ul = Coordinate { x: 0., y: 0. };
+        let px_ul = Coord { x: 0., y: 0. };
 
         let coord_ul = gt * px_ul;
         assert_relative_eq!(coord_ul.x, 8.11377);

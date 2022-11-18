@@ -4,7 +4,7 @@ use std::io::BufReader;
 use std::ops::Add;
 use std::path::Path;
 
-use geo_types::{Coordinate, LineString};
+use geo_types::{Coord, LineString};
 pub use osmpbfreader;
 use osmpbfreader::{OsmPbfReader, Tags};
 
@@ -72,7 +72,7 @@ where
             let obj = obj_result?;
             match obj {
                 osmpbfreader::OsmObj::Node(node) => {
-                    let coordinate = Coordinate {
+                    let coordinate = Coord {
                         x: node.lon(),
                         y: node.lat(),
                     };

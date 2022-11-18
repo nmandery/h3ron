@@ -145,7 +145,7 @@ where
 mod tests {
     use std::iter::once;
 
-    use geo_types::Coordinate;
+    use geo_types::Coord;
 
     use crate::iter::change_resolution;
     use crate::iter::resolution::change_resolution_tuple;
@@ -154,7 +154,7 @@ mod tests {
 
     #[test]
     fn test_change_h3_resolution_same_res() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 6).unwrap();
         let changed = change_resolution(once(cell), 6)
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_change_h3_resolution_lower_res() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 6).unwrap();
         let changed = change_resolution(once(cell), 5)
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
@@ -174,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_change_h3_resolution_higher_res() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 6).unwrap();
         let changed = change_resolution(once(cell), 7)
             .collect::<Result<Vec<_>, _>>()
             .unwrap();
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_change_h3_resolution_higher_res_tuple() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((12.3, 45.4)), 6).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((12.3, 45.4)), 6).unwrap();
         let changed = change_resolution_tuple(once(cell), 7)
             .collect::<Result<Vec<_>, _>>()
             .unwrap();

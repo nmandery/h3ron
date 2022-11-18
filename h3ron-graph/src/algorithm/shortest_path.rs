@@ -417,7 +417,7 @@ where
 mod tests {
     use std::convert::TryInto;
 
-    use geo_types::Coordinate;
+    use geo_types::Coord;
 
     use h3ron::H3Cell;
 
@@ -427,7 +427,7 @@ mod tests {
     #[test]
     fn test_shortest_path_same_origin_and_destination() {
         let res = 8;
-        let origin = H3Cell::from_coordinate(Coordinate::from((23.3, 12.3)), res).unwrap();
+        let origin = H3Cell::from_coordinate(Coord::from((23.3, 12.3)), res).unwrap();
         let edge = origin.directed_edges().unwrap().first().unwrap();
         let destination = edge.destination_cell().unwrap();
 

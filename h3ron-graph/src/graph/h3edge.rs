@@ -270,7 +270,7 @@ where
 mod tests {
     use std::cmp::min;
 
-    use geo_types::{Coordinate, LineString};
+    use geo_types::{Coord, LineString};
 
     use h3ron::H3Cell;
 
@@ -280,10 +280,7 @@ mod tests {
     fn test_downsample() {
         let full_h3_res = 8;
         let cells: Vec<_> = h3ron::line(
-            &LineString::from(vec![
-                Coordinate::from((23.3, 12.3)),
-                Coordinate::from((24.2, 12.2)),
-            ]),
+            &LineString::from(vec![Coord::from((23.3, 12.3)), Coord::from((24.2, 12.2))]),
             full_h3_res,
         )
         .unwrap()
@@ -304,7 +301,7 @@ mod tests {
     #[test]
     fn test_graph_nodes() {
         let res = 8;
-        let origin = H3Cell::from_coordinate(Coordinate::from((23.3, 12.3)), res).unwrap();
+        let origin = H3Cell::from_coordinate(Coord::from((23.3, 12.3)), res).unwrap();
         let edges: Vec<_> = origin
             .directed_edges()
             .unwrap()

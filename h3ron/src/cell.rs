@@ -3,7 +3,7 @@ use std::ops::Deref;
 use std::os::raw::c_int;
 use std::str::FromStr;
 
-use geo_types::{Coordinate, Point, Polygon};
+use geo_types::{Coord, Point, Polygon};
 #[cfg(feature = "use-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -75,7 +75,7 @@ impl H3Cell {
     ///
     /// # Returns
     /// If the built index is invalid, returns an Error.
-    pub fn from_coordinate(c: Coordinate<f64>, h3_resolution: u8) -> Result<Self, Error> {
+    pub fn from_coordinate(c: Coord<f64>, h3_resolution: u8) -> Result<Self, Error> {
         let lat_lng = h3ron_h3_sys::LatLng::from(c);
         let mut cell_h3index: H3Index = 0;
         Error::check_returncode(unsafe {
@@ -400,7 +400,7 @@ impl FromStr for H3Cell {
 
 #[cfg(feature = "parse")]
 mod parse {
-    use geo_types::Coordinate;
+    use geo_types::Coord;
     use nom::branch::alt;
     use nom::bytes::complete::{tag, take_while, take_while_m_n};
     use nom::combinator::map_res;
@@ -422,7 +422,7 @@ mod parse {
         })(s)
     }
 
-    pub(crate) fn parse_coordinate_and_resolution(s: &str) -> IResult<&str, (Coordinate, u8)> {
+    pub(crate) fn parse_coordinate_and_resolution(s: &str) -> IResult<&str, (Coord, u8)> {
         let (s, _) = take_while(is_whitespace)(s)?;
         let (s, x) = double(s)?;
         let (s, _) = take_while(is_whitespace)(s)?;
@@ -433,7 +433,7 @@ mod parse {
         let (s, _) = seperator(s)?;
         let (s, _) = take_while(is_whitespace)(s)?;
         let (s, r) = u8_str(s)?;
-        Ok((s, (Coordinate::from((x, y)), r as u8)))
+        Ok((s, (Coord::from((x, y)), r as u8)))
     }
 }
 
@@ -452,7 +452,7 @@ impl ToCoordinate for H3Cell {
     type Error = Error;
 
     /// the centroid coordinate of the h3 index
-    fn to_coordinate(&self) -> Result<Coordinate<f64>, Self::Error> {
+    fn to_coordinate(&self) -> Result<Coord<f64>, Self::Error> {
         let mut ll = h3ron_h3_sys::LatLng { lat: 0.0, lng: 0.0 };
         Error::check_returncode(unsafe { h3ron_h3_sys::cellToLatLng(self.0, &mut ll) })
             .map(|_| ll.into())

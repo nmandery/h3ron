@@ -2,7 +2,7 @@ use crate::collections::H3CellMap;
 use std::os::raw::c_int;
 
 use geo::algorithm::euclidean_distance::EuclideanDistance;
-use geo_types::{Coordinate, Line, LineString, MultiLineString, Point, Polygon};
+use geo_types::{Coord, Line, LineString, MultiLineString, Point, Polygon};
 
 use h3ron_h3_sys::H3Index;
 
@@ -20,7 +20,7 @@ pub trait ToPolygon {
 pub trait ToCoordinate {
     type Error;
 
-    fn to_coordinate(&self) -> Result<Coordinate<f64>, Self::Error>;
+    fn to_coordinate(&self) -> Result<Coord<f64>, Self::Error>;
 }
 
 pub trait ToLine {
@@ -245,13 +245,13 @@ pub fn to_linked_polygons(cells: &[H3Cell], smoothen: bool) -> Result<Vec<Polygo
 
 #[cfg(test)]
 mod tests {
-    use geo_types::Coordinate;
+    use geo_types::Coord;
 
     use crate::{H3Cell, ToLinkedPolygons};
 
     #[test]
     fn donut_linked_polygon() {
-        let ring = H3Cell::from_coordinate(Coordinate::from((23.3, 12.3)), 6)
+        let ring = H3Cell::from_coordinate(Coord::from((23.3, 12.3)), 6)
             .unwrap()
             .grid_ring_unsafe(1)
             .unwrap();

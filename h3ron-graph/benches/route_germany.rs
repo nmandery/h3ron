@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::BufReader;
 
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use geo_types::Coordinate;
+use geo_types::Coord;
 use ordered_float::OrderedFloat;
 
 use h3ron::{H3Cell, HasH3Resolution};
@@ -26,19 +26,19 @@ fn load_bench_graph() -> PreparedH3EdgeGraph<OrderedFloat<f64>> {
 
 fn route_across_germany(routing_graph: &PreparedH3EdgeGraph<OrderedFloat<f64>>) {
     let origin_cell = H3Cell::from_coordinate(
-        Coordinate::from((9.834909439086914, 47.68708804564653)), // Wangen im Allgäu
+        Coord::from((9.834909439086914, 47.68708804564653)), // Wangen im Allgäu
         routing_graph.h3_resolution(),
     )
     .unwrap();
 
     let destination_cells = vec![
         H3Cell::from_coordinate(
-            Coordinate::from((7.20600128173828, 53.3689915114596)), // Emden
+            Coord::from((7.20600128173828, 53.3689915114596)), // Emden
             routing_graph.h3_resolution(),
         )
         .unwrap(),
         H3Cell::from_coordinate(
-            Coordinate::from((13.092269897460938, 54.3153216473314)), // Stralsund
+            Coord::from((13.092269897460938, 54.3153216473314)), // Stralsund
             routing_graph.h3_resolution(),
         )
         .unwrap(),

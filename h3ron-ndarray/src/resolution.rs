@@ -1,4 +1,4 @@
-use geo_types::{Coordinate, Rect};
+use geo_types::{Coord, Rect};
 
 use h3ron::{H3Cell, ToPolygon, H3_MAX_RESOLUTION, H3_MIN_RESOLUTION};
 
@@ -33,9 +33,9 @@ pub fn nearest_h3_resolution(
         return Err(Error::EmptyArray);
     }
     let bbox_array = Rect::new(
-        transform * Coordinate::from((0.0_f64, 0.0_f64)),
+        transform * Coord::from((0.0_f64, 0.0_f64)),
         transform
-            * Coordinate::from((
+            * Coord::from((
                 (shape[axis_order.x_axis()] - 1) as f64,
                 (shape[axis_order.y_axis()] - 1) as f64,
             )),

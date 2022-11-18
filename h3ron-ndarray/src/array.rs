@@ -1,7 +1,7 @@
 use std::cmp::{max, min};
 use std::hash::Hash;
 
-use geo_types::{Coordinate, Rect};
+use geo_types::{Coord, Rect};
 use log::debug;
 use ndarray::{ArrayView2, Axis};
 use rayon::prelude::*;
@@ -109,11 +109,11 @@ where
                         .into_iter()
                         .map(move |chunks_x_indexes| {
                             Rect::new(
-                                Coordinate {
+                                Coord {
                                     x: chunks_x_indexes.0 + chunk_x_raw_indexes.0,
                                     y: chunks_y_raw_indexes.0,
                                 },
-                                Coordinate {
+                                Coord {
                                     x: chunks_x_indexes.1 + chunk_x_raw_indexes.0,
                                     y: chunks_y_raw_indexes.1,
                                 },
@@ -191,12 +191,12 @@ where
 
                                 // the window in array coordinates
                                 Rect::new(
-                                    Coordinate {
+                                    Coord {
                                         x: offset_x as f64,
                                         y: offset_y as f64,
                                     },
                                     // add 1 to the max coordinate to include the whole last pixel
-                                    Coordinate {
+                                    Coord {
                                         x: (offset_x
                                             + axis_y_chunk.shape()[self.axis_order.x_axis()]
                                             + 1) as f64,
@@ -222,11 +222,11 @@ where
             .flat_map(move |r_x| {
                 (0..((y_size as f64 / rect_size as f64).ceil() as usize)).map(move |r_y| {
                     Rect::new(
-                        Coordinate {
+                        Coord {
                             x: (r_x * rect_size) as f64,
                             y: (r_y * rect_size) as f64,
                         },
-                        Coordinate {
+                        Coord {
                             x: (min(x_size, (r_x + 1) * rect_size)) as f64,
                             y: (min(y_size, (r_y + 1) * rect_size)) as f64,
                         },

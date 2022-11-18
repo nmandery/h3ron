@@ -141,21 +141,21 @@ where
 
 #[cfg(test)]
 mod tests {
-    use geo_types::{Coordinate, Geometry, Line};
+    use geo_types::{Coord, Geometry, Line};
 
     use crate::iter::{continuous_cells_to_edges, H3DirectedEdgesBuilder};
     use crate::{H3Cell, ToH3Cells};
 
     #[test]
     fn from_origin_cell() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((34.2, 30.5)), 7).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((34.2, 30.5)), 7).unwrap();
         let mut edge_builder = H3DirectedEdgesBuilder::new();
         assert_eq!(edge_builder.from_origin_cell(&cell).unwrap().count(), 6);
     }
 
     #[test]
     fn following_edges_leading_from_destination() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((34.2, 30.5)), 7).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((34.2, 30.5)), 7).unwrap();
         let mut edge_builder = H3DirectedEdgesBuilder::new();
         let edge = edge_builder
             .from_origin_cell(&cell)
@@ -180,7 +180,7 @@ mod tests {
 
     #[test]
     fn previous_edges_leading_to_origin() {
-        let cell = H3Cell::from_coordinate(Coordinate::from((34.2, 30.5)), 7).unwrap();
+        let cell = H3Cell::from_coordinate(Coord::from((34.2, 30.5)), 7).unwrap();
         let mut edge_builder = H3DirectedEdgesBuilder::new();
         let edge = edge_builder
             .from_origin_cell(&cell)
