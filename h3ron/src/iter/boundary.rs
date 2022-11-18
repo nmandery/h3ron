@@ -93,7 +93,7 @@ impl<'b> Iterator for CellBoundaryIter<'b> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = self.num_verts() + if self.close_ring { 1 } else { 0 };
+        let len = self.num_verts() + usize::from(self.close_ring);
         (len.saturating_sub(self.pos), None)
     }
 }

@@ -1,6 +1,6 @@
 use gdal::spatial_ref::SpatialRef;
 use gdal::vector::{Defn, Feature, FieldDefn, Layer, OGRFieldType, OGRwkbGeometryType, ToGdal};
-use gdal::{Driver, LayerOptions};
+use gdal::{DriverManager, LayerOptions};
 use geo_types::LineString;
 use ordered_float::OrderedFloat;
 
@@ -122,7 +122,7 @@ where
         output_name: S,
         layer_name: S,
     ) -> Result<(), Error> {
-        let drv = Driver::get_by_name(driver_name.as_ref())?;
+        let drv = DriverManager::get_driver_by_name(driver_name.as_ref())?;
         let mut ds = drv.create_vector_only(output_name.as_ref())?;
 
         let lyr = ds.create_layer(LayerOptions {
