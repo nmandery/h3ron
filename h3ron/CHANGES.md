@@ -10,6 +10,8 @@ done without github actions and without having to coordinate the release process
 python extension.
 
 ## h3ron Unreleased
+### Changed
+* Upgrade hashbrown to 0.13
 
 ## h3ron 0.16.0 - 2022-10-25
 
