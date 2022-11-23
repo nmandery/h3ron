@@ -12,7 +12,7 @@ python extension.
 
 ## h3ron-h3-sys Unreleased
 ### Changed
-* Upgrade `bindgen` from 0.61 to 0.62 and rebuild the prebuild bindings.
+* Upgrade `bindgen` from 0.61 to 0.63 and rebuild the prebuild bindings.
 
 ## h3ron-h3-sys 0.15.2 - 2022-10-25
 ### Changed
