@@ -28,7 +28,7 @@ features = ["use-rayon"]
 
 [dev-dependencies]
 approx = "^0.5"
-env_logger = "^0.9"
+env_logger = "^0.10"
 ordered-float = "3"
 
 [dev-dependencies.criterion]
