@@ -15,9 +15,10 @@ all-features = true
 
 [features]
 use-rayon = ["hashbrown/rayon"]
-use-serde = ["serde", "hashbrown/serde"]
+use-serde = ["dep:serde", "hashbrown/serde"]
 bindgen = ["h3ron-h3-sys/bindgen"]
-parse = ["nom"]
+parse = ["dep:nom"]
+indexmap = ["dep:indexmap"]
 
 [dependencies]
 geo = "^0.23"
