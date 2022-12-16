@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::hash::Hash;
 
 use geo_types::{Coord, Rect};
@@ -250,10 +250,7 @@ where
     ) -> Result<HashMap<&'a T, CompactedCellVec>, Error> {
         let inverse_transform = self.transform.invert()?;
 
-        let rect_size = min(
-            max(self.arr.shape()[self.axis_order.x_axis()] / 10, 10),
-            100,
-        );
+        let rect_size = (self.arr.shape()[self.axis_order.x_axis()] / 10).clamp(10, 100);
         let rects = self.rects_with_data(rect_size);
         let n_rects = rects.len();
         debug!(

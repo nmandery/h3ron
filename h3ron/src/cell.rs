@@ -433,7 +433,7 @@ mod parse {
         let (s, _) = seperator(s)?;
         let (s, _) = take_while(is_whitespace)(s)?;
         let (s, r) = u8_str(s)?;
-        Ok((s, (Coord::from((x, y)), r as u8)))
+        Ok((s, (Coord::from((x, y)), r)))
     }
 }
 

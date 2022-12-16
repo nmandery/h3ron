@@ -116,16 +116,16 @@ mod tests {
             vec![
                 H3Cell::from_coordinate((45.6, -45.8).into(), 7)
                     .unwrap()
-                    .h3index() as u64,
+                    .h3index(),
                 H3Cell::from_coordinate((45.6, -10.2).into(), 8)
                     .unwrap()
-                    .h3index() as u64,
+                    .h3index(),
                 H3Cell::from_coordinate((45.6, 50.2).into(), 8)
                     .unwrap()
-                    .h3index() as u64,
+                    .h3index(),
                 H3Cell::from_coordinate((-23.1, -60.5).into(), 5)
                     .unwrap()
-                    .h3index() as u64,
+                    .h3index(),
             ],
         );
         let value_series = Series::new("value", &(0u32..(series.len() as u32)).collect::<Vec<_>>());

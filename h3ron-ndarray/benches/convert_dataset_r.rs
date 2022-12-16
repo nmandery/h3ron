@@ -8,7 +8,7 @@ use h3ron_ndarray::AxisOrder;
 
 fn load_r_dataset() -> (Array2<u8>, Transform) {
     let filename = format!("{}/../data/r.tiff", env!("CARGO_MANIFEST_DIR"));
-    let dataset = Dataset::open(&filename).unwrap();
+    let dataset = Dataset::open(filename).unwrap();
     let transform = Transform::from_gdal(&dataset.geo_transform().unwrap());
     let band = dataset.rasterband(1).unwrap();
     let band_array = band
