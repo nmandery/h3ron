@@ -1,7 +1,7 @@
 use crate::frame::H3DataFrame;
 use crate::{AsH3IndexChunked, Error, IndexValue};
 use polars::export::arrow::array::BooleanArray;
-use polars::prelude::{ArrowDataType, BooleanChunked, DataFrame};
+use polars::prelude::{BooleanChunked, DataFrame, FromData};
 
 pub trait FilterH3IsValid {
     fn filter_h3_is_valid<IX, S>(&self, index_column_name: S) -> Result<Self, Error>
@@ -41,8 +41,7 @@ impl FilterH3IsValid for DataFrame {
             .column(index_column_name.as_ref())?
             .u64()?
             .h3indexchunked::<IX>();
-        let ba =
-            BooleanArray::from_data(ArrowDataType::Boolean, indexchunked.validity_bitmap(), None);
+        let ba = BooleanArray::from_data_default(indexchunked.validity_bitmap(), None);
 
         Ok(self.filter(&BooleanChunked::from(ba))?)
     }

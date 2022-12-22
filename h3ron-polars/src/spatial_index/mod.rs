@@ -34,8 +34,8 @@ use h3ron::to_geo::ToLine;
 use h3ron::{H3Cell, H3DirectedEdge, ToCoordinate, ToPolygon};
 use polars::export::arrow::array::BooleanArray;
 use polars::export::arrow::bitmap::{Bitmap, MutableBitmap};
-use polars::prelude::{ArrowDataType, BooleanChunked};
-use polars_core::prelude::{TakeRandom, UInt64Chunked};
+use polars::prelude::BooleanChunked;
+use polars_core::prelude::{FromData, TakeRandom, UInt64Chunked};
 
 #[cfg(feature = "si_kdtree")]
 pub use crate::spatial_index::kdtree::*;
@@ -181,7 +181,7 @@ pub(crate) fn negative_mask(ca: &UInt64Chunked) -> MutableBitmap {
 
 pub(crate) fn finish_mask<IX: IndexValue>(mask: Bitmap, ic: &IndexChunked<IX>) -> BooleanChunked {
     let validites = ic.validity_bitmap();
-    let bool_arr = BooleanArray::from_data(ArrowDataType::Boolean, mask, Some(validites));
+    let bool_arr = BooleanArray::from_data_default(mask, Some(validites));
     BooleanChunked::from(bool_arr)
 }
 
