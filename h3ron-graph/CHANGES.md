@@ -11,7 +11,7 @@ python extension.
 
 ## h3ron-graph Unreleased
 ### Changed
-* Upgrade `gdal` from 0.13 to 0.14.
+* Removed `io_gdal` feature and GDAL dependency.
 
 ## h3ron-graph 0.5.0 - 2022-10-25
 ### Changed
