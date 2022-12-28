@@ -19,8 +19,14 @@ pub use to_geo::{
     to_linked_polygons, ToAlignedLinkedPolygons, ToCoordinate, ToLinkedPolygons, ToPolygon,
 };
 pub use {
-    cell::H3Cell, directed_edge::H3DirectedEdge, direction::H3Direction, error::Error,
-    index::HasH3Resolution, index::Index, localij::CoordIj, to_h3::ToH3Cells,
+    cell::H3Cell,
+    directed_edge::H3DirectedEdge,
+    direction::H3Direction,
+    error::Error,
+    index::HasH3Resolution,
+    index::Index,
+    localij::CoordIj,
+    to_h3::{ToH3Cells, ToIntersectingH3Cells},
 };
 
 use crate::collections::indexvec::IndexVec;
