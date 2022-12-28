@@ -5,13 +5,15 @@ use geo_types::{
 
 use crate::collections::indexvec::IndexVec;
 use crate::error::check_valid_h3_resolution;
-use crate::{line, Error, H3Cell, Index};
+use crate::{line, Error, H3Cell, Index, ToPolygon};
 use h3ron_h3_sys::{GeoLoop, GeoPolygon, LatLng};
 use std::os::raw::c_int;
 
+use crate::collections::HashSet;
+use geo::Intersects;
 use std::convert::TryInto;
 
-/// convert to indexes at the given resolution
+/// convert the geometry to cells at the given resolution
 ///
 /// The output vec may contain duplicate indexes in case of
 /// overlapping input geometries.
@@ -121,6 +123,57 @@ impl ToH3Cells for Geometry<f64> {
             Geometry::Rect(r) => r.to_h3_cells(h3_resolution),
             Geometry::Triangle(tr) => tr.to_h3_cells(h3_resolution),
         }
+    }
+}
+
+/// Convert the geometry to cells at the given resolution
+///
+/// In contrary to [`ToH3Cells`] this not only contains the cells whose
+/// centroid is located within the `self` (in case of polygons), but also the cells which only
+/// intersect with `self`.
+///
+/// The output vec may contain duplicate indexes in case of overlapping input geometries.
+pub trait ToIntersectingH3Cells {
+    fn to_intersecting_h3_cells(&self, h3_resolution: u8) -> Result<Vec<H3Cell>, Error>;
+}
+
+impl ToIntersectingH3Cells for Polygon<f64> {
+    fn to_intersecting_h3_cells(&self, h3_resolution: u8) -> Result<Vec<H3Cell>, Error> {
+        // just a pretty simplistic implementation for now
+
+        let mut ring_cells: Vec<_> = self.exterior().to_h3_cells(h3_resolution)?.iter().collect();
+        for interior_ring in self.interiors() {
+            ring_cells.extend(interior_ring.to_h3_cells(h3_resolution)?.iter());
+        }
+        ring_cells.sort_unstable();
+        ring_cells.dedup();
+
+        let mut cells: HashSet<_> = self.to_h3_cells(h3_resolution)?.iter().collect();
+
+        for ring_cell in ring_cells {
+            for disk_cell in ring_cell.grid_disk(1)?.iter() {
+                if !cells.contains(&disk_cell) {
+                    let disc_cell_poly = disk_cell.to_polygon()?;
+                    if self.intersects(&disc_cell_poly) {
+                        cells.insert(disk_cell);
+                    }
+                }
+            }
+        }
+        Ok(cells.into_iter().collect())
+    }
+}
+
+impl ToIntersectingH3Cells for MultiPolygon<f64> {
+    fn to_intersecting_h3_cells(&self, h3_resolution: u8) -> Result<Vec<H3Cell>, Error> {
+        self.0.iter().try_fold(vec![], |mut acc, polygon| {
+            polygon
+                .to_intersecting_h3_cells(h3_resolution)
+                .map(|mut cells| {
+                    acc.append(&mut cells);
+                    acc
+                })
+        })
     }
 }
 
