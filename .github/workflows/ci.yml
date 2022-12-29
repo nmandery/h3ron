@@ -34,39 +34,25 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
 
       - name: Install latest stable
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          override: true
           components: rustfmt, clippy
 
       - name: Lint with rustfmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
+        run: cargo fmt
 
       - name: Lint with clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --all-targets --all-features
+        run: cargo clippy --all-targets --all-features
         if: matrix.os == 'ubuntu-latest'
 
       - name: Test with cargo
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          toolchain: stable
-          args: --workspace --all-features --all-targets
+        run: cargo test --workspace --all-features --all-targets
         if: matrix.os == 'ubuntu-latest'
 
       - name: Test with cargo
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          toolchain: stable
-          # no gdal available
-          args: --workspace --exclude "h3ron-ndarray"
+        # no gdal available
+        run: cargo test --workspace --exclude "h3ron-ndarray"
         if: matrix.os != 'ubuntu-latest'
 
 #
@@ -77,10 +63,11 @@ jobs:
 #    steps:
 #      - uses: actions/checkout@v1
 #
-#      - uses: actions-rs/toolchain@v1
+#      - name: Install latest stable
+#        uses: dtolnay/rust-toolchain@master
 #        with:
 #          toolchain: stable
-#          override: true
+#          components: rustfmt, clippy
 #
 #      - name: Pull git submodules
 #        run: |
