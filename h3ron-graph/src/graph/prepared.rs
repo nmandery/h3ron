@@ -23,7 +23,7 @@ use crate::graph::{
 };
 
 #[derive(Serialize, Deserialize, Clone)]
-struct OwnedEdgeValue<W> {
+struct OwnedEdgeWeight<W> {
     pub weight: W,
 
     /// the longedge is a shortcut which includes many consequent edges while
@@ -35,11 +35,11 @@ struct OwnedEdgeValue<W> {
     pub longedge: Option<Box<(LongEdge, W)>>,
 }
 
-impl<'a, W> From<&'a OwnedEdgeValue<W>> for EdgeWeight<'a, W>
+impl<'a, W> From<&'a OwnedEdgeWeight<W>> for EdgeWeight<'a, W>
 where
     W: Copy,
 {
-    fn from(owned_edge_value: &'a OwnedEdgeValue<W>) -> Self {
+    fn from(owned_edge_value: &'a OwnedEdgeWeight<W>) -> Self {
         EdgeWeight {
             weight: owned_edge_value.weight,
             longedge: owned_edge_value
@@ -50,7 +50,7 @@ where
     }
 }
 
-type OwnedEdgeTuple<W> = (H3DirectedEdge, OwnedEdgeValue<W>);
+type OwnedEdgeTuple<W> = (H3DirectedEdge, OwnedEdgeWeight<W>);
 
 /// A smallvec with an array length of 2 allows storing the - probably - most common
 /// number of edges on the heap
@@ -252,7 +252,7 @@ fn assemble_edge_with_longedge<W>(
 where
     W: PartialOrd + PartialEq + Add<Output = W> + Copy,
 {
-    let mut graph_entry = OwnedEdgeValue {
+    let mut graph_entry = OwnedEdgeWeight {
         weight: *weight,
         longedge: None,
     };
