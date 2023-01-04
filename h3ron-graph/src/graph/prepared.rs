@@ -141,6 +141,78 @@ where
     }
 }
 
+impl<W> PreparedH3EdgeGraph<W>
+where
+    W: Copy + Send + Sync,
+{
+    pub fn try_from_iter<I>(iter: I) -> Result<Self, Error>
+    where
+        I: Iterator<Item = (H3DirectedEdge, W, Option<(Vec<H3DirectedEdge>, W)>)>,
+    {
+        let mut h3_resolution = None;
+        let mut outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>> = Default::default();
+        let mut graph_nodes: HashMap<H3Cell, NodeType> = Default::default();
+
+        for (edge, edge_weight, longedge_components) in iter {
+            let edge_cells = edge.cells()?;
+
+            // ensure no mixed h3 resolutions
+            if let Some(h3_resolution) = h3_resolution {
+                if h3_resolution != edge_cells.origin.h3_resolution() {
+                    return Err(Error::MixedH3Resolutions(
+                        h3_resolution,
+                        edge_cells.origin.h3_resolution(),
+                    ));
+                }
+            } else {
+                h3_resolution = Some(edge_cells.origin.h3_resolution());
+            }
+
+            graph_nodes
+                .entry(edge_cells.origin)
+                .and_modify(|nt| *nt += NodeType::Origin)
+                .or_insert(NodeType::Origin);
+            graph_nodes
+                .entry(edge_cells.destination)
+                .and_modify(|nt| *nt += NodeType::Destination)
+                .or_insert(NodeType::Destination);
+
+            let edge_with_weight = (
+                edge,
+                OwnedEdgeWeight {
+                    weight: edge_weight,
+                    longedge: match longedge_components {
+                        Some((le_edges, le_weight)) => {
+                            Some(Box::new((LongEdge::try_from(le_edges)?, le_weight)))
+                        }
+                        None => None,
+                    },
+                },
+            );
+            match outgoing_edges.entry(edge_cells.origin) {
+                Entry::Occupied(mut occ) => {
+                    occ.get_mut().push(edge_with_weight);
+                }
+                Entry::Vacant(vac) => {
+                    vac.insert(smallvec![edge_with_weight]);
+                }
+            }
+        }
+
+        remove_duplicated_edges(&mut outgoing_edges);
+
+        if let Some(h3_resolution) = h3_resolution {
+            Ok(Self {
+                outgoing_edges,
+                h3_resolution,
+                graph_nodes,
+            })
+        } else {
+            Err(Error::InsufficientNumberOfEdges)
+        }
+    }
+}
+
 impl<W> HasH3Resolution for PreparedH3EdgeGraph<W> {
     fn h3_resolution(&self) -> u8 {
         self.h3_resolution
@@ -231,15 +303,23 @@ where
         }
     }
 
-    // remove duplicates if there are any. Ignores any differences in weights
+    remove_duplicated_edges(&mut outgoing_edges);
+
+    Ok(outgoing_edges)
+}
+
+/// remove duplicates if there are any. Ignores any differences in weights
+fn remove_duplicated_edges<W>(outgoing_edges: &mut HashMap<H3Cell, OwnedEdgeTupleList<W>>)
+where
+    W: Send + Sync,
+{
     outgoing_edges
         .par_iter_mut()
         .for_each(|(_cell, edges_with_weights)| {
             edges_with_weights.sort_unstable_by_key(|eww| eww.0);
             edges_with_weights.dedup_by(|a, b| a.0 == b.0);
+            edges_with_weights.shrink_to_fit();
         });
-
-    Ok(outgoing_edges)
 }
 
 fn assemble_edge_with_longedge<W>(
