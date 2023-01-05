@@ -141,13 +141,16 @@ where
     }
 }
 
+/// Iterator item type to build [`PreparedH3EdgeGraph`] from
+pub type FromIterItem<W> = (H3DirectedEdge, W, Option<(Vec<H3DirectedEdge>, W)>);
+
 impl<W> PreparedH3EdgeGraph<W>
 where
     W: Copy + Send + Sync,
 {
     pub fn try_from_iter<I>(iter: I) -> Result<Self, Error>
     where
-        I: Iterator<Item = (H3DirectedEdge, W, Option<(Vec<H3DirectedEdge>, W)>)>,
+        I: Iterator<Item = FromIterItem<W>>,
     {
         let mut h3_resolution = None;
         let mut outgoing_edges: HashMap<H3Cell, OwnedEdgeTupleList<W>> = Default::default();
