@@ -3,6 +3,7 @@
 ## h3ron-polars Unreleased
 
 * Upgrade polars to v0.26
+* Relocate code to functions with less generic parameters. [#69](https://github.com/nmandery/h3ron/pull/69)
 
 ## h3ron-polars 0.2.0 - 2022-10-28
 

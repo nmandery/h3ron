@@ -36,55 +36,62 @@ impl H3CompactDataframe for DataFrame {
     where
         S: AsRef<str>,
     {
-        let group_by_columns = self
-            .fields()
-            .iter()
-            .filter_map(|field| {
-                if field.name() != cell_column_name.as_ref() {
-                    Some(col(field.name()))
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        compact_df(self, cell_column_name.as_ref(), return_exploded)
+    }
+}
 
-        if group_by_columns.is_empty() {
-            let cellchunked = self.column(cell_column_name.as_ref())?.u64()?.h3cell();
-            let compacted_series =
-                Series::new(cell_column_name.as_ref(), cellchunked.h3_compact_cells()?);
-
-            if return_exploded {
-                Ok(DataFrame::new(vec![compacted_series])?)
+fn compact_df(
+    df: DataFrame,
+    cell_column_name: &str,
+    return_exploded: bool,
+) -> Result<DataFrame, Error> {
+    let group_by_columns = df
+        .fields()
+        .iter()
+        .filter_map(|field| {
+            if field.name() != cell_column_name {
+                Some(col(field.name()))
             } else {
-                Ok(DataFrame::new(vec![Series::new(
-                    cell_column_name.as_ref(),
-                    vec![compacted_series],
-                )])?)
+                None
             }
+        })
+        .collect::<Vec<_>>();
+
+    if group_by_columns.is_empty() {
+        let cellchunked = df.column(cell_column_name)?.u64()?.h3cell();
+        let compacted_series = Series::new(cell_column_name, cellchunked.h3_compact_cells()?);
+
+        if return_exploded {
+            Ok(DataFrame::new(vec![compacted_series])?)
         } else {
-            let grouped = self
-                .lazy()
-                .groupby(&group_by_columns)
-                .agg(&[col(cell_column_name.as_ref()).list()])
-                .collect()?;
+            Ok(DataFrame::new(vec![Series::new(
+                cell_column_name,
+                vec![compacted_series],
+            )])?)
+        }
+    } else {
+        let grouped = df
+            .lazy()
+            .groupby(&group_by_columns)
+            .agg(&[col(cell_column_name).list()])
+            .collect()?;
 
-            let listchunked_cells = grouped.column(cell_column_name.as_ref())?.list()?;
-            let compacted_series_vec = POOL.install(|| {
-                // Ordering is preserved. see https://github.com/rayon-rs/rayon/issues/551
-                listchunked_cells
-                    .par_iter()
-                    .map(compact_maybe_series)
-                    .collect::<Result<Vec<_>, _>>()
-            })?;
+        let listchunked_cells = grouped.column(cell_column_name)?.list()?;
+        let compacted_series_vec = POOL.install(|| {
+            // Ordering is preserved. see https://github.com/rayon-rs/rayon/issues/551
+            listchunked_cells
+                .par_iter()
+                .map(compact_maybe_series)
+                .collect::<Result<Vec<_>, _>>()
+        })?;
 
-            let mut grouped = grouped.drop(cell_column_name.as_ref())?;
-            grouped.with_column(Series::new(cell_column_name.as_ref(), compacted_series_vec))?;
+        let mut grouped = grouped.drop(cell_column_name)?;
+        grouped.with_column(Series::new(cell_column_name, compacted_series_vec))?;
 
-            if return_exploded {
-                Ok(grouped.explode([cell_column_name.as_ref()])?)
-            } else {
-                Ok(grouped)
-            }
+        if return_exploded {
+            Ok(grouped.explode([cell_column_name])?)
+        } else {
+            Ok(grouped)
         }
     }
 }
@@ -157,7 +164,7 @@ impl H3UncompactDataframe for DataFrame {
         Self: Sized,
         S: AsRef<str>,
     {
-        uncompact_df(self, cell_column_name, target_resolution, |_| true)
+        uncompact_df(self, cell_column_name.as_ref(), target_resolution, |_| true)
     }
 
     fn h3_uncompact_dataframe_subset<S>(
@@ -170,7 +177,7 @@ impl H3UncompactDataframe for DataFrame {
         Self: Sized,
         S: AsRef<str>,
     {
-        uncompact_df(self, cell_column_name, target_resolution, |cell| {
+        uncompact_df(self, cell_column_name.as_ref(), target_resolution, |cell| {
             subset.contains(cell)
         })
     }
@@ -228,17 +235,16 @@ impl H3DataFrame<H3Cell> {
 
 const UNCOMPACT_JOIN_COL_NAME: &str = "_uncompact_join_idx";
 
-fn uncompact_df<Filter, S>(
+fn uncompact_df<Filter>(
     df: DataFrame,
-    cell_column_name: S,
+    cell_column_name: &str,
     target_resolution: u8,
     filter: Filter,
 ) -> Result<DataFrame, Error>
 where
     Filter: Fn(&H3Cell) -> bool,
-    S: AsRef<str>,
 {
-    let unique_cell_ca = df.column(cell_column_name.as_ref())?.u64()?.unique()?;
+    let unique_cell_ca = df.column(cell_column_name)?.u64()?.unique()?;
     let cellchunked = unique_cell_ca.h3cell();
 
     let mut original_indexes = Vec::with_capacity(cellchunked.len());
@@ -274,15 +280,15 @@ where
         .lazy()
         .inner_join(
             DataFrame::new(vec![
-                Series::new(cell_column_name.as_ref(), original_indexes),
+                Series::new(cell_column_name, original_indexes),
                 Series::new(UNCOMPACT_JOIN_COL_NAME, uncompacted_indexes),
             ])?
             .lazy(),
-            col(cell_column_name.as_ref()),
-            col(cell_column_name.as_ref()),
+            col(cell_column_name),
+            col(cell_column_name),
         )
-        .drop_columns([cell_column_name.as_ref()])
-        .rename([UNCOMPACT_JOIN_COL_NAME], [cell_column_name.as_ref()])
+        .drop_columns([cell_column_name])
+        .rename([UNCOMPACT_JOIN_COL_NAME], [cell_column_name])
         .collect()?;
 
     Ok(df)

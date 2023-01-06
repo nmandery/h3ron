@@ -24,17 +24,55 @@ pub trait H3ResolutionOp {
 
 const RSPLIT_R_COL_NAME: &str = "_rsplit_resolution";
 
+fn col_resolutions<IX>(df: &DataFrame, col: &str) -> Result<UInt8Chunked, Error>
+where
+    IX: IndexValue,
+{
+    let ic = df.column(col)?.u64()?.h3indexchunked::<IX>();
+    Ok(ic.h3_resolution())
+}
+
+fn h3_partition_by_resolution<IX>(
+    df: &DataFrame,
+    index_column_name: &str,
+) -> Result<Vec<(u8, DataFrame)>, Error>
+where
+    IX: IndexValue,
+{
+    let resolutions = Series::new(
+        RSPLIT_R_COL_NAME,
+        col_resolutions::<IX>(df, index_column_name)?,
+    );
+
+    let distinct_resolutions: Vec<u8> = resolutions
+        .drop_nulls()
+        .unique()?
+        .u8()?
+        .into_iter()
+        .flatten()
+        .collect();
+
+    match distinct_resolutions.len() {
+        0 => Ok(vec![]),
+        1 => Ok(vec![(distinct_resolutions[0], df.clone())]),
+        _ => {
+            let mut out_dfs = Vec::with_capacity(distinct_resolutions.len());
+            for h3_resolution in distinct_resolutions {
+                let filtered = df.filter(&resolutions.equal(h3_resolution)?)?;
+                out_dfs.push((h3_resolution, filtered))
+            }
+            Ok(out_dfs)
+        }
+    }
+}
+
 impl H3ResolutionOp for DataFrame {
     fn h3_resolution<IX, S>(&self, index_column_name: S) -> Result<UInt8Chunked, Error>
     where
         IX: IndexValue,
         S: AsRef<str>,
     {
-        let ic = self
-            .column(index_column_name.as_ref())?
-            .u64()?
-            .h3indexchunked::<IX>();
-        Ok(ic.h3_resolution())
+        col_resolutions::<IX>(self, index_column_name.as_ref())
     }
 
     fn h3_partition_by_resolution<IX, S>(
@@ -46,39 +84,14 @@ impl H3ResolutionOp for DataFrame {
         IX: IndexValue,
         S: AsRef<str>,
     {
-        let resolutions = Series::new(
-            RSPLIT_R_COL_NAME,
-            self.h3_resolution::<IX, _>(index_column_name)?,
-        );
-
-        let distinct_resolutions: Vec<u8> = resolutions
-            .drop_nulls()
-            .unique()?
-            .u8()?
-            .into_iter()
-            .flatten()
-            .collect();
-
-        match distinct_resolutions.len() {
-            0 => Ok(vec![]),
-            1 => Ok(vec![(distinct_resolutions[0], self.clone())]),
-            _ => {
-                let mut out_dfs = Vec::with_capacity(distinct_resolutions.len());
-                for h3_resolution in distinct_resolutions {
-                    let filtered = self.filter(&resolutions.equal(h3_resolution)?)?;
-                    out_dfs.push((h3_resolution, filtered))
-                }
-                Ok(out_dfs)
-            }
-        }
+        h3_partition_by_resolution::<IX>(self, index_column_name.as_ref())
     }
 }
 
 impl<IX: IndexValue> H3DataFrame<IX> {
     /// obtain the contained H3 resolutions
     pub fn h3_resolution(&self) -> Result<UInt8Chunked, Error> {
-        self.dataframe()
-            .h3_resolution::<IX, _>(self.h3index_column_name())
+        col_resolutions::<IX>(self.dataframe(), self.h3index_column_name())
     }
 
     /// Partition the dataframe into separate frames for each H3 resolution found in the contents.
