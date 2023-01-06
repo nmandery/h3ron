@@ -11,6 +11,16 @@ pub trait FilterH3IsValid {
         S: AsRef<str>;
 }
 
+fn filter_h3_is_valid<IX>(df: &DataFrame, index_column_name: &str) -> Result<DataFrame, Error>
+where
+    IX: IndexValue,
+{
+    let indexchunked = df.column(index_column_name)?.u64()?.h3indexchunked::<IX>();
+    let ba = BooleanArray::from_data_default(indexchunked.validity_bitmap(), None);
+
+    Ok(df.filter(&BooleanChunked::from(ba))?)
+}
+
 impl FilterH3IsValid for DataFrame {
     /// Remove all rows where the contained `Index` in column `index_column_name` is invalid.
     ///
@@ -37,20 +47,13 @@ impl FilterH3IsValid for DataFrame {
         IX: IndexValue,
         S: AsRef<str>,
     {
-        let indexchunked = self
-            .column(index_column_name.as_ref())?
-            .u64()?
-            .h3indexchunked::<IX>();
-        let ba = BooleanArray::from_data_default(indexchunked.validity_bitmap(), None);
-
-        Ok(self.filter(&BooleanChunked::from(ba))?)
+        filter_h3_is_valid::<IX>(self, index_column_name.as_ref())
     }
 }
 
 impl<IX: IndexValue> H3DataFrame<IX> {
     pub fn filter_h3_is_valid(&self) -> Result<Self, Error> {
-        self.dataframe()
-            .filter_h3_is_valid::<IX, _>(self.h3index_column_name())
+        filter_h3_is_valid::<IX>(self.dataframe(), self.h3index_column_name())
             .map(|df| H3DataFrame::from_dataframe_nonvalidated(df, self.h3index_column_name()))
     }
 }
