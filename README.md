@@ -2,7 +2,7 @@
 
 ![ci](https://github.com/nmandery/h3ron/workflows/CI/badge.svg) [![dependency status](https://deps.rs/repo/github/nmandery/h3ron/status.svg)](https://deps.rs/repo/github/nmandery/h3ron)
 
-[Rust](https://rustlang.org) library for the [H3](https://h3geo.org) geospatial indexing system.
+[Rust](https://rustlang.org) libraries for the [H3](https://h3geo.org) geospatial indexing system.
 
 ## Crates
 
@@ -11,6 +11,8 @@ This repository consists of multiple crates:
 ### [h3ron](./h3ron) [![Latest Version](https://img.shields.io/crates/v/h3ron.svg)](https://crates.io/crates/h3ron) [![Documentation](https://docs.rs/h3ron/badge.svg)](https://docs.rs/h3ron)
 
 High-level rust API for H3.
+
+This crate builds on-top the official C library. The recently released [h3o project](https://github.com/HydroniumLabs/h3o) provides an implementation of H3 in pure rust.
 
 [Documentation](https://docs.rs/h3ron) | [Changelog](h3ron/CHANGES.md)
 
