@@ -11,8 +11,11 @@ python extension.
 
 
 ## h3ron-h3-sys Unreleased
+
+## h3ron-h3-sys 0.16.0 - 2023-01-19
 ### Changed
 * Upgrade `bindgen` from 0.61 to 0.63 and rebuild the prebuild bindings.
+* Upgrade H3 from version 4.0.1 to 4.1.0
 
 ## h3ron-h3-sys 0.15.2 - 2022-10-25
 ### Changed
