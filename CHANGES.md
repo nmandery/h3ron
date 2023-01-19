@@ -15,3 +15,4 @@ See the individual changelog files:
 * [h3ron-h3-sys](h3ron-h3-sys/CHANGES.md)
 * [h3ron-ndarray](h3ron-ndarray/CHANGES.md)
 * [h3ron-graph](h3ron-graph/CHANGES.md)
+* [h3ron-polars](h3ron-polars/CHANGES.md)

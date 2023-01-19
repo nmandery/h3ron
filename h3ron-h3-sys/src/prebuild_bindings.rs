@@ -605,6 +605,21 @@ extern "C" {
     ) -> H3Error;
 }
 extern "C" {
+    pub fn cellToChildPos(
+        child: H3Index,
+        parentRes: ::std::os::raw::c_int,
+        out: *mut i64,
+    ) -> H3Error;
+}
+extern "C" {
+    pub fn childPosToCell(
+        childPos: i64,
+        parent: H3Index,
+        childRes: ::std::os::raw::c_int,
+        child: *mut H3Index,
+    ) -> H3Error;
+}
+extern "C" {
     pub fn compactCells(
         h3Set: *const H3Index,
         compactedSet: *mut H3Index,

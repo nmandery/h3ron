@@ -10,11 +10,14 @@ done without github actions and without having to coordinate the release process
 python extension.
 
 ## h3ron Unreleased
+
+## h3ron 0.17.0 - 2023-01-19
 ### Added
 * `ToIntersectingH3Cells` trait and implementations for `Polygon` and `MultiPolygon`.
 
 ### Changed
 * Upgrade hashbrown to 0.13
+* Upgrade h3ron-h3-sys to 0.16
 
 ## h3ron 0.16.0 - 2022-10-25
 

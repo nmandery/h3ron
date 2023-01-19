@@ -16,3 +16,10 @@ Some features so far:
   returns a `BooleanChunked` array suitable to be used with polars filters.
 * Algorithms on `DataFrame` for [compacting/uncompacting](https://h3geo.org/docs/highlights/indexing) the contained data 
   by grouping the rows based on the remaining columns and applying compaction/uncompaction to the cell column.
+
+## Maintenance status
+
+In january 2023 the [h3o library](https://github.com/HydroniumLabs/h3o) - a port of H3 to rust - has been released. This brings many benefits including type safety, compilation to WASM and performance improvements
+(example: [issue comparing raster to h3 conversion](https://github.com/nmandery/rasterh3/issues/1)).
+
+As a result this library will most certainly only receive dependency upgrades in the future.

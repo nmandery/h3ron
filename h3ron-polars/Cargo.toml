@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-polars"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Integration of the h3 geospatial indexing system with polars dataframes"
 edition = "2021"
@@ -35,7 +35,7 @@ thiserror = "1"
 
 [dependencies.h3ron]
 path = "../h3ron"
-version = "0.16"
+version = "0.17"
 features = ["indexmap"]
 
 [dev-dependencies]

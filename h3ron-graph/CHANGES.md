@@ -10,6 +10,8 @@ without github actions and without having to coordinate the release process with
 python extension.
 
 ## h3ron-graph Unreleased
+
+## h3ron-graph 0.6.0 - 2023-01-19
 ### Changed
 * Removed `io_gdal` feature and GDAL dependency.
 
