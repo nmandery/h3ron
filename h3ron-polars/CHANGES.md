@@ -1,6 +1,7 @@
 # Changelog
 
 ## h3ron-polars Unreleased
+* Upgrade `polars` to v0.27
 
 ## h3ron-polars 0.3.0 - 2023-01-19
 * Upgrade polars to v0.26
