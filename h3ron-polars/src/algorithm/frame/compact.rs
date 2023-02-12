@@ -73,7 +73,7 @@ fn compact_df(
         let grouped = df
             .lazy()
             .groupby(&group_by_columns)
-            .agg(&[col(cell_column_name).list()])
+            .agg(&[col(cell_column_name).list().flatten().unique()])
             .collect()?;
 
         let listchunked_cells = grouped.column(cell_column_name)?.list()?;
@@ -302,7 +302,7 @@ mod tests {
     use crate::AsH3CellChunked;
     use crate::NamedFromIndexes;
     use h3ron::{H3Cell, HasH3Resolution};
-    use polars::prelude::{DataFrame, DataType, Series, SeriesOps};
+    use polars::prelude::{DataFrame, DataType, Series};
 
     const CELL_COL_NAME: &str = "cell";
 
