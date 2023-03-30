@@ -23,7 +23,7 @@ si_full = ["si_kdtree", "si_rtree", "si_packed_hilbert_rtree"]
 serde = ["dep:serde", "polars-core/serde"]
 
 [dependencies]
-geo = "0.23"
+geo = "0.24"
 geo-types = "0.7"
 kdbush = { version = "0.2", optional = true }
 polars-core = "0.27"

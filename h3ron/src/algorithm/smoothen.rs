@@ -1,7 +1,7 @@
 use std::cmp::min;
 
 use geo::algorithm::area::Area;
-use geo::algorithm::simplifyvw::SimplifyVW;
+use geo::algorithm::simplify_vw::SimplifyVw;
 use geo_types::{Coord, LineString, Polygon, Triangle};
 
 fn is_closed(ls: &[Coord<f64>]) -> bool {
@@ -56,7 +56,7 @@ pub(crate) fn smoothen_h3_coordinates(in_coords: &[Coord<f64>]) -> Vec<Coord<f64
         let out_ls = LineString::from(out);
         let hexagon_corner_area =
             Triangle::from([in_coords[0], in_coords[1], in_coords[2]]).unsigned_area();
-        out_ls.simplifyvw(&(hexagon_corner_area * 0.75)).0
+        out_ls.simplify_vw(&(hexagon_corner_area * 0.75)).0
     } else {
         out
     }
