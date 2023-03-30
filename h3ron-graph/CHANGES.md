@@ -12,6 +12,7 @@ python extension.
 ## h3ron-graph Unreleased
 ### Changed
 * Upgrade `lz4_flex` to 0.10, `osmpbfreader` to 0.16
+* Upgraded `geo` to 0.24
 
 ## h3ron-graph 0.6.0 - 2023-01-19
 ### Changed

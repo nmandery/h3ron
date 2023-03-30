@@ -10,6 +10,7 @@ done without github actions and without having to coordinate the release process
 python extension.
 
 ## h3ron Unreleased
+* Upgraded `geo` to 0.24
 
 ## h3ron 0.17.0 - 2023-01-19
 ### Added
