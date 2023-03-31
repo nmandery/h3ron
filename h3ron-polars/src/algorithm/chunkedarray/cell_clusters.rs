@@ -73,7 +73,7 @@ impl<'a> H3CellClusters for IndexChunked<'a, H3Cell> {
         );
         DataFrame::new(vec![
             Series::new("cluster_num", cluster_num),
-            Series::from_any_values(values.name(), &cluster_value)?,
+            Series::from_any_values(values.name(), &cluster_value, true)?,
             Series::new("cells", cells),
         ])
         .map_err(Error::from)

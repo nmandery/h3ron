@@ -116,8 +116,7 @@ impl<IX: IndexValue> SpatialIndex<IX, RectSIKind> for PackedHilbertRTreeIndex<IX
                 found: vec![],
                 distance,
             };
-            index.visit_neighbors(coord.x, coord.y, &mut visitor);
-
+            let _ = index.visit_neighbors(coord.x, coord.y, &mut visitor);
             for index_position in visitor.found {
                 mask.set(self.positions_in_chunked_array[index_position], true);
             }
@@ -130,10 +129,14 @@ impl<IX: IndexValue> SpatialIndex<IX, RectSIKind> for PackedHilbertRTreeIndex<IX
 impl<IX: IndexValue> BoundingRect for PackedHilbertRTreeIndex<IX> {
     fn bounding_rect(&self) -> Result<Option<Rect>, Error> {
         if let Some(index) = self.index.as_ref() {
-            Ok(Some(Rect::new(
-                coord! {x: index.min_x(), y: index.min_y()},
-                coord! {x: index.max_x(), y: index.max_y()},
-            )))
+            if let Some(bounds) = index.bounds() {
+                Ok(Some(Rect::new(
+                    coord! {x: bounds.min_x, y: bounds.min_y},
+                    coord! {x: bounds.max_x, y: bounds.max_y},
+                )))
+            } else {
+                Ok(None)
+            }
         } else {
             Ok(None)
         }
