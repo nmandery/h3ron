@@ -160,7 +160,7 @@ mod tests {
 
         let within_threshold = prepared_graph
             .cells_within_weight_threshold_many(
-                &origin_cells,
+                origin_cells,
                 30,
                 // use the minimum weight encountered
                 |existing, new| {
