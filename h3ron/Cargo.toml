@@ -21,7 +21,7 @@ parse = ["dep:nom"]
 indexmap = ["dep:indexmap"]
 
 [dependencies]
-geo = "^0.24"
+geo = "^0.25"
 thiserror = "1.0"
 ahash = "0.8"
 indexmap = { version = "1", optional = true }
@@ -59,7 +59,7 @@ bincode = "1"
 #features = ["geo-types"]
 
 [dev-dependencies.criterion]
-version = "^0.4"
+version = "^0.5"
 features = ["html_reports"]
 
 [[bench]]

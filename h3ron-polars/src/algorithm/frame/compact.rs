@@ -73,7 +73,7 @@ fn compact_df(
         let grouped = df
             .lazy()
             .groupby(&group_by_columns)
-            .agg(&[col(cell_column_name).list().flatten().unique()])
+            .agg(&[col(cell_column_name).unique()])
             .collect()?;
 
         let listchunked_cells = grouped.column(cell_column_name)?.list()?;

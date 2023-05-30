@@ -22,7 +22,7 @@ io_osm = ["osmpbfreader"]
 io_serde_util = ["bincode", "lz4_flex", "h3ron/use-serde"]
 
 [dependencies]
-geo = "0.24"
+geo = "0.25"
 geo-types = "0.7"
 rayon = "^1.5"
 log = "^0.4"
@@ -66,7 +66,7 @@ optional = true
 #features = ["geo-types"]
 
 [dev-dependencies.criterion]
-version = "^0.4"
+version = "^0.5"
 features = ["html_reports"]
 
 [dev-dependencies.clap]

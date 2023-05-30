@@ -135,8 +135,8 @@ where
 /// Dijkstra shortest path using h3 edges
 ///
 /// Adapted from the `run_dijkstra` function of the `pathfinding` crate.
-pub fn edge_dijkstra<'a, G, W>(
-    graph: &'a G,
+pub fn edge_dijkstra<G, W>(
+    graph: &G,
     origin_cell: &H3Cell,
     destinations: &H3Treemap<H3Cell>,
     num_destinations_to_reach: Option<usize>,
