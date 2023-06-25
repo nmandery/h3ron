@@ -11,6 +11,7 @@ python extension.
 
 ## h3ron Unreleased
 * Upgraded `geo` to 0.24
+* Upgraded `indexmap` to 2 and `hashbrown` to 0.14
 
 ## h3ron 0.17.0 - 2023-01-19
 ### Added
