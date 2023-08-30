@@ -69,6 +69,10 @@ impl<'a, IX: IndexValue> TakeRandom for IndexChunked<'a, IX> {
     fn get(&self, index: usize) -> Option<Self::Item> {
         self.chunked_array.get(index).map(IX::new)
     }
+
+    fn last(&self) -> Option<Self::Item> {
+        self.chunked_array.last().map(IX::new)
+    }
 }
 
 pub trait AsH3IndexChunked {
@@ -79,7 +83,7 @@ impl AsH3IndexChunked for UInt64Chunked {
     fn h3indexchunked<IX: IndexValue>(&self) -> IndexChunked<IX> {
         IndexChunked {
             chunked_array: self,
-            index_phantom: PhantomData::<IX>::default(),
+            index_phantom: PhantomData::<IX>,
         }
     }
 }

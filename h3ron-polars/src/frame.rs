@@ -30,7 +30,7 @@ impl<IX: IndexValue> H3DataFrame<IX> {
         Self {
             df,
             h3index_column_name: h3index_column_name.as_ref().to_owned(),
-            index_phantom: PhantomData::<IX>::default(),
+            index_phantom: PhantomData::<IX>,
         }
     }
 

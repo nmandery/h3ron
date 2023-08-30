@@ -16,7 +16,7 @@ impl<'a> H3GridDisk for IndexChunked<'a, H3Cell> {
     fn h3_grid_disk(&self, k: u32) -> Result<ListChunked, Error> {
         list_map_cells(self, |cell| {
             cell.grid_disk(k)
-                .map(|cells| UInt64Chunked::from_index_iter(cells.into_iter()))
+                .map(|cells| UInt64Chunked::from_index_iter(&cells))
                 .map_err(Error::from)
         })
     }

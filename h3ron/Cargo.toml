@@ -21,7 +21,7 @@ parse = ["dep:nom"]
 indexmap = ["dep:indexmap"]
 
 [dependencies]
-geo = "^0.25"
+geo = "^0.26"
 thiserror = "1.0"
 ahash = "0.8"
 indexmap = { version = "2", optional = true }

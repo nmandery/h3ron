@@ -84,7 +84,7 @@ where
             .collect();
 
         RTreeIndex {
-            index_phantom: PhantomData::<IX>::default(),
+            index_phantom: PhantomData::<IX>,
             chunked_array: self.chunked_array.clone(),
             rtree: RTree::bulk_load(entries),
         }

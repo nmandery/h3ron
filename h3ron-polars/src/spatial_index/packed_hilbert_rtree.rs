@@ -84,7 +84,7 @@ where
         };
         Ok(PackedHilbertRTreeIndex {
             index,
-            index_phantom: PhantomData::<IX>::default(),
+            index_phantom: PhantomData::<IX>,
             chunked_array: self.chunked_array.clone(),
             positions_in_chunked_array: positions_in_chunked_array.into_boxed_slice(),
         })

@@ -92,7 +92,7 @@ where
         };
 
         KDTreeIndex {
-            index_phantom: PhantomData::<IX>::default(),
+            index_phantom: PhantomData::<IX>,
 
             // clones of arrow-backed arrays are cheap, so we clone this for the benefit of not
             // requiring a lifetime dependency

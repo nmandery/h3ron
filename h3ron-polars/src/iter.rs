@@ -34,7 +34,7 @@ where
     IX: Index + TryFrom<u64, Error = h3ron::Error>,
 {
     ValidatedIndexIter {
-        phantom_data: PhantomData::<IX>::default(),
+        phantom_data: PhantomData::<IX>,
         inner_iter: ca.into_iter(),
     }
 }
@@ -70,7 +70,7 @@ where
     IX: Index,
 {
     NonValidatedIndexIter {
-        phantom_data: PhantomData::<IX>::default(),
+        phantom_data: PhantomData::<IX>,
         inner_iter: ca.into_iter(),
     }
 }

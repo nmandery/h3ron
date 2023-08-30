@@ -36,7 +36,7 @@ impl<T: FromH3Index + Index> IndexVec<T> {
     pub fn with_length(length: usize) -> Self {
         Self {
             inner_vec: vec![EMPTY_H3INDEX; length],
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 

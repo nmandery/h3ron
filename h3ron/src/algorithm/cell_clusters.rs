@@ -99,7 +99,7 @@ where
         }
     }
 
-    Ok(cluster_ids.into_iter().zip(items.into_iter()).fold(
+    Ok(cluster_ids.into_iter().zip(items).fold(
         HashMap::default(),
         |mut acc, (group, (cell, value))| {
             match acc.entry(group) {
