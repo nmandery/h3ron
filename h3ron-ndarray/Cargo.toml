@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-ndarray"
-version = "0.17.0"
+version = "0.18.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Integration with the ndarray crate to generate H3 cells from raster data (using gdal, ...)"
 edition = "2021"
@@ -22,14 +22,14 @@ features = ["rayon"]
 
 [dependencies.h3ron]
 path = "../h3ron"
-version = "0.17" # for publishing on crates.io
+version = "0.18" # for publishing on crates.io
 features = ["use-rayon"]
 
 
 [dev-dependencies]
 approx = "^0.5"
 env_logger = "^0.10"
-ordered-float = "3"
+ordered-float = "4"
 
 [dev-dependencies.criterion]
 version = "^0.5"

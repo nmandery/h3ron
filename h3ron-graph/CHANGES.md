@@ -10,10 +10,13 @@ without github actions and without having to coordinate the release process with
 python extension.
 
 ## h3ron-graph Unreleased
+
+## h3ron-graph 0.7.0 - 2023-12-16
 ### Changed
 * Upgrade `lz4_flex` to 0.11, `osmpbfreader` to 0.16
 * Upgraded `geo` to 0.26
 * Upgrade `indexmap` to 2
+* Upgrade `h3ron` to 0.18
 
 ## h3ron-graph 0.6.0 - 2023-01-19
 ### Changed

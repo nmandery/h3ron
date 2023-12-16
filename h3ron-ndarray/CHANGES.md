@@ -11,6 +11,10 @@ python extension.
 
 ## h3ron-ndarray Unreleased
 
+## h3ron-ndarray 0.18.0 - 2023-12-16
+### Changed
+* Upgrade `h3ron` to 0.18
+
 ## h3ron-ndarray 0.17.0 - 2023-01-19
 ### Changed
 * Upgrade `gdal` from 0.13 to 0.14.

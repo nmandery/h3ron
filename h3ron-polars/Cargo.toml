@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-polars"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Integration of the h3 geospatial indexing system with polars dataframes"
 edition = "2021"
@@ -23,7 +23,7 @@ si_full = ["si_kdtree", "si_rtree", "si_packed_hilbert_rtree"]
 serde = ["dep:serde", "polars-core/serde"]
 
 [dependencies]
-geo = "0.26"
+geo = "0.27"
 geo-types = "0.7"
 kdbush = { version = "0.2", optional = true }
 polars-core = "0.32"
@@ -35,7 +35,7 @@ thiserror = "1"
 
 [dependencies.h3ron]
 path = "../h3ron"
-version = "0.17"
+version = "0.18"
 features = ["indexmap"]
 
 [dev-dependencies]

@@ -1,6 +1,6 @@
 [package]
 name = "h3ron-graph"
-version = "0.6.0"
+version = "0.7.0"
 authors = ["Nico Mandery <nico@nmandery.net>"]
 description = "Graph algorithms on edges of th3 H3 spatial indexing system"
 edition = "2021"
@@ -22,7 +22,7 @@ io_osm = ["osmpbfreader"]
 io_serde_util = ["bincode", "lz4_flex", "h3ron/use-serde"]
 
 [dependencies]
-geo = "0.26"
+geo = "0.27"
 geo-types = "0.7"
 rayon = "^1.5"
 log = "^0.4"
@@ -32,7 +32,7 @@ num-traits = "0.2"
 
 [dependencies.h3ron]
 path = "../h3ron"
-version = "0.17" # for publishing on crates.io
+version = "0.18" # for publishing on crates.io
 features = ["use-rayon", "roaring", "use-serde"]
 
 [dependencies.smallvec]
@@ -48,7 +48,7 @@ version = "1"
 features = ["derive"]
 
 [dependencies.ordered-float]
-version = "3"
+version = "4"
 features = ["serde"]
 optional = true
 

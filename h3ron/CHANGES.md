@@ -10,8 +10,9 @@ done without github actions and without having to coordinate the release process
 python extension.
 
 ## h3ron Unreleased
-* Upgraded `geo` to 0.26
+* Upgraded `geo` to 0.27
 * Upgraded `indexmap` to 2 and `hashbrown` to 0.14
+* Upgrade h3ron-h3-sys to 0.17
 
 ## h3ron 0.17.0 - 2023-01-19
 ### Added
